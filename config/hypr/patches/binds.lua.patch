@@ -1,5 +1,5 @@
 --- /etc/skel/.config/hypr/config/binds.lua	2026-08-16 02:19:18.000000000 +0800
-+++ /home/david/ccconfig/cachyos-desktop-config/config/hypr/config/binds.lua	2026-08-26 15:15:03.382173305 +0800
++++ /home/david/ccconfig/config/hypr/config/binds.lua	2026-08-26 15:15:03.382173305 +0800
 @@ -107,9 +107,18 @@
  -------------------
  

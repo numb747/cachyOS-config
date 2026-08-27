@@ -1,5 +1,5 @@
 --- /etc/skel/.config/hypr/config/workspaces.lua	2026-08-16 02:19:18.000000000 +0800
-+++ /home/david/ccconfig/cachyos-desktop-config/config/hypr/config/workspaces.lua	2026-08-26 10:32:46.005048538 +0800
++++ /home/david/ccconfig/config/hypr/config/workspaces.lua	2026-08-26 10:32:46.005048538 +0800
 @@ -1,12 +1,29 @@
  -- Workspace rules wiki https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 --- Add your workspace rules here. Increment the workspace number as you go. Do not have duplicate workspaces.

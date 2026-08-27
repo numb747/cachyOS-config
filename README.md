@@ -19,8 +19,8 @@
 ## 60 秒上手
 
 ```bash
-git clone <这个仓库> ccconfig
-cd ccconfig/cachyos-desktop-config
+git clone https://github.com/numb747/cachyOS-config.git ccconfig
+cd ccconfig
 
 sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ./install.sh --dry-run    # 先看会动哪些文件
@@ -77,7 +77,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 都读它，三个脚本自动跟上。
 
 > 唯一的例外是 **hypr 模块**：`install.sh` 的 `mod_hypr` 是硬编码 `put` 的（为了在覆盖
-> 四个官方文件前先打警告），不走 `put_module`。往 hypr 段加文件时，`install.sh` 里
+> 五个官方文件前先打警告），不走 `put_module`。往 hypr 段加文件时，`install.sh` 里
 > 必须**另外**补一行 `put`，否则 `sync.sh` 收得进来、`install.sh` 却装不出去。
 
 有些文件包里存的是**模板**而非本机快照（比如 `qt6ct.conf` 里的 `/home/$USER`），
@@ -89,8 +89,10 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ## 目录结构
 
 ```
-cachyos-desktop-config/
+ccconfig/                  仓库根 = 包本身（没有中间层目录）
 ├── README.md              ← 你在这
+├── CLAUDE.md              给 AI 会话的导航（坑清单 + 改配置的正确姿势）
+├── LICENSE                MIT + 第三方内容（壁纸 / LazyVim）归属声明
 ├── INSTALL.md             全新机器从零到可用的完整流程 + 验收清单
 ├── manifest.map           ★ 文件映射表：包内路径 ⇄ 系统路径（三个脚本共用）
 ├── install.sh             包 → 系统（幂等 / 分模块 / --dry-run / 自动备份）
@@ -98,12 +100,14 @@ cachyos-desktop-config/
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有文件的 sha256（由 sync.sh 生成）
-├── docs/                  8 篇说明，见上表
+├── docs/                  10 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
-│   └── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
+│   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
+│   └── winapp             wine 应用的独立 prefix + bubblewrap 沙箱工具链
+├── claude/                → ~/.claude/（状态栏 / 会话看板 / 宠物 TUI）
 ├── config/                → ~/.config/
-│   ├── hypr/              mykeys.lua + 3 个改过的官方文件 + 对应 .patch
+│   ├── hypr/              mykeys.lua + 5 个改过的官方文件 + 对应 .patch
 │   ├── kitty/  alacritty/ 终端及其主题
 │   ├── nvim/              整套 LazyVim 配置
 │   ├── noctalia/          顶栏与 shell 行为
@@ -117,7 +121,8 @@ cachyos-desktop-config/
 │   ├── fcitx5/themes/     Tokyo Night 输入法主题（PNG 由 SVG 生成）
 │   └── applications/      imv-viewer.desktop（自建条目，非覆盖系统的）
 ├── state/noctalia/        → ~/.local/state/noctalia/（★ 主题真正生效的地方）
-└── wallpaper/             参考壁纸 + 4 张 ASCII 成品 + 壁纸库生成脚本
+├── wallpaper/             参考壁纸 + 4 张 ASCII 成品 + 壁纸库生成脚本
+└── .snapshots/            sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
 
 ---
@@ -130,10 +135,11 @@ cachyos-desktop-config/
 `community_palette = "Tokyo Night Moon"`。只拷 `config.toml` 过去，配色是复现不出来的。
 所以本包额外带了 `state/` 目录。判据：`noctalia config export full` 打印的才是活配置。
 
-**2. 有三个 CachyOS 官方文件被改过。**
-`~/.config/hypr/config/` 下的 `binds.lua` / `variables.lua` / `workspaces.lua`，
-为了实现「纯动态工作区」。`pacman -Syu` 升级 `cachyos-hypr-noctalia` 可能覆盖它们，
-所以 `config/hypr/patches/` 里存了三个 patch，随时能重新打上。细节见 [docs/02](docs/02-hyprland.md#关于官方文件被改动)。
+**2. 有五个 CachyOS 官方文件被改过。**
+`~/.config/hypr/config/` 下的 `binds.lua` / `variables.lua` / `workspaces.lua`（纯动态
+工作区）、`windowrules.lua`（企业微信幽灵窗）、`misc.lua`（关掉 Hyprland 内置壁纸，
+消除开机时的壁纸闪烁）。`pacman -Syu` 升级 `cachyos-hypr-noctalia` 可能覆盖它们，
+所以 `config/hypr/patches/` 里存了五个 patch，随时能重新打上。细节见 [docs/02](docs/02-hyprland.md#关于官方文件被改动)。
 
 **3. 本包不含任何密钥。**
 `~/.claude/settings.json`（内含明文 API token）、`~/.ssh/`、`~/.gnupg/`、shell 历史

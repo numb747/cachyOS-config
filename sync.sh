@@ -114,9 +114,17 @@ if [ -d /etc/skel/.config/hypr/config ]; then
 fi
 
 if [ "$MODE" = pack ]; then
-    NAME="$(basename "$SRC")"
-    OUT="$(dirname "$SRC")/$NAME-$(date +%Y%m%d).tar.gz"
-    tar -czf "$OUT" -C "$(dirname "$SRC")" "$NAME"
+    # ★ 仓库根就是包本身（没有中间层目录），所以不能像以前那样
+    #   「tar 上一级目录里的那个包目录」——那会把整个 $HOME 的同级内容、
+    #   以及 .git（历史越长越大）一起打进去，还把产物丢在 $HOME 下。
+    #   改成：产物统一落在 .snapshots/，打包时显式排除 .git 与 .snapshots 自身。
+    NAME="cachyos-desktop-config"
+    mkdir -p "$SRC/.snapshots"
+    OUT="$SRC/.snapshots/$NAME-$(date +%Y%m%d).tar.gz"
+    # --transform 让解包后仍是 <NAME>/ 开头的目录，保持和旧快照一致的解压体验
+    tar -czf "$OUT" -C "$SRC" \
+        --exclude='./.git' --exclude='./.snapshots' \
+        --transform "s#^\.#$NAME#" . 2>/dev/null
     ok "已打包 $OUT （$(du -h "$OUT" | cut -f1)）"
 fi
 

@@ -1,5 +1,5 @@
 --- /etc/skel/.config/hypr/config/misc.lua	2026-08-16 02:19:18.000000000 +0800
-+++ /home/david/ccconfig/cachyos-desktop-config/config/hypr/config/misc.lua	2026-08-27 14:14:30.791825262 +0800
++++ /home/david/ccconfig/config/hypr/config/misc.lua	2026-08-27 14:14:30.791825262 +0800
 @@ -10,6 +10,14 @@
          col = {
              splash = CACHYLGREEN,

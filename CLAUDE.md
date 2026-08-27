@@ -4,24 +4,29 @@
 > 安装器。要改配置、要迁到别的机器、要查「当初为什么这么设」，都从这里开始。
 
 ```
-~/ccconfig/
+~/ccconfig/                   ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
 ├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
-└── cachyos-desktop-config/   ← 配置包本体
-    ├── README.md             人读的总览
-    ├── INSTALL.md            新机器从零到可用 + 验收清单
-    ├── manifest.map          ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
-    ├── install.sh            包 → 系统（幂等、分模块、自动备份）
-    ├── sync.sh               系统 → 包（把线上改动收回来）
-    ├── uninstall.sh          回滚
-    ├── packages.txt          pacman 包清单
-    ├── MANIFEST.txt          sha256 校验（由 sync.sh 生成）
-    ├── docs/                 10 篇，见下表（配图在 docs/img/）
-    ├── config/ home/ state/  配置文件本体
-    ├── bin/                  装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱）
-    ├── claude/               装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
-    ├── share/                装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
-    └── wallpaper/            参考壁纸 + ASCII 成品 + 壁纸库生成脚本
+├── README.md                 人读的总览（GitHub 首页渲染的就是它）
+├── INSTALL.md                新机器从零到可用 + 验收清单
+├── LICENSE                   MIT + 第三方内容（壁纸/LazyVim）归属声明
+├── manifest.map              ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
+├── install.sh                包 → 系统（幂等、分模块、自动备份）
+├── sync.sh                   系统 → 包（把线上改动收回来）
+├── uninstall.sh              回滚
+├── packages.txt              pacman 包清单
+├── MANIFEST.txt              sha256 校验（由 sync.sh 生成）
+├── docs/                     10 篇，见下表（配图在 docs/img/）
+├── config/ home/ state/      配置文件本体
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱）
+├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
+├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
+├── wallpaper/                参考壁纸 + ASCII 成品 + 壁纸库生成脚本
+└── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
+
+> 2026-08-27 起**没有 `cachyos-desktop-config/` 这层中间目录了**，仓库根就是包本身。
+> 三个脚本都靠 `BASH_SOURCE` 自定位，扁平化对它们透明；唯一改过的是 `sync.sh --pack`
+> （原逻辑是「打包上一级里的那个包目录」，扁平后会把 `.git` 和 `$HOME` 同级内容一起卷进去）。
 
 ---
 
@@ -32,7 +37,7 @@
 ```bash
 # 1. 正常改 ~/.config/... 下的真实配置，验证效果
 # 2. 收回包里（自动重生成 MANIFEST 和 hypr patch）
-cd ~/ccconfig/cachyos-desktop-config && ./sync.sh --pull
+cd ~/ccconfig && ./sync.sh --pull
 # 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
 ```
 

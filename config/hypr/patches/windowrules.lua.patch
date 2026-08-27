@@ -1,5 +1,5 @@
 --- /etc/skel/.config/hypr/config/windowrules.lua	2026-08-16 02:19:18.000000000 +0800
-+++ /home/david/ccconfig/cachyos-desktop-config/config/hypr/config/windowrules.lua	2026-08-27 13:48:11.190002790 +0800
++++ /home/david/ccconfig/config/hypr/config/windowrules.lua	2026-08-27 13:48:11.190002790 +0800
 @@ -114,3 +114,50 @@
      },
      no_focus = true,
