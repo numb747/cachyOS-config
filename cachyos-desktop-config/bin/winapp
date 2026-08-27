@@ -1,0 +1,411 @@
+#!/usr/bin/env bash
+# winapp — 每个 Windows 应用一套独立的 wine 环境，默认关进 bubblewrap 沙箱
+#
+#   winapp create  <名字>                建 prefix，按配置设好 Windows 版本与运行库
+#   winapp install <名字> <安装器.exe>    在该 prefix 里跑安装器（不沙箱，装东西要能写）
+#   winapp run     <名字> [exe]          启动（默认沙箱；exe 省略则用配置里的 EXE）
+#   winapp stop    <名字>                停掉该应用的所有实例
+#   winapp check   <名字>                用相同的沙箱参数跑 ls，看它到底能看到什么
+#   winapp shell   <名字> <命令...>       在 prefix 环境里执行任意命令
+#                                        例：winapp shell wecom winecfg
+#   winapp list                          列出所有应用及其 prefix 大小
+#   winapp remove  <名字>                删掉 prefix（配置保留）
+#
+# 每应用一份配置：~/.config/winapp/<名字>.conf，create 时自动生成模板。
+#
+# 刻意不共用 prefix。不同应用要各自的 Windows 版本、DLL override 和 winetricks
+# 组件，塞进同一个 prefix 会互相污染——一个应用装坏了会连累其他所有应用。
+# wine 本体是 pacman 装的系统级组件，那一层本来就是共用的。
+set -uo pipefail
+
+PREFIX_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/wineprefixes"
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/winapp"
+
+die() { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+info() { printf '\033[36m·\033[0m %s\n' "$*"; }
+ok() { printf '\033[32m✓\033[0m %s\n' "$*"; }
+
+usage() { sed -n '2,/^set -uo/p' "$0" | sed 's/^# \?//; $d'; exit "${1:-0}"; }
+
+# ---------------------------------------------------------------- 配置
+
+# 配置项都给默认值，conf 里只写要改的那些即可。
+load_conf() {
+    local name=$1
+    APP_NAME=$name
+    WINEPREFIX="$PREFIX_ROOT/$name"
+    CONF_FILE="$CONF_DIR/$name.conf"
+
+    WINEARCH=win64
+    WIN_VERSION=win10
+    WINETRICKS=""
+    EXE=""
+    SANDBOX=1
+    CJK=1
+    VDESKTOP=""
+    GPU=1
+    EXTRA_BINDS=()
+
+    [[ -f $CONF_FILE ]] && . "$CONF_FILE"
+    export WINEPREFIX WINEARCH
+}
+
+write_conf_template() {
+    mkdir -p "$CONF_DIR"
+    cat > "$CONF_FILE" <<EOF
+# winapp 应用配置：$APP_NAME
+
+WINEARCH=win64
+WIN_VERSION=win10          # winecfg 的 Windows 版本；出 CEF/libcef 问题就降到 win81
+WINETRICKS=""              # 空格分隔，例："riched20 msvcp140"
+EXE=""                     # 主程序，Windows 路径，例：'C:\\Program Files\\Foo\\foo.exe'
+
+SANDBOX=1                  # 1=关进 bwrap 沙箱；0=裸跑（调试用）
+CJK=1                      # 1=注入中文 locale/输入法，并把系统 CJK 字体接进 prefix
+
+# 虚拟桌面尺寸，例 "1280x800"；留空则各窗口直接交给 Hyprland 管理。
+# 很多 Windows 程序（尤其国产软件的安装器）会创建无标题的分层窗口，
+# 这些窗口在 XWayland 下会反复抢占置顶、挡住真正的界面。开虚拟桌面后
+# 所有窗口都收进一个由 wine 自己管理层叠的容器里，这类打架就没了。
+VDESKTOP=""
+
+# GPU=0 强制软件渲染。内嵌 CEF/Chromium 的程序在 wine 下拿不到 GPU 时，
+# 界面能画出来但鼠标完全没反应，这时把它设成 0。
+GPU=1
+
+# 沙箱默认放行 XDG 文档目录（Desktop/Documents/Downloads/…）。
+# 这个应用还需要别的目录就写在这里，一行一个：
+EXTRA_BINDS=()
+EOF
+}
+
+# ---------------------------------------------------------------- 中文环境
+
+# wine 不走 fontconfig，得把字体文件真的放进 prefix 的 Fonts 目录。
+# 用软链而非复制：系统字体升级后 prefix 自动跟上，也不额外占盘。
+link_cjk_fonts() {
+    local fontdir="$WINEPREFIX/drive_c/windows/Fonts" f
+    mkdir -p "$fontdir"
+
+    for f in $(fc-list :lang=zh-cn file | sed 's/:.*//' | sort -u); do
+        [[ -f $f ]] && ln -sf "$f" "$fontdir/$(basename "$f")"
+    done
+
+    # 企业微信这类国产软件把 SimSun / 微软雅黑 硬编码在界面里，装不到就画方块。
+    # 系统 fontconfig 已有对应映射，这里把同样的替换关系写进 wine 注册表。
+    local sub='HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes'
+    local sans serif
+    sans=$(fc-match -f '%{family[0]}' 'Microsoft YaHei' 2>/dev/null)
+    serif=$(fc-match -f '%{family[0]}' 'SimSun' 2>/dev/null)
+
+    local pair
+    for pair in "SimSun=$serif" "NSimSun=$serif" "宋体=$serif" \
+                "Microsoft YaHei=$sans" "微软雅黑=$sans" "MS Shell Dlg=$sans" "MS Shell Dlg 2=$sans"; do
+        wine reg add "$sub" /v "${pair%%=*}" /d "${pair#*=}" /f >/dev/null 2>&1
+    done
+}
+
+# 开了虚拟桌面就套一层 explorer /desktop，否则直接交给 wine。
+# 容器名用应用名，这样每个应用的虚拟桌面互不干扰。
+wine_cmd() {
+    if [[ -n $VDESKTOP ]]; then
+        printf '%s\n' wine explorer "/desktop=$APP_NAME,$VDESKTOP" "$@"
+    else
+        printf '%s\n' wine "$@"
+    fi
+}
+
+# 停掉这个应用的所有实例。
+#
+# 沙箱实例带 --unshare-pid，wineserver 活在自己的 PID namespace 里，外面
+# 那句 wineserver -k 根本够不着它——必须直接杀 bwrap，靠 --die-with-parent
+# 让里面的 wine 跟着退出。
+# 按 /proc/<pid>/cmdline 精确匹配而不是 pkill -f：后者会把正在执行这段
+# 逻辑的 shell 自己也匹配进去（命令行里含同样的字符串），当场自杀。
+kill_instances() {
+    local p
+    for p in $(pgrep -x bwrap 2>/dev/null); do
+        if tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "wineprefixes/$APP_NAME"; then
+            kill "$p" 2>/dev/null
+        fi
+    done
+    wineserver -k 2>/dev/null      # 非沙箱（SANDBOX=0）跑起来的实例
+    sleep 1
+}
+
+# GPU=0：强制软件渲染。
+#
+# 内嵌 CEF（Chromium）的国产软件在 wine 下常卡在这里：CEF 想要 GPU 后端，
+# 但 amdgpu 在 wine/沙箱里拿不到 DRM 认证（日志表现为 amdgpu_get_auth failed
+# → egl dri2 screen 创建失败）。CEF 拿不到渲染后端时，界面照样画得出来，
+# 但【整个交互层是死的】——鼠标悬停无反馈、点击全部落空。
+# 让 Mesa 走 llvmpipe、并关掉 wine 的 vulkan，CEF 就会老实用软件渲染。
+# IM 这类应用软件渲染完全够用。
+gpu_env() {
+    export LIBGL_ALWAYS_SOFTWARE=1
+    dll_disable winevulkan
+}
+
+# 追加一个要禁用的内建 DLL，不覆盖已有的 override。
+dll_disable() {
+    export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES,}$1=d"
+}
+
+# winemenubuilder 会把 Windows 的开始菜单项和文件关联翻译成 .desktop，
+# 直接塞进 ~/.local/share/applications/。后果是启动器里冒出一堆条目
+# （含一个不带输入法环境、也不进沙箱的"裸"入口），并且把 .chm/.reg/.vbs
+# 等扩展名的默认打开方式抢走。我们自己提供 .desktop，不需要它代劳。
+no_menu_pollution() { dll_disable winemenubuilder.exe; }
+
+cjk_env() {
+    # 英文 locale 下企业微信等国产软件会中文乱码。
+    export LANG=zh_CN.UTF-8 LC_ALL=
+
+    # wine 跑在 XWayland 上，走 XIM 才能用 fcitx5 输入中文。
+    # 刻意不设 GTK_IM_MODULE/QT_IM_MODULE——那会把原生 Wayland 应用从
+    # text-input-v3 拉回旧模块，是倒退，而且 wine 也用不上。
+    export XMODIFIERS=@im=fcitx
+}
+
+# ---------------------------------------------------------------- 沙箱
+
+# --tmpfs $HOME 先把整个家目录抹掉，再按白名单 bind 回来。
+# 白名单制而非黑名单：新增的敏感目录默认就是不可见的，不用记得去补黑名单。
+build_sandbox_args() {
+    local -n out=$1
+    local d
+    out=(
+        --die-with-parent
+        --unshare-pid --unshare-uts
+        # 【不要加 --unshare-ipc】X11 的 MIT-SHM 扩展靠 System V 共享内存传图像，
+        # 隔离 IPC namespace 后 X server 和客户端共享不了内存段，程序一调
+        # X_ShmPutImage 就收到 BadValue 并崩溃退出（日志里是
+        # "X Error of failed request: BadValue / Major opcode: 130 (MIT-SHM)"）。
+        # 挡住 SysV IPC 的那点收益不值这个代价。
+        --share-net                       # 要联网，这个不能省
+        --proc /proc
+        --dev-bind /dev /dev              # wine 要 /dev/dri、/dev/snd
+        --ro-bind /usr /usr
+        --ro-bind /etc /etc
+        --symlink usr/lib /lib
+        --symlink usr/lib /lib64
+        --symlink usr/bin /bin
+        --symlink usr/bin /sbin
+        --tmpfs /tmp
+        --tmpfs "$HOME"
+        --bind "$WINEPREFIX" "$WINEPREFIX"   # prefix 自包含，聊天记录也在里面
+    )
+
+    # XDG 文档目录：文件收发要顺手，这些得能看见能写。
+    for d in DESKTOP DOCUMENTS DOWNLOAD MUSIC PICTURES VIDEOS PUBLICSHARE TEMPLATES; do
+        d=$(xdg-user-dir "$d" 2>/dev/null) || continue
+        [[ -d $d && $d != "$HOME" ]] && out+=(--bind "$d" "$d")
+    done
+
+    for d in "${EXTRA_BINDS[@]}"; do
+        [[ -e $d ]] && out+=(--bind "$d" "$d")
+    done
+
+    # 字体与 fontconfig 缓存，只读就够。
+    for d in "$HOME/.local/share/fonts" "$HOME/.config/fontconfig" "$HOME/.cache/fontconfig"; do
+        [[ -d $d ]] && out+=(--ro-bind "$d" "$d")
+    done
+
+    # X11：wine 走 XWayland。/tmp 已被 tmpfs 盖掉，socket 要单独接回来。
+    [[ -d /tmp/.X11-unix ]] && out+=(--ro-bind /tmp/.X11-unix /tmp/.X11-unix)
+    [[ -n ${XAUTHORITY:-} && -f ${XAUTHORITY:-} ]] && out+=(--ro-bind "$XAUTHORITY" "$XAUTHORITY")
+
+    # 运行时目录只接必需的 socket，不整个 bind——那会把其他应用的 socket 也暴露进去。
+    local rt=${XDG_RUNTIME_DIR:-/run/user/$UID}
+    out+=(--tmpfs "$rt")
+    local s
+    for s in bus pulse/native pipewire-0 "${WAYLAND_DISPLAY:-wayland-1}"; do
+        [[ -e "$rt/$s" ]] && out+=(--bind "$rt/$s" "$rt/$s")
+    done
+
+    out+=(--chdir "$HOME")
+}
+
+# ---------------------------------------------------------------- 子命令
+
+cmd_create() {
+    local name=${1:?用法: winapp create <名字>}
+    load_conf "$name"
+
+    [[ -d $WINEPREFIX ]] && die "prefix 已存在：$WINEPREFIX（要重来先 winapp remove $name）"
+    [[ -f $CONF_FILE ]] || { write_conf_template; info "已生成配置模板 $CONF_FILE"; }
+
+    no_menu_pollution
+    info "初始化 prefix（首次会下载 mono/gecko，慢一点）…"
+    mkdir -p "$PREFIX_ROOT"
+    wineboot -i >/dev/null 2>&1 || die "wineboot 失败"
+
+    info "设置 Windows 版本为 $WIN_VERSION"
+    winetricks -q "$WIN_VERSION" >/dev/null 2>&1
+
+    if [[ -n $WINETRICKS ]]; then
+        info "安装运行库：$WINETRICKS"
+        # shellcheck disable=SC2086
+        winetricks -q $WINETRICKS >/dev/null 2>&1
+    fi
+
+    [[ $CJK == 1 ]] && { info "接入系统 CJK 字体"; link_cjk_fonts; }
+
+    wineserver -w
+    ok "prefix 就绪：$WINEPREFIX"
+    info "下一步：winapp install $name <安装器.exe>"
+}
+
+cmd_install() {
+    local name=${1:?用法: winapp install <名字> <安装器.exe>}
+    local installer=${2:?用法: winapp install <名字> <安装器.exe>}
+    load_conf "$name"
+
+    [[ -d $WINEPREFIX ]] || die "prefix 不存在，先跑：winapp create $name"
+    [[ -f $installer ]] || die "找不到安装器：$installer"
+
+    [[ $CJK == 1 ]] && cjk_env
+    [[ $GPU == 0 ]] && gpu_env
+    no_menu_pollution
+
+    # 装东西不进沙箱：安装器要往 prefix 外写快捷方式、注册组件，
+    # 关起来反而会失败。装完再用 run 的沙箱把它圈住。
+    local -a cmd
+    info "运行安装器（图形界面会弹出来，按提示装完）…"
+    [[ -n $VDESKTOP ]] && info "已开虚拟桌面 $VDESKTOP，所有窗口都在那个容器里"
+    mapfile -t cmd < <(wine_cmd "$installer")
+    "${cmd[@]}"
+    wineserver -w
+    ok "安装器已退出"
+
+    # 装完才知道主程序叫什么，找出来填回配置省得手写 Windows 路径。
+    if [[ -z $EXE ]]; then
+        local found
+        found=$(find "$WINEPREFIX/drive_c" -maxdepth 6 -iname '*.exe' \
+                     -newermt '-30 minutes' 2>/dev/null |
+                grep -viE 'unins|update|crash|report|helper|setup|vcredist' | head -5)
+        [[ -n $found ]] && { info "新装的可执行文件："; printf '    %s\n' $found; }
+        info "挑一个填进 $CONF_FILE 的 EXE=（Windows 路径写法）"
+    fi
+}
+
+cmd_run() {
+    local name=${1:?用法: winapp run <名字> [exe]}
+    shift
+    load_conf "$name"
+
+    [[ -d $WINEPREFIX ]] || die "prefix 不存在，先跑：winapp create $name"
+
+    local target=${1:-$EXE}
+    [[ -n $target ]] || die "没指定 exe，也没在 $CONF_FILE 里配 EXE="
+
+    [[ $CJK == 1 ]] && cjk_env
+    [[ $GPU == 0 ]] && gpu_env
+    no_menu_pollution
+
+    # 两个实例会争抢同一个 prefix 的锁，先把旧的收掉。
+    kill_instances
+
+    local -a cmd
+    mapfile -t cmd < <(wine_cmd "$target")
+
+    if [[ $SANDBOX == 1 ]]; then
+        local -a bwrap_args
+        build_sandbox_args bwrap_args
+        exec bwrap "${bwrap_args[@]}" "${cmd[@]}"
+    else
+        exec "${cmd[@]}"
+    fi
+}
+
+cmd_shell() {
+    local name=${1:?用法: winapp shell <名字> <命令...>}
+    shift
+    load_conf "$name"
+    [[ -d $WINEPREFIX ]] || die "prefix 不存在：$name"
+    [[ $CJK == 1 ]] && cjk_env
+    [[ $# -gt 0 ]] || die "要执行什么命令？例：winapp shell $name winecfg"
+    exec "$@"
+}
+
+# 用和 run 完全相同的沙箱参数跑一遍 ls，看这个应用究竟能看到什么。
+# 「沙箱配好了」这种话不该靠口头保证，跑一遍最实在。
+cmd_stop() {
+    local name=${1:?用法: winapp stop <名字>}
+    load_conf "$name"
+    kill_instances
+    ok "已停止 $name"
+}
+
+cmd_check() {
+    local name=${1:?用法: winapp check <名字>}
+    load_conf "$name"
+    [[ -d $WINEPREFIX ]] || die "prefix 不存在：$name"
+
+    if [[ $SANDBOX != 1 ]]; then
+        info "$name 配的是 SANDBOX=0，裸跑，家目录全部可见"
+        return
+    fi
+
+    local -a bwrap_args
+    build_sandbox_args bwrap_args
+
+    info "$name 在沙箱里能看到的家目录内容："
+    bwrap "${bwrap_args[@]}" ls -A "$HOME" 2>/dev/null | sed 's/^/    /'
+
+    echo
+    info "抽查几个敏感位置："
+    local d
+    for d in .ssh .gnupg .claude ccconfig Projects hacktools myTestAndSecurity go; do
+        if bwrap "${bwrap_args[@]}" test -e "$HOME/$d" 2>/dev/null; then
+            printf '    \033[31m✗ 可见\033[0m  ~/%s\n' "$d"
+        else
+            printf '    \033[32m✓ 挡住\033[0m  ~/%s\n' "$d"
+        fi
+    done
+}
+
+cmd_list() {
+    [[ -d $PREFIX_ROOT ]] || { info "还没有任何应用"; return; }
+    local p name size exe
+    printf '%-14s %-8s %s\n' 名字 大小 主程序
+    for p in "$PREFIX_ROOT"/*/; do
+        [[ -d $p ]] || continue
+        name=$(basename "$p")
+        size=$(du -sh "$p" 2>/dev/null | cut -f1)
+        exe=$(grep -oP '(?<=^EXE=).*' "$CONF_DIR/$name.conf" 2>/dev/null | tr -d "'\"")
+        printf '%-14s %-8s %s\n' "$name" "$size" "${exe:-—}"
+    done
+}
+
+cmd_remove() {
+    local name=${1:?用法: winapp remove <名字>}
+    load_conf "$name"
+    [[ -d $WINEPREFIX ]] || die "prefix 不存在：$name"
+
+    printf '将删除 %s（%s），配置文件保留。确认？[y/N] ' \
+           "$WINEPREFIX" "$(du -sh "$WINEPREFIX" 2>/dev/null | cut -f1)"
+    read -r reply
+    [[ $reply == [yY] ]] || { info "已取消"; return; }
+
+    kill_instances
+    rm -rf "$WINEPREFIX"
+    ok "已删除 $name"
+}
+
+# ---------------------------------------------------------------- 入口
+
+command -v wine >/dev/null || die "没装 wine：sudo pacman -S wine-staging"
+
+case "${1:-}" in
+    create)  shift; cmd_create "$@" ;;
+    install) shift; cmd_install "$@" ;;
+    run)     shift; cmd_run "$@" ;;
+    stop)    shift; cmd_stop "$@" ;;
+    check)   shift; cmd_check "$@" ;;
+    shell)   shift; cmd_shell "$@" ;;
+    list)    shift; cmd_list "$@" ;;
+    remove)  shift; cmd_remove "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) die "未知子命令：$1（winapp --help 看用法）" ;;
+esac

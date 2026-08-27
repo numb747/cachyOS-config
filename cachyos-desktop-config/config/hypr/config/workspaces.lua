@@ -1,0 +1,29 @@
+-- Workspace rules wiki https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
+--
+-- ★ 本配置采用【纯动态工作区】策略：这里刻意不定义任何 persistent 规则。
+--
+--   工作区是临时对象：用到才产生，最后一个窗口关闭后自动销毁。
+--   于是——
+--     · 开机后只有 1 个工作区（当前活跃的那个，空着也不会消失）
+--     · ALT + T          跳到/新建一个空工作区   （= “新建桌面”）
+--     · ALT + SHIFT + T  带着当前窗口去空工作区
+--     · ALT + [ / ]      在实际存在的工作区之间切换
+--     · 把一个工作区搬空 = 删掉它，无需任何命令
+--
+--   不要在这里加 persistent = true，那会让空工作区赖着不走，
+--   等于退回到写死 N 个桌面的模式。
+--
+--   如果哪天想固定几个常驻桌面，取消下面示例的注释即可（N 改成你要的个数）：
+--
+--     for i = 1, N do
+--         hl.workspace_rule({ workspace = tostring(i), monitor = MONITOR1,
+--                             default = true, persistent = true })
+--     end
+--
+--   命名工作区示例（无 persistent，只在显式切过去时才存在）：
+--
+--     hl.workspace_rule({ workspace = "name:gaming", monitor = PRIMARY_MONITOR, default = true })
+--
+--   其他布局（如 scrolling）：
+--
+--     hl.workspace_rule({ workspace = "1", monitor = MONITOR1, default = true, layout = "scrolling" })

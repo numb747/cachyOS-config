@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=企业微信
+Name[en]=WeCom
+GenericName=企业通讯
+Comment=企业微信（wine 独立 prefix + bubblewrap 沙箱）
+# 用绝对路径：桌面环境启动 .desktop 时的 PATH 不保证包含 ~/.local/bin。
+Exec=/home/david/.local/bin/winapp run wecom
+Icon=wecom
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=wecom;wechat;work;qiyeweixin;企业微信;
+# 窗口是 wine 的虚拟桌面容器，class 为 explorer.exe——任务栏靠这个把窗口
+# 关联回本条目。以后若有第二个 winapp 应用也开虚拟桌面，两者会共用这个
+# class，届时改用各自的窗口标题区分。
+StartupWMClass=explorer.exe
+StartupNotify=false

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# hypr-screenrec — wl-screenrec 的开始/停止切换封装
+#
+#   hypr-screenrec region   框选一块区域开始录制
+#   hypr-screenrec screen   录制当前聚焦的显示器
+#   hypr-screenrec stop     停止录制
+#
+# 正在录制时，任何子命令都等同于 stop（这样同一个快捷键就能开关切换）。
+set -uo pipefail
+
+PIDFILE="${XDG_RUNTIME_DIR:-/tmp}/hypr-screenrec.pid"
+PATHFILE="${PIDFILE}.path"
+OUTDIR="$(xdg-user-dir VIDEOS)"
+
+# 单位是字节/秒，wl-screenrec 默认 "5 MB"（= 40 Mbps）对 1440p 偏高。
+# 2 MB/s ≈ 16 Mbps，2560x1440@60 下画质够用且文件小得多。
+BITRATE="2 MB"
+
+notify() { notify-send -a "录屏" -i video-x-generic "$1" "${2:-}"; }
+
+is_recording() {
+    [[ -f $PIDFILE ]] && kill -0 "$(<"$PIDFILE")" 2>/dev/null
+}
+
+stop_recording() {
+    local pid file
+    pid="$(<"$PIDFILE")"
+
+    # 必须是 SIGINT：wl-screenrec 靠这条路径 flush 编码器并写入 mp4 的 moov atom。
+    # SIGTERM/SIGKILL 会留下一个没有索引、播放器打不开的文件。
+    kill -INT "$pid" 2>/dev/null
+
+    # 等它真正退出再报告，否则通知弹出时文件还没写完。
+    local i
+    for ((i = 0; i < 50; i++)); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.1
+    done
+
+    file="$(<"$PATHFILE")" 2>/dev/null || file=""
+    rm -f "$PIDFILE" "$PATHFILE"
+
+    if [[ -n $file && -s $file ]]; then
+        printf '%s' "$file" | wl-copy      # 路径进剪贴板，方便直接粘贴
+        notify "已保存" "$(basename "$file")"
+    else
+        notify "录制失败" "没有生成有效文件"
+    fi
+}
+
+# 已在录制 → 停止，忽略传入的参数
+if is_recording; then
+    stop_recording
+    exit 0
+fi
+
+# 没在录制时按停止键 = 空操作；顺手清掉可能残留的 pidfile
+rm -f "$PIDFILE" "$PATHFILE"
+[[ ${1:-} == stop ]] && exit 0
+
+mkdir -p "$OUTDIR"
+FILE="$OUTDIR/screenrec-$(date +%Y-%m-%d_%H-%M-%S).mp4"
+
+# --low-power=off：AMD 的 Mesa VAAPI 没有 low-power 编码入口，不关掉的话每次启动
+# 都要先失败一次再回退，白等一下还刷两行报错。
+args=(-f "$FILE" --bitrate "$BITRATE" --low-power=off)
+
+# 录当前默认输出设备的 monitor 源，即"系统正在放的声音"。
+# 每次启动时动态解析，换声卡不用改脚本。
+sink="$(pactl get-default-sink 2>/dev/null)"
+[[ -n $sink ]] && args+=(--audio --audio-device "${sink}.monitor")
+
+case "${1:-screen}" in
+    region)
+        geom="$(slurp)" || exit 0     # 用户按 Esc 取消 → 静默退出，不留残留
+        args+=(-g "$geom")
+        ;;
+    screen)
+        args+=(-o "$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')")
+        ;;
+    *)
+        echo "用法: $(basename "$0") {region|screen|stop}" >&2
+        exit 1
+        ;;
+esac
+
+wl-screenrec "${args[@]}" &
+pid=$!
+echo "$pid" > "$PIDFILE"
+echo "$FILE" > "$PATHFILE"
+
+# wl-screenrec 若因参数或 VAAPI 问题秒退，这里能立刻发现，而不是留个假的"录制中"
+sleep 0.4
+if ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$PIDFILE" "$PATHFILE"
+    notify "启动失败" "在终端运行 wl-screenrec 查看错误"
+    exit 1
+fi
+
+notify "录制中" "再按一次同样的键停止"

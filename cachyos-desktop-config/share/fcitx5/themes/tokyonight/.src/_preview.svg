@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="200" viewBox="0 0 620 200">
+  <rect width="620" height="200" fill="#16161e"/>
+
+  <!-- input panel -->
+  <g transform="translate(24,44)">
+    <rect x="0.75" y="0.75" width="560" height="112" rx="10" ry="10"
+          fill="#1a1b26" fill-opacity="0.97" stroke="#414868" stroke-width="1.5"/>
+    <rect x="1.75" y="1.75" width="558" height="110" rx="9" ry="9"
+          fill="none" stroke="#565f89" stroke-width="1" stroke-opacity="0.25"/>
+
+    <!-- preedit -->
+    <text x="14" y="34" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">ni hao</text>
+    <rect x="84" y="16" width="84" height="26" rx="5" fill="#292e42"/>
+    <text x="90" y="34" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#7dcfff">shi jie</text>
+
+    <!-- candidates -->
+    <rect x="10" y="58" width="120" height="38" rx="6" fill="#3d59a1" fill-opacity="0.95"
+          stroke="#7aa2f7" stroke-width="1" stroke-opacity="0.55"/>
+    <text x="22" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="15" fill="#7dcfff">1.</text>
+    <text x="40" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">你好世界</text>
+
+    <text x="146" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="15" fill="#565f89">2.</text>
+    <text x="164" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">你好</text>
+
+    <text x="216" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="15" fill="#565f89">3.</text>
+    <text x="234" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">拟好</text>
+
+    <text x="286" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="15" fill="#565f89">4.</text>
+    <text x="304" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">泥沼</text>
+
+    <text x="356" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="15" fill="#565f89">5.</text>
+    <text x="374" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="17" fill="#c0caf5">你</text>
+    <text x="396" y="83" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="14" fill="#565f89">ni</text>
+
+    <path d="M492 71 L487.5 76 L492 81" fill="none" stroke="#7aa2f7" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M516 71 L520.5 76 L516 81" fill="none" stroke="#7aa2f7" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="24" y="26" font-family="MesloLGS Nerd Font, Sarasa Gothic SC" font-size="13" fill="#565f89">fcitx5 · tokyonight  —  preview</text>
+</svg>

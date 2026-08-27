@@ -1,0 +1,185 @@
+[accessibility]
+ui_scale = 1.20
+
+[bar.default]
+auto_hide = true
+center = [ "workspaces", "spacer_1", "active_window" ]
+concave_edge_corners = true
+end = [ "media", "spacer_1", "tray", "notifications", "network", "volume", "session" ]
+margin_edge = 0
+margin_ends = 0
+radius_bottom_left = 12
+radius_bottom_right = 12
+radius_top_left = 0
+radius_top_right = 0
+reserve_space = false
+scale = 1.10
+smart_auto_hide = true
+start = [ "launcher", "clock", "spacer_1", "group:g1" ]
+thickness = 35
+
+    [[bar.default.capsule_group]]
+    border = ""
+    fill = "on_secondary"
+    id = "g1"
+    members = [ "temp", "sysmon_2", "sysmon_3" ]
+    opacity = 1.0
+    padding = 6.0
+
+# pear-desktop（YouTube Music）每换一首歌就在屏幕顶部弹一次，来源不是通知，
+# 是 noctalia 自己的 OSD "Now Playing"（osd-kinds-media：Show an OSD popup
+# when a new track starts playing）。OSD 走 top_center，通知走 top_right，
+# 别拿 [notification.filter.*] 去治它——那条路对 OSD 不生效。
+# 注意这是全局开关，关的是所有播放器的换歌弹窗；noctalia 没有按播放器关 OSD
+# 的选项。bar 上的 media widget 和播放控制不受影响，照常可用。
+# （真要只针对单个播放器，只有 [shell.mpris] blacklist，但那会把它从 media
+#   widget 里一并摘掉。）
+[osd.kinds]
+media = false
+
+[shell]
+clipboard_image_action_command = "satty -f -"
+launch_apps_as_systemd_services = true
+polkit_agent = true
+settings_show_advanced = true
+
+    [shell.greeter_sync]
+    auto_sync = true
+    # 默认提权走 run0，它请求的是 org.freedesktop.systemd1.manage-units，
+    # 绕开了包自带的 org.noctalia.greeter.apply-appearance policy，导致每次换
+    # 壁纸/主题都要输密码。强制走 pkexec 才能命中
+    # /etc/polkit-1/rules.d/49-noctalia-greeter.rules 里的免密规则。
+    privilege_command = "pkexec"
+
+    [shell.launcher]
+
+        # 统一搜索里同时列出「已打开的窗口」和应用，不用先敲 /win 前缀。
+        # 选中窗口回车 → hyprctl dispatch focuswindow，Hyprland 会自动跳到
+        # 该窗口所在的工作区（跨显示器还会先 focusmonitor）。
+        [shell.launcher.providers.windows]
+        global = true
+
+        # 很少用启动器算数，把计算器从无前缀搜索里摘出去，免得它老抢第一行。
+        # 要算的时候仍然可以敲 /calc。
+        [shell.launcher.providers.calculator]
+        global = false
+
+    [shell.panel]
+    open_near_click_control_center = true
+    session_placement = "floating"
+    session_position = "center"
+
+    [shell.screenshot]
+    copy_to_clipboard = false
+    pipe_command = "satty -f -"
+    pipe_to_command = true
+    save_to_file = true
+
+    [[shell.session.actions]]
+    action = "lock"
+    countdown_seconds = 0.0
+    enabled = true
+    shortcut = "1"
+    variant = "default"
+
+    [[shell.session.actions]]
+    action = "logout"
+    countdown_seconds = 0.0
+    enabled = true
+    shortcut = "2"
+    variant = "default"
+
+    [[shell.session.actions]]
+    action = "lock_and_suspend"
+    countdown_seconds = 3.0
+    enabled = true
+    shortcut = "3"
+    variant = "default"
+
+    [[shell.session.actions]]
+    action = "reboot"
+    countdown_seconds = 3.0
+    enabled = true
+    shortcut = "4"
+    variant = "default"
+
+    [[shell.session.actions]]
+    action = "shutdown"
+    countdown_seconds = 3.0
+    enabled = true
+    shortcut = "5"
+    variant = "destructive"
+
+# 剪贴板历史/日历缓存的加密主密钥来源。默认 "secret-service" 需要
+# gnome-keyring/kwallet 之类的 provider，本机没有跑，导致历史只存内存、
+# 重启即丢（日志：[secret-store] status=unavailable provider-unavailable）。
+# 改用文件密钥后不依赖任何 keyring，也不用改 PAM。
+# key_file 内容是 64 位小写十六进制（32 随机字节），权限 0600。
+# ★ 这个文件别弄丢：换掉密钥不会重新加密，只会让旧历史读不出来
+#   （文件本身不会被删，换回原密钥即可恢复）。
+[storage]
+key_source = "file"
+key_file = "/home/david/.config/noctalia/storage.key"
+
+[system.monitor]
+gpu_poll_seconds = 2
+
+[theme]
+mode = "dark"
+source = "wallpaper"
+wallpaper_scheme = "m3-tonal-spot"
+
+    [theme.templates]
+    builtin_ids = [ "btop", "gtk3", "gtk4", "kcolorscheme", "kitty", "qt", "alacritty" ]
+
+[widget.clock]
+color = "secondary"
+format = "{:%H:%M %A %m/%d/%y}"
+
+[widget.launcher]
+color = "secondary"
+
+[widget.media]
+hide_when_no_media = true
+title_scroll = "on_hover"
+
+[widget.network]
+color = "secondary"
+
+[widget.notifications]
+color = "secondary"
+
+[widget.session]
+color = "error"
+
+[widget.spacer_1]
+type = "spacer"
+
+[widget.temp]
+show_value = false
+
+[widget.sysmon_2]
+glyph = "gpu-usage"
+show_value = false
+stat = "gpu_temp"
+type = "sysmon"
+
+[widget.sysmon_3]
+glyph = "cpu-2"
+stat = "ram_used"
+type = "sysmon"
+
+[widget.tray]
+capsule = true
+capsule_fill = "on_secondary"
+
+[widget.volume]
+color = "secondary"
+
+[widget.workspaces]
+active_pill_size = 2.5
+capsule = true
+capsule_fill = "on_primary"
+inactive_pill_size = 1.0
+pill_scale = 0.80
+show_labels = false

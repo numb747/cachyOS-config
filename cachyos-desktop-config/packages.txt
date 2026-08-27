@@ -1,0 +1,108 @@
+# CachyOS 桌面配置 —— pacman 包清单
+#
+# 安装：
+#   sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
+#
+# 生成于 2026-08-26，取自本机 pacman -Q 实测。
+# 带 (AUR) 标记的用 yay 装；带 (可选) 的不装也不影响核心体验。
+
+# ── 桌面基座 ────────────────────────────────────────────────
+# 装 CachyOS 时选 Hyprland 版就已经全有了，这里列出来是为了核对
+hyprland
+cachyos-hypr-noctalia
+noctalia-greeter
+uwsm
+
+# ── 终端 / Shell ────────────────────────────────────────────
+kitty
+alacritty
+zsh
+cachyos-zsh-config
+zsh-theme-powerlevel10k
+zoxide
+
+# ── 编辑器与其工具链 ────────────────────────────────────────
+neovim
+git
+ripgrep
+fd
+nodejs
+npm
+go
+python-pip
+tree-sitter-cli
+
+# ── 字体 ────────────────────────────────────────────────────
+# kitty 是 Adwaita Mono（正文）+ Meslo（Nerd 图标）两个拼的，缺一不可
+adwaita-fonts
+ttf-meslo-nerd
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+# 更纱黑体：中文首选（fonts.conf 里排在 Noto CJK 前）。806 MB，装完记得 fc-cache -f。
+# 不装也能跑，会静默回退 Noto CJK SC；但 Sarasa Mono/Term SC 的严格 1:2 等宽会失去，
+# 终端里中英混排不再对齐。中文【字形】不受影响——更纱的汉字就是思源黑体，与 Noto 同源。
+ttf-sarasa-gothic
+awesome-terminal-fonts
+cantarell-fonts
+ttf-dejavu
+ttf-liberation
+ttf-opensans
+ttf-bitstream-vera
+
+# ── 主题 / UI ───────────────────────────────────────────────
+adw-gtk-theme
+qt6ct
+
+# ── 输入法（中文，rime）─────────────────────────────────────
+fcitx5
+fcitx5-rime
+fcitx5-gtk
+fcitx5-qt
+fcitx5-configtool
+# 输入法主题在 share/fcitx5/themes/tokyonight/，改它的 SVG 素材需要 librsvg，
+# 已列在下面的「壁纸生成」段里，不重复列。
+
+# ── 其他常用 ────────────────────────────────────────────────
+btop
+micro
+cachyos-micro-settings
+dolphin
+firefox
+satty
+jq
+yay
+
+# ── 截图 / 录屏 / 看图看片 ──────────────────────────────────
+# grim / slurp / hyprpicker 由 cachyos-hypr-noctalia 基座带，不重复列；
+# satty（截图标注）列在上面「其他常用」。
+# imv 和 mpv 是 config/mimeapps.list 里钉死的默认打开方式，不装则双击图片/视频无响应。
+imv
+mpv
+# wl-screenrec  (AUR) 录屏，binds.lua 的 Super+Shift/Alt/Ctrl+R 靠它；不装这三个键位是哑的。
+#               装：yay -S wl-screenrec（需 cargo/clang 编译几分钟）
+#               它只在 wlroots 系合成器上工作，且 Mesa VAAPI 不支持带 transform（旋转）
+#               的显示器 —— 真要旋转屏录制得换 OBS。
+
+# ── 壁纸工具链 ──────────────────────────────────────────────
+# wallpaper/tokyonight/_ascii.py 用：magick 做裁切/降采样/边缘图，
+# rsvg-convert 把生成的 SVG 光栅化成 4K PNG。不做 ASCII 壁纸可以不装。
+imagemagick
+librsvg
+
+# ── 可选 ────────────────────────────────────────────────────
+# bibata-cursor-theme     (AUR)(可选) skel 的 gtk/uwsm 配置引用了 Bibata-Modern-Ice，
+#                         但 CachyOS 默认并不装它。不装就回退到 Adwaita 光标，
+#                         没有任何报错，只是光标样式不同。装了才和配置里写的一致。
+# lua                     (可选) 只为 install.sh 的 luac -p 语法预检，不装则跳过该步
+# nvim 的 mason 工具链    见 docs/04-neovim.md「语言工具链」一节
+
+# ── wine 应用（wine 模块）────────────────────────────────────
+# 企业微信没有公有云版 Linux 客户端，只能跑 Windows 版，见 docs/09-wine-apps.md。
+# 用 wine-staging 而非 wine：腾讯系应用历来需要 staging 的额外补丁。
+wine-staging
+wine-mono
+wine-gecko
+winetricks
+# bubblewrap 是沙箱依赖。CachyOS 基础系统通常已带，列在这里是为了显式声明依赖。
+bubblewrap

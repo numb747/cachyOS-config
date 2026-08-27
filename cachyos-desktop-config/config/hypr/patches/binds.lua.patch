@@ -1,0 +1,47 @@
+--- /etc/skel/.config/hypr/config/binds.lua	2026-08-16 02:19:18.000000000 +0800
++++ /home/david/ccconfig/cachyos-desktop-config/config/hypr/config/binds.lua	2026-08-26 15:15:03.382173305 +0800
+@@ -107,9 +107,18 @@
+ -------------------
+ 
+ -- Screen Capture
+-hl.bind(mainMod .. " + P",     hl.dsp.exec_cmd("hyprpicker -a -n"))
+-hl.bind("Print",               hl.dsp.exec_cmd(noctCall .. "screenshot-region"))
+-hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd(noctCall .. "screenshot-fullscreen"))
++hl.bind(mainMod .. " + P",         hl.dsp.exec_cmd("hyprpicker -a -n"))
++hl.bind("Print",                   hl.dsp.exec_cmd(noctCall .. "screenshot-region"))
++hl.bind(mainMod .. " + Print",     hl.dsp.exec_cmd(noctCall .. "screenshot-fullscreen"))
++hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd(noctCall .. "screenshot-region"))
++hl.bind(mainMod .. " + ALT + P",   hl.dsp.exec_cmd(noctCall .. "screenshot-fullscreen"))
++
++-- Screen Recording (wl-screenrec) —— SHIFT=框选，ALT=整屏，同键再按一次停止。
++--    不加 launchPrefix：uwsm app 会把录屏进程丢进另一个 cgroup，pidfile 就追不上了。
++local recCall = "~/.local/bin/hypr-screenrec "
++hl.bind(mainMod .. " + SHIFT + R",   hl.dsp.exec_cmd(recCall .. "region"))
++hl.bind(mainMod .. " + ALT + R",     hl.dsp.exec_cmd(recCall .. "screen"))
++hl.bind(mainMod .. " + CONTROL + R", hl.dsp.exec_cmd(recCall .. "stop"))
+ 
+ -- Theming and Wallpaper
+ hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd(noctCall .. "panel-toggle wallpaper"))
+@@ -130,12 +139,16 @@
+ hl.bind(mainMod .. " + 3", hl.dsp.focus({ monitor = MONITOR3 }))
+ 
+ -- Focus on workspace number
+--- Absolute
+-for i = 1, NUM_WPM do
+-    local key = i % 10
+-    hl.bind(mainMod .. " + ALT + " .. key, hl.dsp.focus({ workspace = i }))
+-end
+--- Relative
++-- Absolute —— ★ 已停用：按绝对编号跳转会凭空创建该编号的工作区，
++--    与本配置的纯动态工作区策略（见 config/workspaces.lua）冲突。
++--    想恢复就取消注释。
++-- for i = 1, NUM_WPM do
++--     local key = i % 10
++--     hl.bind(mainMod .. " + ALT + " .. key, hl.dsp.focus({ workspace = i }))
++-- end
++
++-- Relative —— m~N = 本显示器上第 N 个【已存在】的工作区，不会凭空创建，
++--    正是动态工作区下的“按位置跳转”。绑满 1..9 即可，位置不存在时为空操作。
+ for i = 1, NUM_WPM do
+     local key = i % 10
+     hl.bind(mainMod .. " + CONTROL + " .. key, hl.dsp.focus({ workspace = "m~" .. i }))

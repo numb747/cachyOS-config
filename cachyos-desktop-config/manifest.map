@@ -1,0 +1,141 @@
+# 文件映射表 —— 包内路径 ⇄ 系统路径
+#
+# 这是【单一事实来源】：install.sh、uninstall.sh、sync.sh 都读它。
+# 新增一个要纳管的配置文件，只改这里一行，三个脚本自动跟上。
+#
+# 格式： <包内相对路径>  <系统路径>       （~ 和 $HOME 都会被展开）
+# 第三列 module 由分组注释决定，见每段开头的 #@module 标记。
+
+#@module hypr
+config/hypr/mykeys.lua                    ~/.config/hypr/mykeys.lua
+config/hypr/config/binds.lua              ~/.config/hypr/config/binds.lua
+config/hypr/config/variables.lua          ~/.config/hypr/config/variables.lua
+config/hypr/config/workspaces.lua         ~/.config/hypr/config/workspaces.lua
+# windowrules 也是被改过的 CachyOS 官方文件（同 binds/variables/workspaces）。
+# 加它是为了企业微信的幽灵窗规则，见 docs/09-wine-apps.md。
+config/hypr/config/windowrules.lua        ~/.config/hypr/config/windowrules.lua
+# misc 同上（第 5 个被改过的官方文件）。加它是为了关掉 Hyprland 内置壁纸，
+# 消除开机时 wall*.png 一闪而过的那 1.5 秒，见 docs/02-hyprland.md。
+config/hypr/config/misc.lua               ~/.config/hypr/config/misc.lua
+# 录屏脚本（wl-screenrec 的开始/停止切换封装），配合 binds.lua 的 Super+Shift/Alt+R。
+# ★ mod_hypr 是硬编码 put 的、不走 put_module（见 install.sh 那句「这三个单独列」注释），
+#   所以这行只被 sync.sh 读到；install.sh 里必须另有一行 put 它，否则装不出去。
+bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
+
+#@module term
+config/kitty/kitty.conf                   ~/.config/kitty/kitty.conf
+config/kitty/themes/noctalia.conf         ~/.config/kitty/themes/noctalia.conf
+config/alacritty/alacritty.toml           ~/.config/alacritty/alacritty.toml
+config/alacritty/themes/noctalia.toml     ~/.config/alacritty/themes/noctalia.toml
+home/.zshrc                               ~/.zshrc
+home/.p10k.zsh                            ~/.p10k.zsh
+
+#@module nvim
+config/nvim/init.lua                      ~/.config/nvim/init.lua
+config/nvim/lazyvim.json                  ~/.config/nvim/lazyvim.json
+config/nvim/lazy-lock.json                ~/.config/nvim/lazy-lock.json
+config/nvim/stylua.toml                   ~/.config/nvim/stylua.toml
+config/nvim/.neoconf.json                 ~/.config/nvim/.neoconf.json
+config/nvim/lua/config/lazy.lua           ~/.config/nvim/lua/config/lazy.lua
+config/nvim/lua/config/options.lua        ~/.config/nvim/lua/config/options.lua
+config/nvim/lua/config/keymaps.lua        ~/.config/nvim/lua/config/keymaps.lua
+config/nvim/lua/config/autocmds.lua       ~/.config/nvim/lua/config/autocmds.lua
+config/nvim/lua/plugins/colorscheme.lua   ~/.config/nvim/lua/plugins/colorscheme.lua
+config/nvim/lua/plugins/disabled.lua      ~/.config/nvim/lua/plugins/disabled.lua
+config/nvim/lua/plugins/lualine.lua       ~/.config/nvim/lua/plugins/lualine.lua
+config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
+config/nvim/lua/plugins/no-neck-pain.lua  ~/.config/nvim/lua/plugins/no-neck-pain.lua
+config/nvim/lua/plugins/snacks.lua        ~/.config/nvim/lua/plugins/snacks.lua
+config/nvim/lua/plugins/toggleterm.lua    ~/.config/nvim/lua/plugins/toggleterm.lua
+
+#@module ui
+config/noctalia/config.toml               ~/.config/noctalia/config.toml
+state/noctalia/settings.toml              ~/.local/state/noctalia/settings.toml
+config/uwsm/env                           ~/.config/uwsm/env
+config/gtk-3.0/settings.ini               ~/.config/gtk-3.0/settings.ini
+config/gtk-4.0/gtk.css                    ~/.config/gtk-4.0/gtk.css
+config/gtk-4.0/noctalia.css               ~/.config/gtk-4.0/noctalia.css
+# ★ qt6ct.conf 包里存的是 skel 原样（`/home/$USER/`），install.sh 会在目标机改写成真路径。
+#   所以它在 sync.sh --check 里【永远显示不一致】，这是预期的 —— 不能 --pull 它，
+#   否则 /home/david 被写死进包，换机器就废了。改它的其他项时手动编辑包内文件。
+#   下面这行 #@nopull 让 sync.sh 在 pull/pack 时自动跳过它（2026-08-26 加，
+#   在此之前只有上面这段注释靠人自觉，结果包里真的被写死过一次）。
+#@nopull config/qt6ct/qt6ct.conf
+config/qt6ct/qt6ct.conf                   ~/.config/qt6ct/qt6ct.conf
+config/qt6ct/colors/noctalia.conf         ~/.config/qt6ct/colors/noctalia.conf
+config/kdeglobals                         ~/.config/kdeglobals
+config/btop/btop.conf                     ~/.config/btop/btop.conf
+config/btop/themes/noctalia.theme         ~/.config/btop/themes/noctalia.theme
+# 默认打开方式三件套：图片 → imv，音视频 → mpv。见 docs/05-theme-ui.md。
+# imv-viewer.desktop 是自建条目（不是覆盖系统的 imv-dir.desktop），去掉了 NoDisplay
+# 好让它出现在 dolphin 的「打开方式」里；mimeapps.list 指向的就是它。
+config/mimeapps.list                      ~/.config/mimeapps.list
+config/mpv/mpv.conf                       ~/.config/mpv/mpv.conf
+share/applications/imv-viewer.desktop     ~/.local/share/applications/imv-viewer.desktop
+config/fcitx5/profile                     ~/.config/fcitx5/profile
+config/fcitx5/config                      ~/.config/fcitx5/config
+config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf
+config/fcitx5/conf/classicui.conf         ~/.config/fcitx5/conf/classicui.conf
+config/fontconfig/fonts.conf              ~/.config/fontconfig/fonts.conf
+
+# fcitx5 输入法主题（Tokyo Night）。PNG 由 .src/*.svg 经 .src/render.sh 生成，
+# 不要直接改 PNG。theme.conf 的写法有坑，见 docs/05-theme-ui.md。
+share/fcitx5/themes/tokyonight/theme.conf     ~/.local/share/fcitx5/themes/tokyonight/theme.conf
+share/fcitx5/themes/tokyonight/panel.png      ~/.local/share/fcitx5/themes/tokyonight/panel.png
+share/fcitx5/themes/tokyonight/highlight.png  ~/.local/share/fcitx5/themes/tokyonight/highlight.png
+share/fcitx5/themes/tokyonight/prev.png       ~/.local/share/fcitx5/themes/tokyonight/prev.png
+share/fcitx5/themes/tokyonight/next.png       ~/.local/share/fcitx5/themes/tokyonight/next.png
+share/fcitx5/themes/tokyonight/arrow.png      ~/.local/share/fcitx5/themes/tokyonight/arrow.png
+share/fcitx5/themes/tokyonight/radio.png      ~/.local/share/fcitx5/themes/tokyonight/radio.png
+
+#@module cc
+# Claude Code 的本机工具（2026-08-26 加）。三个入口：
+#   ccw/ccs 多会话看板（纯文本）· ccp 宠物版 TUI（能就地代答选择题）· statusline.sh 上下文占比状态栏
+# alias 定义在 home/.zshrc（term 模块）里，所以装了 term 没装 cc 会得到三个指向空文件的 alias。
+# ★ statusline.sh 要靠 ~/.claude/settings.json 的 statusLine 段才生效，而那个文件含明文
+#   token、永不入包（见文末排除段）。所以 install.sh 的 mod_cc 会用 jq 把那一段【合并】进
+#   本机的 settings.json —— 只加键、不读 token。这行注释别删，否则下次会以为状态栏白装了。
+claude/cc_common.py                       ~/.claude/cc_common.py
+claude/cc-pet.py                          ~/.claude/cc-pet.py
+claude/cc-watch.py                        ~/.claude/cc-watch.py
+claude/statusline.sh                      ~/.claude/statusline.sh
+# 测试：test-cc.py 是纯函数、随手可跑；三个 e2e 会起真 claude 会话并消耗 API 额度，
+# 它们的价值在于把「按键序列为什么是这样」的实测过程固化下来，性质接近 docs。
+claude/test-cc.py                         ~/.claude/test-cc.py
+claude/e2e_answer.py                      ~/.claude/e2e_answer.py
+claude/e2e_ui.py                          ~/.claude/e2e_ui.py
+claude/pty_drive.py                       ~/.claude/pty_drive.py
+claude/probe_multiq.py                    ~/.claude/probe_multiq.py
+
+#@module wall
+wallpaper/tokyonight/_fetch.py            ~/Pictures/Wallpapers/tokyonight/_fetch.py
+wallpaper/tokyonight/_fetch2.py           ~/Pictures/Wallpapers/tokyonight/_fetch2.py
+wallpaper/tokyonight/_build.py            ~/Pictures/Wallpapers/tokyonight/_build.py
+wallpaper/tokyonight/_ascii.py            ~/Pictures/Wallpapers/tokyonight/_ascii.py
+wallpaper/tokyonight/_picks.json          ~/Pictures/Wallpapers/tokyonight/_picks.json
+wallpaper/tokyonight/_picks2.json         ~/Pictures/Wallpapers/tokyonight/_picks2.json
+wallpaper/tokyonight/index.html           ~/Pictures/Wallpapers/tokyonight/index.html
+
+#@module wine
+# 在 wine 里跑 Windows 程序的工具链。每个应用一套独立 prefix + bubblewrap 沙箱。
+# 目前只有企业微信一个实例（公有云版没有 Linux 客户端，只能 wine，见 docs/09）。
+bin/winapp                                ~/.local/bin/winapp
+config/winapp/wecom.conf                  ~/.config/winapp/wecom.conf
+share/applications/wecom.desktop          ~/.local/share/applications/wecom.desktop
+# 图标是 wine 装完从 exe 里提取的（原名 AF03_WXWork.0.png，名字会随重装变）。
+# 存一份稳定名称的进包，省得新机器还要去翻 wine 生成的随机名。
+share/icons/wecom.png                     ~/.local/share/icons/hicolor/256x256/apps/wecom.png
+
+# ── 不在同步范围内（有意）────────────────────────────────────────────────
+# ~/.local/share/wineprefixes/wecom/       wine prefix，2GB+，含聊天记录与登录态。
+#                                          新机器用 winapp create/install 重建。
+# ~/.cache/wecom-setup/*.exe               企业微信安装包，600MB，官网可重新下。
+# wallpaper/ascii/*.png                    _ascii.py 的产出，确定性生成，不会自己变。
+#                                          由 install.sh 的 wall 模块直接铺开。
+# state/noctalia/community-palettes/*      安装时才拷，路径含 URL 编码
+# wallpaper/11-w55gjr.png                  壁纸本体，不会自己变
+# config/nvim/lua/plugins/example.lua      LazyVim 自带样例，从不改
+# share/fcitx5/themes/tokyonight/.src/     SVG 源与 render.sh，只在包里，不装到系统
+# docs/img/*.png                           文档配图，同上
+# ~/.ssh ~/.gnupg ~/.claude/settings.json  含密钥，永不入包
+# ~/.local/share/fcitx5/rime/              个人词库，体积不定

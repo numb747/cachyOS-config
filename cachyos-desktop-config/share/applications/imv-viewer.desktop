@@ -1,0 +1,25 @@
+# 派生自 /usr/share/applications/imv-dir.desktop，只去掉了 NoDisplay=true，
+# 好让 imv 出现在 dolphin 的「打开方式」和应用启动器里。
+#
+# 刻意用了 imv-viewer 这个新文件名，而不是同名覆盖 imv-dir.desktop：
+# 同名会完全遮蔽系统文件，imv 升级新增格式支持时这里不会同步。
+# 独立命名则让系统的两个条目保持原样，升级互不影响。
+#
+# Exec 保持 imv-dir：单文件参数时它执行 imv -n "$1" "$(dirname "$1")"，
+# 即加载整个目录并定位到点击的那张，可以左右翻页。
+[Desktop Entry]
+Type=Application
+Name=imv
+GenericName=Image viewer
+GenericName[zh_CN]=图片查看器
+Comment=Fast Image Viewer | Open all images in a directory
+Comment[zh_CN]=轻量图片查看器，打开目录内全部图片
+Exec=imv-dir %F
+# 上游写的是 multimedia-photo-viewer，但 Adwaita/breeze 里都没有这个图标，
+# 菜单里会是空白占位。image-x-generic 两个主题都有且带 scalable SVG。
+Icon=image-x-generic
+Terminal=false
+Categories=Graphics;2DGraphics;Viewer;
+Keywords=photo;picture;image;viewer;
+MimeType=image/x-farbfeld;image/tiff;image/tiff-fx;image/png;image/x-png;image/jpeg;image/jpg;image/pjpeg;image/svg+xml;image/gif;image/bmp;image/x-bmp;image/heif;image/avif;image/jxl;image/webp;image/qoi
+StartupWMClass=imv
