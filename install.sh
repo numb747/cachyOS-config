@@ -315,14 +315,19 @@ mod_wall() {
     head_ "wall —— 壁纸"
     local W="$HOME/Pictures/Wallpapers/tokyonight"
     put wallpaper/11-w55gjr.png "$W/A-最搭/11-w55gjr.png"
-    # ASCII 款是本包 _ascii.py 自己的产出，但重生成依赖 wallhaven 上的源图还在
-    # ——那个不可控，所以直接带 4 张成品兜底。
+    # D-ASCII 款多数是本包 _ascii.py 自己的产出，但重生成依赖 wallhaven 上的源图还在
+    # ——那个不可控，所以直接带成品兜底。其中 a1 是 settings.toml 默认指向的那张，
+    # 少了它装完就是纯色背景（且 misc.lua 的 background_color 正是按 a1 采样的）。
+    # ★ 别把通配符写死成 *.png：c2-网点少女是 .jpg，只匹配 png 会静默漏掉它。
+    # glob 走 $SRC 绝对路径：脚本可能从任意 cwd 调用，相对 glob 展不开就会
+    # 退化成字面量，put 只会报「包内缺文件」，看不出是 cwd 的问题。
     local a
-    for a in wallpaper/ascii/*.png; do
-        put "$a" "$W/D-ASCII/$(basename "$a")"
+    for a in "$SRC"/wallpaper/ascii/*; do
+        [ -f "$a" ] || continue
+        put "wallpaper/ascii/$(basename "$a")" "$W/D-ASCII/$(basename "$a")"
     done
     put_module wall
-    inf "带了 1 张参考图 + 4 张 ASCII 成品。整库（77 张 / 167 MB）用 python _fetch.py 重新拉，见 docs/05"
+    inf "带了 1 张参考图 + $(ls -1 "$SRC"/wallpaper/ascii/ 2>/dev/null | wc -l) 张 D-ASCII 成品。整库（77 张 / 167 MB）用 python _fetch.py 重新拉，见 docs/05"
 
     # settings.toml 里记的是【当时正在用的】那张，未必是包里带的这张 ——
     # 壁纸换得比配置勤，包不可能每次都跟着塞图。缺了就明确告诉用户去哪补。
@@ -369,7 +374,38 @@ mod_wine() {
     return 0
 }
 
-ALL=(hypr term nvim ui cc wall wine)
+mod_ocr() {
+    head_ "ocr —— 屏幕取字（RapidOCR 常驻服务）"
+    put_module ocr
+    if [ $DRY -eq 0 ]; then
+        chmod +x "$HOME/.local/bin/ocr-server" "$HOME/.local/bin/ocr-grab" 2>/dev/null
+    fi
+
+    # ★ 本仓库唯一需要「激活」而不只是「拷文件」的模块。put 把 .socket/.service 放到
+    #   ~/.config/systemd/user/ 就完事了，不 daemon-reload systemd 根本不知道它们存在，
+    #   不 enable 则按键时没人在 8265 端口上接。装完却没反应，十有八九是漏了这两步。
+    #   都是 --user 级别，写的仍然只有 $HOME，不需要 sudo（符合本脚本的「不碰系统」）。
+    run systemctl --user daemon-reload
+    run systemctl --user enable --now ocrd.socket
+
+    # 运行时依赖。python-rapidocr 在 AUR，且**不能直接 yay 装**：它的 PKGBUILD 写了
+    # makedepends python-installer>=1.0.1，而 Arch 全仓库最新只有 1.0.0，yay 会报
+    # 「could not find all required packages」。要本地放宽这个约束再 makepkg，
+    # 完整步骤（含装完后锁 IgnorePkg、以及怎么复核这个 AUR 包没被投毒）见 docs/10-ocr.md。
+    if ! python3 -c "import rapidocr" 2>/dev/null; then
+        warn "未装 python-rapidocr —— 按键会报「识别服务连不上」"
+        inf "  它不能直接 yay 装（上游 PKGBUILD 的版本约束有 bug），照 docs/10-ocr.md 走"
+    fi
+    python3 -c "import onnxruntime" 2>/dev/null \
+        || inf "未装推理运行时：sudo pacman -S python-onnxruntime-cpu"
+
+    for c in grim slurp wl-copy jq; do
+        command -v "$c" >/dev/null 2>&1 || inf "缺 $c（截图/剪贴板链路要用）"
+    done
+    return 0
+}
+
+ALL=(hypr term nvim ui cc wall wine ocr)
 declare -A DESC=(
     [hypr]="Hyprland 键位、鼠标行为、动态工作区"
     [term]="kitty / alacritty / zsh / powerlevel10k"
@@ -378,6 +414,7 @@ declare -A DESC=(
     [cc]="Claude Code 会话看板 / 宠物 TUI / 上下文状态栏"
     [wall]="壁纸与壁纸库脚本"
     [wine]="winapp（wine 应用沙箱工具链）与企业微信"
+    [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
 )
 
 SELECTED=()

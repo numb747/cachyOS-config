@@ -62,3 +62,13 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 alias ccw='~/.claude/cc-watch.py'          # 常驻看板
 alias ccs='~/.claude/cc-watch.py --once'   # 打一次快照
 alias ccp='~/.claude/cc-pet.py'            # 宠物版 TUI（可上下选择）
+
+alias difft='/home/david/hacktools/difft/difft'
+
+# Claude Code 陪练模式：AI 只做解释/导读/挑刺，不替你解题
+# 进程级生效，不落盘、不影响其他窗口的 claude
+coach() {
+  local p="$HOME/.claude/prompts/coach-web-re.md"
+  [ -f "$p" ] || { echo "coach: 提示词缺失 $p" >&2; return 1; }
+  claude --append-system-prompt "$(cat "$p")" "$@"
+}

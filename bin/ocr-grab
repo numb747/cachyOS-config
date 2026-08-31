@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# ocr-grab — 截一块屏 → 送去 OCR → 文字进剪贴板
+#
+#   ocr-grab region   框选一块区域识别(Super+Shift+O)
+#   ocr-grab screen   识别当前聚焦的整个显示器(Super+Alt+O)
+#
+# 识别由 ~/.local/bin/ocr-server 完成,它是 systemd socket 激活的常驻服务。
+# 服务没在跑时这里的 curl 会触发 systemd 把它拉起来,那一次要多等约 1 秒
+# (模型加载),之后就都是热的。原理见 docs/10-ocr.md。
+set -uo pipefail
+
+ENDPOINT="http://127.0.0.1:8265/ocr"
+
+# 冷启动时 systemd 要现拉服务、现加载模型,给足余量;热路径实际 0.3 秒左右。
+TIMEOUT=25
+
+notify() { notify-send -a "OCR" -i edit-select-all "$1" "${2:-}"; }
+
+case "${1:-region}" in
+    region)
+        # 用户按 Esc 取消 → 静默退出,不弹任何通知(同 hypr-screenrec 的处理)
+        geom="$(slurp)" || exit 0
+        shot=(grim -g "$geom" -)
+        ;;
+    screen)
+        mon="$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')"
+        shot=(grim -o "$mon" -)
+        ;;
+    *)
+        echo "用法: $(basename "$0") {region|screen}" >&2
+        exit 1
+        ;;
+esac
+
+# 截图先落临时文件，不走管道直连 curl —— 这样重试时不必再让用户框选一次
+# (slurp 早就退出了，选区已经没了)。
+SHOT="$(mktemp -t ocr-grab-XXXXXX.png)"
+trap 'rm -f "$SHOT"' EXIT
+
+if ! "${shot[@]}" > "$SHOT" 2>/dev/null || [[ ! -s $SHOT ]]; then
+    notify "截图失败" "grim 没抓到画面"
+    exit 1
+fi
+
+# -w 把 HTTP 状态码附在响应末尾,好和正文一起拿回来 —— 204(图里没字)和
+# 200(有字)必须分开报,否则用户看到「失败」会以为是服务挂了。
+post() {
+    curl -s --max-time "$TIMEOUT" -w '\n%{http_code}' \
+         --data-binary @"$SHOT" "$ENDPOINT" 2>/dev/null
+}
+
+resp="$(post)"; rc=$?
+if [[ $rc -ne 0 ]]; then
+    # 服务空闲 10 分钟会自退，若请求正好撞在它退出的那一瞬，socket 激活有个极小的
+    # 竞态窗口会丢掉这次连接。重试一次就能被 systemd 重新拉起的新进程接住。
+    sleep 0.5
+    resp="$(post)"; rc=$?
+fi
+
+code="${resp##*$'\n'}"
+text="${resp%$'\n'*}"
+
+if [[ $rc -ne 0 ]]; then
+    notify "识别服务连不上" "systemctl --user status ocrd.socket"
+    exit 1
+fi
+
+case "$code" in
+    200)
+        printf '%s' "$text" | wl-copy
+        # 预览截前 80 个字符;notify-send 会把正文当 Pango 标记解析,
+        # 识别结果里真出现 & 或 < 会导致整条通知不显示,所以先转义。
+        preview="${text:0:80}"
+        [[ ${#text} -gt 80 ]] && preview+="…"
+        preview="${preview//&/&amp;}"; preview="${preview//</&lt;}"
+        notify "已复制 ${#text} 字" "$preview"
+        ;;
+    204)
+        notify "没识别到文字" "换个区域,或把窗口放大些再试"
+        exit 1
+        ;;
+    *)
+        notify "识别失败" "HTTP $code —— journalctl --user -u ocrd -n 20"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,14 @@
+[Unit]
+Description=OCR 识别服务的监听 socket
+Documentation=file://%h/cachyOS-config/docs/10-ocr.md
+
+[Socket]
+# 只绑回环。识别的是屏幕内容,不该对外可达。
+ListenStream=127.0.0.1:8265
+# Accept=no —— 整个监听 socket 交给一个进程自己 accept 循环。
+# 若用 Accept=yes,systemd 会为每条连接单独 fork 一个进程,那模型就要每次
+# 重新加载,常驻服务的意义直接没了。
+Accept=no
+
+[Install]
+WantedBy=sockets.target

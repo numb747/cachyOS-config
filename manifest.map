@@ -126,6 +126,19 @@ share/applications/wecom.desktop          ~/.local/share/applications/wecom.desk
 # 存一份稳定名称的进包，省得新机器还要去翻 wine 生成的随机名。
 share/icons/wecom.png                     ~/.local/share/icons/hicolor/256x256/apps/wecom.png
 
+#@module ocr
+# 屏幕取字。RapidOCR（PP-OCRv6 + onnxruntime）替代 normcap —— 后者底层是 Tesseract，
+# 对屏幕小号中文粘连、漏字。模型加载（约 0.8s）抽进常驻服务，按键路径上只剩推理。
+# 键位是 SUPER+SHIFT/ALT + O，写在 config/hypr/mykeys.lua 第 15 节（属 hypr 模块）。
+# ★ 本仓库【第一个】带 systemd 单元的模块。put 只负责拷文件，install.sh 的 mod_ocr
+#   里必须另有 daemon-reload + enable --now ocrd.socket，否则拷过去也不会被激活。
+# ⚠ 运行时依赖 AUR 的 python-rapidocr，那个包要【本地改 PKGBUILD 才能装】，
+#   并且已被 IgnorePkg 锁更新。整套缘由和重装步骤见 docs/10-ocr.md。
+bin/ocr-server                            ~/.local/bin/ocr-server
+bin/ocr-grab                              ~/.local/bin/ocr-grab
+config/systemd/user/ocrd.socket           ~/.config/systemd/user/ocrd.socket
+config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
+
 # ── 不在同步范围内（有意）────────────────────────────────────────────────
 # ~/.local/share/wineprefixes/wecom/       wine prefix，2GB+，含聊天记录与登录态。
 #                                          新机器用 winapp create/install 重建。

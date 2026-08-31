@@ -1,0 +1,17 @@
+[Unit]
+Description=RapidOCR 常驻识别服务
+Documentation=file://%h/cachyOS-config/docs/10-ocr.md
+# 本服务只由 ocrd.socket 拉起,不该被单独 start(那样它监听不到东西)。
+Requires=ocrd.socket
+After=ocrd.socket
+
+[Service]
+Type=exec
+ExecStart=%h/.local/bin/ocr-server
+
+# 服务自己空闲 600s 就 exit(0) 交还内存(见 ocr-server 的 IDLE_TIMEOUT)。
+# 正常退出不该被当成故障重启 —— 否则它自杀完立刻又被拉起来,白省。
+Restart=on-failure
+RestartSec=2
+
+# 没有 [Install]:生命周期完全由 ocrd.socket 托管,enable 它是没意义的。

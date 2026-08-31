@@ -31,6 +31,23 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 `packages.txt` 末尾的「可选」段落是注释掉的，按需自己装。
 
+**屏幕取字（ocr 模块）的运行时要单独处理** —— `python-rapidocr` 在 AUR，
+而且**不能直接 `yay -S`**（上游 PKGBUILD 的 `makedepends` 写了
+`python-installer>=1.0.1`，Arch 全仓库最新只有 1.0.0，必然报
+`could not find all required packages`）。改好的 PKGBUILD 已经在包里：
+
+```bash
+sudo pacman -S --needed python-onnxruntime-cpu
+cd aur/python-rapidocr && makepkg -si && cd ../..
+
+# 装完锁更新：否则下次 -Syu 会拿官方 PKGBUILD 重建，再撞同一个错
+sudo sed -i 's/^#IgnorePkg\s*=\s*$/IgnorePkg   = python-rapidocr/' /etc/pacman.conf
+```
+
+⚠ 它会连带拉进 opencv 全套（含 vtk 371 MB），共约 936 MB 磁盘。
+不需要屏幕取字就跳过这段，其余模块不受影响（只是按 `Super+Shift+O` 会提示服务连不上）。
+缘由、投毒复核方法见 `aur/README.md`，用法见 `docs/10-ocr.md`。
+
 ### 2. 改登录 shell（需要密码，脚本不代劳）
 
 ```bash
@@ -141,7 +158,7 @@ hyprctl binds -j | jq length     # → 116   （95 = mykeys 没挂上）
 - [ ] `CapsLock` 当 Esc 用（在 nvim 里试最直观）
 - [ ] 打字时鼠标光标自动隐藏，动一下鼠标才回来
 
-### 截图 / 录屏 / 默认打开方式
+### 截图 / 录屏 / 取字 / 默认打开方式
 
 - [ ] `Print` 框选截图 → satty 弹出标注，**同时** `~/Pictures/` 里落了一份原图
       （关掉 satty 不看也应该有文件）
@@ -153,6 +170,18 @@ hyprctl binds -j | jq length     # → 116   （95 = mykeys 没挂上）
 f=$(ls -t ~/Videos/screenrec-*.mp4 | head -1)
 ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"   # 读得出时长 = 没损坏
 ffmpeg -i "$f" -af volumedetect -f null - 2>&1 | grep max_volume  # -91 dB = 当时没声音
+```
+
+- [ ] `Super+Shift+O` 框选一段中文 → 弹「已复制 N 字」通知，`Super+V` 能看到识别结果
+      （**第一次按会等约 1 秒**，服务在加载模型；之后都是 0.3 秒左右，不是卡住了）
+- [ ] `Super+Shift+O` 按下后直接 `Esc` → **不该有任何通知**，也不留临时文件
+- [ ] 框一块**没有文字**的区域（比如纯色壁纸）→ 提示「没识别到文字」，不是「识别失败」
+- [ ] 服务的生命周期正常——socket 常在、service 用完会自己退：
+
+```bash
+systemctl --user status ocrd.socket    # 应当 active (listening)
+systemctl --user status ocrd.service   # 刚用完是 active，闲置 10 分钟后应变成 inactive
+journalctl --user -u ocrd -n 5         # 能看到「模型就绪」「空闲 600s,退出」
 ```
 
 - [ ] 双击图片 → imv 打开，**方向键能翻同目录的其他图**（标题栏显示 `[3/12]` 这样的计数）

@@ -356,7 +356,7 @@ cmd_check() {
     echo
     info "抽查几个敏感位置："
     local d
-    for d in .ssh .gnupg .claude ccconfig Projects hacktools myTestAndSecurity go; do
+    for d in .ssh .gnupg .claude cachyOS-config Projects hacktools myTestAndSecurity go; do
         if bwrap "${bwrap_args[@]}" test -e "$HOME/$d" 2>/dev/null; then
             printf '    \033[31m✗ 可见\033[0m  ~/%s\n' "$d"
         else

@@ -1,0 +1,82 @@
+# Maintainer: aliu <AA RON LIU <GMAIL.COM> >
+pkgname=python-rapidocr
+pkgver=3.9.2
+pkgrel=1
+pkgdesc='Cross-runtime OCR library'
+arch=('any')
+license=('Apache-2.0')
+depends=('python>=3.8'
+	'python-pyclipper>=1.2.0'
+	'python-opencv>=4.5.1.48'
+	'python-numpy>=1.19.5' 'python-numpy<3.0.0'
+	'python-six>=1.15.0'
+	'python-shapely>=1.7.1' #'python-shapely!=2.0.4'
+	'python-yaml'
+	'python-pillow'
+	'python-tqdm'
+	'python-omegaconf'
+	'python-requests'
+	'python-colorlog')
+optdepends=(
+	# Operation requires at least one of these and adjusted engine_type config
+	'python-onnxruntime: Recommended runtime'
+	'python-onnxruntime-cpu: Faster than GPU-accelerated onnxruntime (https://github.com/microsoft/onnxruntime/issues/13198)'
+	'python-openvino: Supported runtime'
+	'python-paddlepaddle: Supported runtime'
+	'python-pytorch: Supported runtime'
+)
+# NOTE(local): 上游写的是 python-installer>=1.0.1，但 Arch 全仓库最新只有 1.0.0，
+# 这个约束在任何地方都满足不了，yay 会直接报「could not find all required packages」。
+# 它只是构建期用来把 wheel 解包进 pkgdir 的工具（见 package() 里的 python -m installer），
+# 1.0.0 完全够用，故在本地放宽。上游修了这行就可以直接用官方 PKGBUILD。
+makedepends=('python-build' 'python-installer' 'python-setuptools')
+url='https://github.com/RapidAI/RapidOCR'
+source=("https://github.com/RapidAI/RapidOCR/archive/v${pkgver}.tar.gz"
+	# models bundled in PyPI wheel, from default_models.yaml
+	"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v${pkgver}/onnx/PP-OCRv6/det/PP-OCRv6_det_small.onnx"
+	"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v${pkgver}/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+	"https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v${pkgver}/onnx/PP-OCRv6/rec/PP-OCRv6_rec_small.onnx"
+	# patch-in version number
+	'pyproject.toml.patch')
+b2sums=('cf5a1b6bd85802bb194777e58a53f20791713630226b76dcd22110c3155a97e6cc37f427a1e88907bd5ed49577bcf410a1b08bf048de7c0b39a97e423d3e6953'
+        '22409f1a00b806c03ceefa0a75bb6c43950e7627f33348944ac769a71b9ee8caa6d3142021a56e0a668a13f9ac14fb3486257293397a1c4c32494ca422b25f82'
+        'f0c251313ce88e8ce74ebc995e3d7488541727ac9d242db4089bef7c131b0a8d59e7a322b592f5f07e5702e8d58e232510103f18438b5cb8cbfbb285cd3290a6'
+        '267c40f15280dcfac6930ef69d3106c950c425c1af76c776eedda4fbba7133676b9490f503a212fe73b97f2fd87808430f49bfc6ffda1eadc1f940d0b2a6a84a'
+        '06fdefd3dd0357eec4b82c84ee12369231c2182e005f4b2053077377014fb538981a5b0fb48fa1b53352b736866a86a2fb3367fcc65ba9f283bd796bd5f252d3')
+
+prepare() {
+	cd "${srcdir}/RapidOCR-${pkgver}/python"
+
+	# Patch in version number without needing to install a nonce dependency
+	# that fetches the version number from git
+	patch < "${srcdir}/pyproject.toml.patch"
+	sed -i "s/VERSION_NUM/\"${pkgver}\"/" pyproject.toml
+
+	rm rapidocr/models/.gitkeep  # i don't like you
+	# From prepare_wheel_assets.py, run by gen_whl_to_pypi_rapidocr GH Action
+	mv "${srcdir}/"*.onnx -t rapidocr/models/
+	cat <<- EOF > MANIFEST.in
+	include rapidocr/models/PP-OCRv6_det_small.onnx
+	include rapidocr/models/ch_ppocr_mobile_v2.0_cls_mobile.onnx
+	include rapidocr/models/PP-OCRv6_rec_small.onnx
+	EOF
+}
+
+build() {
+	cd "${srcdir}/RapidOCR-${pkgver}/python"
+	python -m build --wheel --no-isolation
+}
+
+check() {
+	cd "${srcdir}/RapidOCR-${pkgver}/python/build/lib"
+	PYTHONPATH="$PWD" python -m rapidocr.main check
+}
+
+package() {
+	cd "${srcdir}/RapidOCR-${pkgver}/python"
+	python -m installer --destdir="${pkgdir}" dist/*.whl
+	# Move config file to /etc
+	mkdir -p "${pkgdir}/etc/rapidocr/"
+	mv "${pkgdir}"/usr/lib/python*/site-packages/rapidocr/config.yaml "${pkgdir}"/etc/rapidocr/config.yaml
+	ln -s /etc/rapidocr/config.yaml "$(ls -d "${pkgdir}"/usr/lib/python*/site-packages/rapidocr)/config.yaml"
+}

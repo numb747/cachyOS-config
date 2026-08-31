@@ -19,8 +19,8 @@
 ## 60 秒上手
 
 ```bash
-git clone https://github.com/numb747/cachyOS-config.git ccconfig
-cd ccconfig
+git clone https://github.com/numb747/cachyOS-config.git cachyOS-config
+cd cachyOS-config
 
 sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ./install.sh --dry-run    # 先看会动哪些文件
@@ -47,13 +47,14 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 | 模块 | 内容 | 文档 |
 |---|---|---|
-| **hypr** | Hyprland 键位方案（33 条自定义绑定 → 共 116 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
+| **hypr** | Hyprland 键位方案（35 条自定义绑定 → 共 118 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
 | **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k | [03](docs/03-terminal.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题） | [08](docs/08-claude-code.md) |
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
 | **wine** | `winapp`：每个 Windows 程序一套独立 wine prefix + bubblewrap 沙箱；实例是企业微信 | [09](docs/09-wine-apps.md) |
+| **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
 
 还没装系统？先看 [docs/00-install-os.md](docs/00-install-os.md)（Ventoy 制盘、镜像、CachyOS 取舍）。
 设计原则、模块之间怎么咬合，看 [docs/01-architecture.md](docs/01-architecture.md)。
@@ -89,7 +90,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ## 目录结构
 
 ```
-ccconfig/                  仓库根 = 包本身（没有中间层目录）
+cachyOS-config/                  仓库根 = 包本身（没有中间层目录）
 ├── README.md              ← 你在这
 ├── CLAUDE.md              给 AI 会话的导航（坑清单 + 改配置的正确姿势）
 ├── LICENSE                MIT + 第三方内容（壁纸 / LazyVim）归属声明
@@ -100,14 +101,18 @@ ccconfig/                  仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有文件的 sha256（由 sync.sh 生成）
-├── docs/                  10 篇说明，见上表
+├── docs/                  11 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
-│   └── winapp             wine 应用的独立 prefix + bubblewrap 沙箱工具链
+│   ├── winapp             wine 应用的独立 prefix + bubblewrap 沙箱工具链
+│   ├── ocr-server         屏幕取字的常驻识别服务（RapidOCR，systemd socket 激活）
+│   └── ocr-grab           取字客户端：截图 → 识别 → 剪贴板，Super+Shift/Alt+O 调它
+├── aur/                   改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME）
 ├── claude/                → ~/.claude/（状态栏 / 会话看板 / 宠物 TUI）
 ├── config/                → ~/.config/
 │   ├── hypr/              mykeys.lua + 5 个改过的官方文件 + 对应 .patch
+│   ├── systemd/user/      ocrd.socket / ocrd.service（取字服务，需 enable 才生效）
 │   ├── kitty/  alacritty/ 终端及其主题
 │   ├── nvim/              整套 LazyVim 配置
 │   ├── noctalia/          顶栏与 shell 行为

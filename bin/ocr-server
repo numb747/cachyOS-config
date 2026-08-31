@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+# ocr-server —— RapidOCR 常驻识别服务(由 systemd socket 激活)
+#
+#   POST /ocr   body = 图片二进制(PNG/JPG 皆可) → 200 + 识别出的纯文本
+#                                                  204 = 图里没有文字
+#
+# 为什么要有这么个服务:模型加载(onnxruntime 建图 + 权重载入)要 2~3 秒,而单次
+# 推理只要几十毫秒。normcap 慢就慢在每次按键都重走一遍加载。把加载抽出来放进
+# 常驻进程,按键路径上就只剩推理了。
+#
+# 空闲 IDLE_TIMEOUT 秒后本进程自杀,内存还给系统。监听 socket 由 systemd 持有,
+# 下次按键时 systemd 会重新拉起我们 —— 客户端的 connect 不会被拒,只是那一次
+# 要多等模型加载的 2~3 秒。省内存和零延迟之间的折中,见 docs/10-ocr.md。
+import http.server
+import os
+import re
+import socket
+import socketserver
+import sys
+
+import cv2
+import numpy as np
+from rapidocr import RapidOCR
+
+IDLE_TIMEOUT = 600          # 秒。改这里就是改「空闲多久自动退出」
+FALLBACK_ADDR = ("127.0.0.1", 8265)   # 不走 systemd 直接手跑时用,方便调试
+
+# onnxruntime 的 intra-op 线程数。config.yaml 里默认是 -1（让它自己决定），在这台
+# 24 核机器上反而最慢——小图的线程调度开销盖过了并行收益。2026-08-31 实测：
+#     -1(自动) 265ms ／ 1 线程 363ms ／ 2 线程 225ms ／ 4 线程 151ms ／ 8 线程 143ms
+# 4 和 8 的差距（8ms）在噪声范围内，取 4：省一半 CPU，识别质量完全相同（4/4）。
+THREADS = 4
+
+# ⚠ 不要在这里放大图片。看着「小字放大能提高召回」很合理，实测是反的：
+#   /etc/rapidocr/config.yaml 里 Det 段是 limit_side_len=736 + limit_type=min，
+#   检测模型【内部】就会把短边不足 736px 的图放大到 736。外面再放一次等于连做
+#   两次插值，伪影叠加。2026-08-31 字号扫描实测（逐行完全命中数）：
+#       字号12  原图 3/4 → 2x 放大后 2/4
+#       字号14  原图 4/4 → 2x 放大后 3/4
+#   放大只会更慢更差。这段注释就是为了防止以后又有人「优化」出这个想法。
+
+# 段落收尾标点:出现在行末说明这段话讲完了,哪怕下一行也是中文也不该接上去。
+CLOSING_PUNCT = "。！？；…】》」』）〉、"
+
+# 中英文之间补空格（pangu 那套排版规范）。PP-OCR 的中文识别模型对空格不敏感——
+# 训练语料里中文本来就不带空格——所以「与 English 混排」会识别成「与English混排」。
+# 这里只在【中日韩文字】和【拉丁字母/数字】直接相邻时补，属于把 OCR 丢掉的空格还
+# 回去，不动其它任何位置。不想要就把 PANGU 置 False。
+PANGU = True
+_PANGU_CJK2AZ = re.compile(r"([一-鿿㐀-䶿])([A-Za-z0-9])")
+_PANGU_AZ2CJK = re.compile(r"([A-Za-z0-9])([一-鿿㐀-䶿])")
+
+
+def is_cjk(ch: str) -> bool:
+    """判断是否中日韩表意文字或中文标点。"""
+    o = ord(ch)
+    return (
+        0x4E00 <= o <= 0x9FFF      # CJK 统一表意文字
+        or 0x3400 <= o <= 0x4DBF   # 扩展 A
+        or 0x3000 <= o <= 0x303F   # CJK 标点(、。《》)
+        or 0xFF00 <= o <= 0xFFEF   # 全角字符(：！？)
+    )
+
+
+def join_lines(txts, boxes) -> str:
+    """把 OCR 的「视觉行」拼成人想要的文本。
+
+    OCR 按检测框逐行返回,一段中文正文在网页上被容器宽度折成 5 行,拿到的就是
+    5 个字符串。直接用 \\n 连起来粘到聊天框里会是一堆断行;但如果无脑全合并,
+    截下来的代码和列表就毁了。所以只在「确实是被折行的中文段落」处合并:
+
+      1. 前一行末尾和后一行开头都是中文 —— 英文/代码一律保留换行
+      2. 前一行末尾不是句号问号之类的收尾标点 —— 那是作者主动结束段落
+      3. 前一行的右边界顶到了本次结果的最右侧 —— 说明它是写满了才换行的,
+         而不是作者敲的回车。这一条是关键,少了它「标题 + 正文」会被粘一起。
+    """
+    if not txts:
+        return ""
+    if boxes is None or len(boxes) != len(txts):
+        # 没有几何信息就退化成保守策略:全部保留换行,不猜。
+        return "\n".join(txts)
+
+    rights = [max(p[0] for p in b) for b in boxes]
+    heights = [max(p[1] for p in b) - min(p[1] for p in b) for b in boxes]
+    max_right = max(rights)
+
+    out = [txts[0]]
+    for i in range(1, len(txts)):
+        prev, cur = txts[i - 1].rstrip(), txts[i].lstrip()
+        merge = (
+            prev
+            and cur
+            and is_cjk(prev[-1])
+            and is_cjk(cur[0])
+            and prev[-1] not in CLOSING_PUNCT
+            # 容差取一个字高:右边界差在一个字以内就算「顶到头了」
+            and rights[i - 1] >= max_right - max(heights[i - 1], 1) * 1.5
+        )
+        if merge:
+            out[-1] = out[-1].rstrip() + cur
+        else:
+            out.append(txts[i])
+    return "\n".join(out)
+
+
+def pangu(text: str) -> str:
+    """把 OCR 丢掉的中英文间空格补回来。"""
+    text = _PANGU_CJK2AZ.sub(r"\1 \2", text)
+    return _PANGU_AZ2CJK.sub(r"\1 \2", text)
+
+
+def recognize(engine, raw: bytes) -> str:
+    img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("解不开这段图片数据")
+
+    # 原图直接送进去——不要缩放，理由见顶部 THREADS 下面那段注释。
+    res = engine(img)
+    text = join_lines(res.txts, res.boxes)
+    return pangu(text) if PANGU else text
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    # 用 HTTP/1.0:每次请求后关连接。keep-alive 会让下面的 handle_request()
+    # 循环卡在一条空闲连接上,把「空闲超时自退」这件事拖成永远不触发。
+    protocol_version = "HTTP/1.0"
+    server_version = "ocr-server"
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if not length:
+            self.send_error(400, "empty body")
+            return
+
+        try:
+            text = recognize(self.server.engine, self.rfile.read(length))
+        except Exception as e:                      # noqa: BLE001 —— 服务不能因一张坏图挂掉
+            self.log_error("识别失败: %s", e)
+            self.send_error(500, "ocr failed")
+            return
+
+        if not text.strip():
+            self.send_response(204)                 # 图是好的,只是没有字
+            self.end_headers()
+            return
+
+        body = text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, fmt, *args):
+        # journal 已经带了时间戳和单元名,再打一遍 BaseHTTPRequestHandler 的
+        # 默认前缀就是重复。
+        sys.stderr.write((fmt % args) + "\n")
+
+
+class Server(http.server.HTTPServer):
+    """复用外部传进来的 listening socket,不自己 bind。"""
+
+    def __init__(self, sock, handler):
+        self.engine = None
+        socketserver.BaseServer.__init__(self, sock.getsockname(), handler)
+        self.socket = sock          # 绕过 server_bind/server_activate
+
+    def handle_timeout(self):
+        sys.stderr.write(f"空闲 {IDLE_TIMEOUT}s,退出。socket 仍由 systemd 持有。\n")
+        raise SystemExit(0)
+
+
+def listening_socket() -> socket.socket:
+    """优先接管 systemd 传来的 fd,否则自己监听(手动调试路径)。"""
+    if os.environ.get("LISTEN_PID") == str(os.getpid()) and int(
+        os.environ.get("LISTEN_FDS", 0)
+    ) >= 1:
+        # SD_LISTEN_FDS_START == 3
+        return socket.socket(fileno=3, family=socket.AF_INET, type=socket.SOCK_STREAM)
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(FALLBACK_ADDR)
+    s.listen(16)
+    sys.stderr.write(f"未检测到 systemd socket,自行监听 {FALLBACK_ADDR}\n")
+    return s
+
+
+def main():
+    server = Server(listening_socket(), Handler)
+    server.timeout = IDLE_TIMEOUT
+
+    # 立刻加载,不做懒加载:socket 激活下客户端的 connect 已经被 systemd 接住了,
+    # 它此刻正阻塞等 response —— 早一秒加载完就早一秒回复。
+    server.engine = RapidOCR(
+        params={"EngineConfig.onnxruntime.intra_op_num_threads": THREADS}
+    )
+    sys.stderr.write(f"模型就绪（intra_op_num_threads={THREADS}）\n")
+
+    while True:
+        server.handle_request()     # 超时会走 handle_timeout() → SystemExit
+
+
+if __name__ == "__main__":
+    main()

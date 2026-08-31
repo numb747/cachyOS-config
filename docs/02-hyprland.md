@@ -1,6 +1,6 @@
 # 02 · Hyprland：键位方案与窗口行为
 
-对应文件：`config/hypr/mykeys.lua`（422 行，35 条 `hl.bind`）
+对应文件：`config/hypr/mykeys.lua`（741 行）
 ＋ 3 个改过的官方文件 ＋ `config/hypr/patches/*.patch`
 
 键位纯速查见 [06-keymap-cheatsheet.md](06-keymap-cheatsheet.md)。本篇讲**为什么这么设计**。
@@ -353,6 +353,23 @@ hyprctl reload
 patch 是拿 `/etc/skel/.config/hypr/config/` 的原版做的基准（已核对一致），
 所以升级后只要 skel 那份没大改，patch 就能直接打上。冲突了就手动照上表改五处，都很小。
 
+### 为什么 `decorations.lua` 不在这张表里
+
+它**是 CachyOS 原版**（与 `/etc/skel` 逐字节相同，`diff` 可验）。终端毛玻璃那组
+`decoration.blur` 参数原本全来自它，2026-08-28 搬进了 `mykeys.lua` 第 13 节
+（见 [03 · 毛玻璃](03-terminal.md#毛玻璃模糊是-hyprland-做的kitty-只负责变透明)）。
+
+**能这么搬，是因为改 blur 只需要「增改」不需要「取消」。** 上表五个文件之所以必须动原版，
+共同点是要**撤销官方已经定义的东西**（删 `persistent`、注释掉整个绑定循环）——那是
+`hl.config` 的逐项合并做不到的。而 `decoration.blur` 只是覆盖几个值，
+`hyprland.lua` 里 `require("mykeys")` 又排在所有 `config.*` 之后，后写的赢。
+
+代价为零、收益是**不多欠一份 patch**：官方文件动一个就多一份要在 `pacman -Syu` 之后
+重打的补丁。所以**新需求先问一句「能不能只靠 mykeys.lua 的 hl.config 做到」**，
+能就别碰原版。实测合并粒度够细——第 13 节只写了 `blur`，同文件的 `rounding = 10`、
+`active_opacity = 0.95` 都原样保留（`hyprctl getoption` 验过），
+和第 6b、11 节对 `input` 的观察一致。
+
 ---
 
 ## 开机时先闪一张陌生壁纸
@@ -431,21 +448,38 @@ Wayland 下这些键**应用完全收不到**：
 | `CTRL+1` ~ `CTRL+4` | 浏览器切到第 1~4 个标签页、VS Code 切编辑器分栏 |
 | `ALT+Space` | Windows / 传统 GTK 应用的窗口菜单（Wine 里会感觉到） |
 | `ALT+W` | 带菜单栏应用的「Window」菜单助记键（影响很小） |
+| `ALT+E` | 带菜单栏应用的「Edit」菜单助记键（影响很小） |
 
 **如果这台机器上要用 IDEA / PyCharm / CLion，前两个基本等于废掉。**
 规避：把 `mykeys.lua` 里的 `CONTROL + ALT` 批量换成 `SUPER + ALT`（目前只占了一个 `C` 键）。
 
 ## 被摘掉的官方键位
 
-`mykeys.lua` 第 1 节的七个 `hl.unbind`：
+`mykeys.lua` 第 1 节的八个 `hl.unbind`：
 
 - `SUPER+←/→/↑/↓` —— 原方向切焦点，已由 `CTRL+ALT+HJKL` 接管
 - `SUPER+S` / `SUPER+SHIFT+S` —— 抽屉，已换成 `ALT+S` / `ALT+SHIFT+S`（抽屉架，见上文。
   官方那两个键指向无名的 `special:special`，本配置已完全不用这个名字）
 - `SUPER+Space` —— 启动器，已换成 `ALT+Space`
+- `SUPER+E` —— 文件管理器，已换成 `ALT+E`（2026-08-29，见下）
 
 想留着当备用就把对应 `hl.unbind` 注释掉——但记住 `hl.bind` 是**叠加**不是覆盖，
 不 unbind 就是两套键位并存，不是二选一。
+
+### 为什么文件管理器也回到 ALT（第 14 节）
+
+本配置里 ALT 已经是**动作键**的集合位：`Enter` 全屏、`[` `]` 切桌面、`\` 分屏、
+`T` 新桌面、`W` 关窗、`S` 抽屉、`Space` 启动器、`9` 顶栏。开文件管理器同属「动作」，
+留在 SUPER 上等于每次都要先想一下「这个功能归哪组修饰键」——把它并过来，
+ALT 这一组才是完整的。
+
+做法和第 12 节（启动器 `SUPER+Space` → `ALT+Space`）逐字同构：**只换修饰键，
+命令原样照抄官方**（`launchPrefix .. FILE_MANAGER`），字母 `E` 不动，
+肌肉记忆只是小指 SUPER 换成拇指 ALT。`FILE_MANAGER` 仍走 `config/variables.lua`
+的全局值（当前 `dolphin`），换文件管理器改那一处即可，`mykeys.lua` 不用动。
+
+代价是 `ALT+E` 会吃掉带菜单栏应用的「Edit」菜单助记键，同 `ALT+W` / `ALT+Space`
+一个性质，见上一节。
 
 ## 兼容性前提
 

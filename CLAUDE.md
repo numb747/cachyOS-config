@@ -1,10 +1,10 @@
-# ~/ccconfig —— 桌面配置的单一事实来源
+# ~/cachyOS-config —— 桌面配置的单一事实来源
 
 > **新会话读这一份就够。** 这里是本机（CachyOS + Hyprland）全部桌面配置的归档、文档与
 > 安装器。要改配置、要迁到别的机器、要查「当初为什么这么设」，都从这里开始。
 
 ```
-~/ccconfig/                   ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
+~/cachyOS-config/                   ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
 ├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
 ├── README.md                 人读的总览（GitHub 首页渲染的就是它）
 ├── INSTALL.md                新机器从零到可用 + 验收清单
@@ -15,11 +15,12 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成）
-├── docs/                     10 篇，见下表（配图在 docs/img/）
+├── docs/                     11 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱、ocr-* 屏幕取字）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
+├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
 ├── wallpaper/                参考壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
@@ -27,6 +28,13 @@
 > 2026-08-27 起**没有 `cachyos-desktop-config/` 这层中间目录了**，仓库根就是包本身。
 > 三个脚本都靠 `BASH_SOURCE` 自定位，扁平化对它们透明；唯一改过的是 `sync.sh --pack`
 > （原逻辑是「打包上一级里的那个包目录」，扁平后会把 `.git` 和 `$HOME` 同级内容一起卷进去）。
+>
+> 2026-08-28 目录由 `~/ccconfig` **改名为 `~/cachyOS-config`**，与远程仓库名对齐。
+> 同样靠 `BASH_SOURCE` 自定位，脚本零改动。改名时要跟着动的只有四处硬编码：
+> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、`README.md` 的 clone 示例、
+> 本文件——**`config/hypr/patches/*.patch` 里的绝对路径不用管**，`sync.sh --pull` 会重生成。
+> 另外 `~/.claude.json` 的 `projects` 键是按绝对路径索引的，改名后需手动迁移键名，
+> 否则 Claude Code 把新路径当陌生目录（重弹信任对话框、丢 `allowedTools`）。
 
 ---
 
@@ -37,7 +45,7 @@
 ```bash
 # 1. 正常改 ~/.config/... 下的真实配置，验证效果
 # 2. 收回包里（自动重生成 MANIFEST 和 hypr patch）
-cd ~/ccconfig && ./sync.sh --pull
+cd ~/cachyOS-config && ./sync.sh --pull
 # 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
 ```
 
@@ -69,6 +77,7 @@ cd ~/ccconfig && ./sync.sh --pull
 | 出问题了 | `docs/07-troubleshooting.md` |
 | 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 | `docs/08-claude-code.md` |
 | 在 wine 里跑 Windows 程序 / 企业微信 / 沙箱边界 | `docs/09-wine-apps.md` |
+| 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 
 ---
 
@@ -89,6 +98,18 @@ cd ~/ccconfig && ./sync.sh --pull
    `workspaces` 为纯动态工作区，`windowrules` 为企业微信幽灵窗，`misc` 为关掉内置壁纸）。
    `pacman -Syu` 可能覆盖回去，用 `config/hypr/patches/*.patch` 重打，
    基准是 `/etc/skel/.config/hypr/config/`。（此前文档记的「3 个」是漏了后两个。）
+   **别急着加第 6 个**：只有「要撤销官方已定义的东西」才必须动原版，纯覆盖值一律写进
+   `mykeys.lua`（`require("mykeys")` 排在所有 `config.*` 之后，后写的赢），
+   多动一个原版就多一份升级后要重打的 patch。终端毛玻璃（`decoration.blur`）就是这么
+   处理的 —— `decorations.lua` 至今仍是逐字节原版，见 `docs/02-hyprland.md`。
+   ⚠ 顺带两条 blur 的坑，都在 `docs/03-terminal.md`：**kitty 的 `background_blur`
+   在本机是死选项**（要 KDE blur 扩展协议，Hyprland 不实现）；模糊归 Hyprland、
+   透明度归 kitty 的 `background_opacity`，后者设成 1 模糊会整个消失。
+   blur 参数走**「糊透 + 微压暗」**（`passes=4, size=8, vibrancy=0.5, brightness=0.9`），
+   刻意做成**换壁纸不用重调**的通用值：认不出原图 = 永远不会有亮块压在代码上，
+   氛围靠 `vibrancy` 留色调而非透出图案。⚠ **别再试「降 passes 保留剪影」**——
+   2026-08-28 试过 `passes=1, size=13`，对稀疏 ASCII 壁纸好看，换实心插画立刻
+   「一张脸压在文字上」。保留结构的方案没法通用。见 `docs/03-terminal.md`。
 
 5. **`vim.opt.shell` 必须设在 `lua/config/options.lua`。** 设晚了 toggleterm 在 spec
    构造那一刻就取走了旧值。
@@ -220,14 +241,17 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 ---
 
-## 现状（2026-08-27）
+## 现状（2026-08-31）
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **116** 条；`hyprctl binds -j | jq length` 可验
-  （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的）
-- 截图/录屏：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
-  `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止）
+- Hyprland 绑定 **118** 条；`hyprctl binds -j | jq length` 可验
+  （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
+  2026-08-31 加了 2 条 OCR 键位：116 → 118）
+- 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
+  `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
+  `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
+  三套共用一个分工：**`Shift` = 框选，`Alt` = 整屏**
 - 默认打开方式：图片 → imv（17 类型）· 音视频 → mpv（122 类型），
   见 `config/mimeapps.list`，坑在 `docs/05-theme-ui.md`
 - **抽屉架**（2026-08-26）：`ALT+S` 切换的是**第二套工作平面**，不是单个抽屉。
@@ -260,6 +284,27 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   沙箱白名单只放行 XDG 文档目录，`~/hacktools`、`~/myTestAndSecurity`、`~/Projects`、
   `~/.ssh` 等一律不可见，用 **`winapp check wecom`** 实测边界（它用完全相同的 bwrap
   参数跑 `ls`，不靠口头保证）。坑见坑 14 与 `docs/09-wine-apps.md`
+- **ocr 模块**（2026-08-31 新增，第 8 个）：屏幕取字 `Super+Shift/Alt+O`，
+  **替代 normcap** —— 后者底层是 Tesseract，对屏幕小号中文粘连、漏字，且本机
+  tessdata 连 `eng` 都没装、每次按键还要重新加载模型。现在是 RapidOCR（PP-OCRv6
+  + onnxruntime），模型加载抽进 **systemd socket 激活**的常驻服务，空闲 10 分钟
+  自退把 500 MB 内存还回去。实测：框选 **0.33 s**、冷启动 0.79 s、整屏 1.9 s，
+  14 px 小字**字符零错误**。
+  ★ 这是仓库里**第一个带 systemd 单元的模块** —— `put` 只拷文件，`mod_ocr` 里
+  必须另有 `daemon-reload` + `enable --now ocrd.socket`，否则装了也没反应。
+  ⚠ 三条反直觉的，全在 `docs/10-ocr.md`：
+  **① 别在送进 OCR 前放大图片**（`limit_side_len: 736 / limit_type: min` 决定了检测
+  模型内部就会放大，外面再放一次 = 两次插值，实测字号 14 从 4/4 掉到 3/4）；
+  **② `intra_op_num_threads` 默认 -1 在 24 核上最慢**（265 ms），限到 4 只要 151 ms；
+  **③ 服务必须用 HTTP/1.0** —— keep-alive 会让「空闲自退」永远不触发，症状是功能全对
+  但内存一直赖着。
+  ⚠ 运行时依赖 `python-rapidocr`（AUR）**不能直接 yay 装**：上游 PKGBUILD 写了
+  `makedepends python-installer>=1.0.1`，而 Arch 全仓库最新只有 1.0.0。改过的
+  PKGBUILD 归档在 **`aur/python-rapidocr/`**，连同「怎么复核这个 AUR 包没被投毒」
+  的方法（2026-08-31 与 PyPI 上游 wheel 逐文件比对：90 个文件哈希全一致）写在
+  `aur/README.md`。装完**必须** `IgnorePkg` 锁更新，但那写在 `/etc/pacman.conf`、
+  **不在本包管辖**，换机器要手动加。它还会连带拉进 opencv 全套（含 vtk 371 MB），
+  共约 936 MB
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如

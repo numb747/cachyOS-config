@@ -84,6 +84,23 @@ mpv
 #               它只在 wlroots 系合成器上工作，且 Mesa VAAPI 不支持带 transform（旋转）
 #               的显示器 —— 真要旋转屏录制得换 OBS。
 
+# ── 屏幕取字 / OCR（ocr 模块，Super+Shift/Alt+O）──────────────
+# 替代 normcap。normcap 底层是 Tesseract，对屏幕小号中文粘连、漏字，且每次按键
+# 都要重新加载模型；这套是 RapidOCR（PP-OCRv6）+ onnxruntime，模型常驻。
+# ⚠ 装它会连带拉进 python-opencv 全套（含 vtk 371 MB），合计约 936 MB 磁盘。
+#   Arch 官方没打 headless 版的 opencv，省不掉。
+python-onnxruntime-cpu
+# python-rapidocr (AUR) ★★ 不能直接 yay 装 ★★
+#               上游 PKGBUILD 写了 makedepends 'python-installer>=1.0.1'，而 Arch
+#               全仓库最新只有 1.0.0 —— 这个约束在任何地方都满足不了，yay 直接报
+#               「could not find all required packages」。要 git clone AUR 仓库、
+#               把那行的版本约束去掉，再 makepkg -si。步骤见 docs/10-ocr.md。
+#               装完【务必】把它加进 /etc/pacman.conf 的 IgnorePkg：
+#                 一是自动更新会拿官方 PKGBUILD 重建，必然再撞上同一个错；
+#                 二是它是低关注度 AUR 包（1 票），升级前该重做一遍投毒复核。
+#               ⚠ IgnorePkg 写在 /etc 下，【不在本包管辖范围】，换机器要手动加。
+# tesseract / tesseract-data-*  ← 上一代方案的残留，RapidOCR 落地后可以删
+
 # ── 壁纸工具链 ──────────────────────────────────────────────
 # wallpaper/tokyonight/_ascii.py 用：magick 做裁切/降采样/边缘图，
 # rsvg-convert 把生成的 SVG 光栅化成 4K PNG。不做 ASCII 壁纸可以不装。

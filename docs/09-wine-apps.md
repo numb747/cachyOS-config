@@ -64,7 +64,7 @@ winapp remove  <名字>              删掉 prefix（配置保留）
 
 - **放行**：XDG 文档目录（`Desktop Documents Downloads Music Pictures Videos Public Templates`）、
   该应用自己的 prefix、fontconfig（只读）
-- **自动挡住**：`~/.ssh` `~/.gnupg` `~/.claude` `~/ccconfig` `~/Projects` `~/go`
+- **自动挡住**：`~/.ssh` `~/.gnupg` `~/.claude` `~/cachyOS-config` `~/Projects` `~/go`
   **`~/hacktools` `~/myTestAndSecurity`** 以及所有其他点目录
 
 别口头相信，用 `winapp check wecom` 实测——它用**完全相同**的 bwrap 参数跑 `ls`：
@@ -74,7 +74,7 @@ $ winapp check wecom
 · wecom 在沙箱里能看到的家目录内容：
     .cache  .config  .local  Desktop  Documents  Downloads  Music  Pictures  Public  Templates  Videos
 · 抽查几个敏感位置：
-    ✓ 挡住  ~/.ssh      ✓ 挡住  ~/ccconfig    ✓ 挡住  ~/hacktools
+    ✓ 挡住  ~/.ssh      ✓ 挡住  ~/cachyOS-config    ✓ 挡住  ~/hacktools
     ✓ 挡住  ~/.claude   ✓ 挡住  ~/Projects    ✓ 挡住  ~/myTestAndSecurity
 ```
 

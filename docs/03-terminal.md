@@ -65,6 +65,104 @@ kitty zsh        # 命令行给了程序就会覆盖 shell 那一行
 本包带了一份种子避免首次启动 include 失败，但换壁纸/配色后会被 noctalia 覆盖。
 改配色的正确入口见 [05](05-theme-ui.md)。
 
+### 毛玻璃：模糊是 Hyprland 做的，kitty 只负责「变透明」
+
+这是最容易找错地方的一处——**kitty 在 Wayland 下没有任何模糊能力**。分工是：
+
+| 环节 | 谁做 | 在哪 |
+|---|---|---|
+| 窗口半透明（露出背后） | kitty | `config/kitty/kitty.conf` → `background_opacity 0.6` |
+| 把露出来的东西糊掉 | Hyprland | `config/hypr/mykeys.lua` 第 13 节 → `decoration.blur` |
+| 不让 Hyprland 抢透明度 | Hyprland | `config/hypr/config/windowrules.lua` 终端类 `opacity = "1.0 override"` |
+
+kitty 输出的是一个带 alpha 通道的 surface，Hyprland 检测到 alpha 之后，对该窗口**背后
+的合成结果**跑双 Kawase 模糊。所以把 `background_opacity` 改回 `1`，模糊会**整个消失**
+——合成器无处可糊。反过来，光调 Hyprland 的 blur 而 kitty 不透明，也一样什么都看不到。
+
+第三行那条 window rule 解释了另一个现象：Hyprland 全局设了
+`active_opacity 0.95 / inactive_opacity 0.85`，但终端类被 `1.0 override` 豁免，透明度
+完全交给 kitty 自己的 `0.6` ——**这就是 kitty 聚焦/失焦时不变明暗的原因**。想要终端也跟着
+呼吸，删掉 windowrules 里那一行即可（注意它同时管 ghostty / konsole / alacritty 等）。
+
+⚠️ **kitty 的 `background_blur` 选项在这台机器上是死的。** 它要求合成器实现 KDE 的
+blur 扩展协议，而 Hyprland 不实现（走自己的 alpha 检测路径）。设了不报错、也不生效，
+排查时很容易在这上面绕圈。
+
+**调参入口在 `mykeys.lua` 第 13 节。** 为什么写在那儿而不是官方的 `decorations.lua`，
+见 [02 · 关于官方文件被改动](02-hyprland.md#关于官方文件被改动)。
+
+### 参数策略：糊透 + 微压暗（通用，换壁纸不用重调）
+
+```lua
+passes     = 4      -- 糊到认不出原图，这是可读性的保证
+size       = 8      -- 只决定光晕摊开范围，6~10 差别很小
+noise      = 0.025  -- 压深色大面积的色带 + 一点材质感
+contrast   = 1.0    -- 保持中性，>1 会把糊剩的边缘重新拉出来
+vibrancy   = 0.5    -- ★ 氛围感全靠它，默认 0.17 会把壁纸洗成灰
+brightness = 0.90   -- 微压暗，任何壁纸都不会亮到影响读代码
+```
+
+核心取舍：**认不出原图 = 永远不会有一块亮东西压在代码上。**
+氛围感不靠「透出图案」，靠 `vibrancy` 留住色调——让背景**有色但无形**。
+代价是壁纸再好看也只贡献一团光晕，那是通用性换来的。
+
+各值的完整理由写在 `mykeys.lua` 第 13 节逐行注释里。
+
+### ⚠️ 别再试「保留剪影」那条路
+
+2026-08-28 走过一次弯路，记下来免得重来：
+
+嫌官方 `passes = 4` 糊得太死，去调 `passes = 1, size = 13, brightness = 1.1`
+（降采样只做一次 + 大半径，让壁纸主体的剪影柔和透出来）。**对着当时那张稀疏的
+ASCII art 壁纸确实好看**——人像剪影浮出来但认不出单个字符，很有玻璃压在图上的层次。
+
+然后换成正常插画壁纸（实心、高对比、亮主体），立刻翻车：**一张脸清清楚楚压在文字上**，
+亮块直接盖住整段代码。
+
+结论：**保留结构的方案没法通用，只对「95% 是 flat 深底」的稀疏图成立。**
+想要一组换壁纸不用管的值，就得糊透。这也是为什么 `contrast` 要保持 `1.0`——
+往上调等于把糊剩的边缘重新拉出来，抵消糊透的努力。
+
+顺带一条仍然成立的知识：**Kawase 模糊每加一 pass 就把画面降采样一半**，
+`passes = 4` 等于降到 1/16。所以想让模糊「不那么糊」，要减的是 `passes` 不是 `size`
+——只是在这套配置里我们**不想**要那个效果。
+
+### 调参方法：截图比对，别靠肉眼记忆
+
+运行时试参数用 `hyprctl eval`（Lua 配置下 `hyprctl keyword` 不可用），`hyprctl reload` 还原：
+
+```bash
+hyprctl eval 'hl.config({ decoration = { blur = { size = 20, passes = 2 } } })'
+grim /tmp/blur-test.png          # 立刻截一张
+hyprctl reload                   # 还原
+```
+
+相邻两档的差别很微妙，隔几秒就记不准了，**一定要落盘截图并排看**。
+上面那组值就是这么逐版比出来的（跨两张性质相反的壁纸，试了 size 1/6/8/10/12/13/16
+× passes 1/2/4 共十轮）。
+
+想量化「背景到底还剩多少色」而不是靠眼睛猜：
+
+```bash
+magick /tmp/shot.png -crop 600x400+700+400 -resize 1x1 -format "%[pixel:p{0,0}]" info:
+```
+
+取终端空白区一块，缩成 1 像素读均值，和 kitty 主题的 `background`（`#1f2335`）比。
+差得太少说明壁纸没透出来，差太多说明会干扰文字。
+
+验证生效一律看 `set: true`——`set: false` 是在报默认值，不是你设的：
+
+```bash
+hyprctl getoption decoration:blur:passes   # int: 1 · set: true
+hyprctl getoption decoration:blur:xray     # bool: false · set: false ← 没设过
+```
+
+### 全屏时毛玻璃是浪费的
+
+窗口铺满整屏时，「玻璃悬浮在壁纸上」的层次感不存在了，模糊只等于给终端加了个色调。
+毛玻璃真正好看是在平铺/浮动状态下——`gaps_out` 露出的那圈壁纸和窗口内模糊后的延续
+接得上，才有玻璃压在图上的感觉。本机终端常年全屏，所以这部分收益是拿不到的。
+
 ---
 
 ## alacritty —— 备用终端

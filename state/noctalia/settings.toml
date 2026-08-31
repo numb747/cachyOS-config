@@ -37,12 +37,15 @@ widget_order = [ "lockscreen-login-box@DP-1" ]
         show_unlock_hint = true
         show_weather = true
 
+[shell]
+clipboard_history_max_entries = 300
+
 [theme]
-builtin = "Noctalia"
+builtin = "Nord"
 community_palette = "Tokyo Night Moon"
 mode = "dark"
 source = "community"
-wallpaper_scheme = "soft"
+wallpaper_scheme = "m3-content"
 
 [wallpaper.default]
 path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
