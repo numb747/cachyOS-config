@@ -823,3 +823,55 @@ local ocrCall = "~/.local/bin/ocr-grab "
 
 hl.bind("SUPER + SHIFT + O", hl.dsp.exec_cmd(ocrCall .. "region"))
 hl.bind("SUPER + ALT + O",   hl.dsp.exec_cmd(ocrCall .. "screen"))
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 16. 窗口分组（group）：ALT + G 建组/拆组 ／ CTRL + ALT + SHIFT + G 整屏收组
+--
+--     某个场景窗口数常态堆到 5+，平铺已经不够看，接入 group 当「标签页」。
+--     视觉配色不用改：config/decorations.lua 里 group.col.* / groupbar.col.*
+--     早就是 CachyOS 官方默认值（蓝色组边框 + 组内标签栏）。
+--
+--     ALT+G 是原生 togglegroup，已实测：单窗口按一下变成独立小组；
+--     组内窗口按一下整组解散。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.bind("ALT + G", hl.dsp.group.toggle())
+
+-- 组内标签切换复用现有 CTRL+ALT+HJKL，不新增键位：焦点在组内时优先切标签页，
+-- 不在组里时行为不变。hl.config 是逐项合并（第 6b/11/13 节验证过），
+-- 不会冲掉 cursor/input 里已经设的其他项。
+hl.config({
+    binds = {
+        movefocus_cycles_groupfirst = true,
+    },
+})
+
+-- CTRL+ALT+SHIFT+G：把当前工作区的平铺窗口一键收进一组。
+-- 不用 hl.dsp.group.move_window（参数格式没探明），改用更底层的
+-- HL.Group:add()，确定性更强。键位延续文件里已有的升级模式
+-- （ALT+bracket → SHIFT+bracket，CONTROL+ALT+HJKL → CONTROL+ALT+SHIFT+HJKL）：
+-- 基础动作在 ALT，批量/加强动作多一个 CONTROL+SHIFT。
+local function group_workspace()
+    local mon = hl.get_active_monitor()
+    local ws  = mon and mon.active_workspace
+    if not ws then return end
+
+    local wins = {}
+    for _, w in ipairs(ws:get_windows()) do
+        if not w.floating then wins[#wins + 1] = w end
+    end
+    if #wins < 2 then return end
+
+    if not wins[1].group then
+        hl.dispatch(hl.dsp.focus({ window = wins[1] }))
+        hl.dispatch(hl.dsp.group.toggle())
+    end
+
+    local g = wins[1].group
+    if not g then return end
+    for i = 2, #wins do
+        g:add(wins[i])
+    end
+end
+
+hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)

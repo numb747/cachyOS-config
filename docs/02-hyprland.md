@@ -234,6 +234,71 @@ hyprctl eval 'local f=io.open("/tmp/r","w") f:write(table.concat(RACK.slots(),",
 这是验收时唯一能测到「真正跑着的那份代码」的办法 —— 照抄一遍逻辑去 eval，验的是
 副本不是本体。（`hl.dsp.send_shortcut` 试过，参数形式没试出来，走不通。）
 
+### 窗口分组（group）：类浏览器标签页（第 16 节，2026-09-03）
+
+**触发原因**：某个场景窗口数常态堆到 5+，平铺已经不够看。此前评估过 group（叠组），
+判断「暂不需要」——抽屉架＋全屏轮播＋preselect 已经把价值瓜分完了。现在窗口数
+超过阈值，触发条件成立，正式接入。
+
+三个键：
+
+```lua
+hl.bind("ALT + G", hl.dsp.group.toggle())          -- 建组/拆组
+hl.config({ binds = { movefocus_cycles_groupfirst = true } })  -- 组内标签复用 CTRL+ALT+HJKL
+hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)  -- 整屏收组
+```
+
+视觉配色不用改：`config/decorations.lua` 里 `group.col.*` / `group.groupbar.col.*`
+早就是 CachyOS 官方默认值（蓝色组边框 + 组内标签栏），是官方原版自带的，不是本次加的。
+
+`ALT+G` 是原生 `togglegroup`，实测：单窗口按一下变成独立小组；已在组里的窗口按一下
+**整组解散**（不是只踢走当前这个——要单独踢出一个成员得用 `moveoutofgroup`，本次没绑，
+用 groupbar 上把标签拖出去代替）。
+
+`movefocus_cycles_groupfirst` 让已有的 `CTRL+ALT+HJKL` 兼任组内切标签，零新增键位：
+焦点在组内时优先切组内标签，不在组里时行为不变（`hl.config` 逐项合并，不影响
+`cursor`/`input` 已设的其他项）。
+
+`CTRL+ALT+SHIFT+G` 一键把当前工作区的平铺窗口全收进一组——键位选择延续文件里已有的
+升级模式（`ALT+bracket` → `SHIFT+bracket`，`CONTROL+ALT+HJKL` →
+`CONTROL+ALT+SHIFT+HJKL`）：基础动作在 `ALT`，批量/加强动作多一个 `CONTROL+SHIFT`。
+
+#### 实测出来的 API 约束
+
+`hl.dsp.group.move_window(...)`（大概率对应原生 `moveintogroup`/`moveoutofgroup`）
+**参数格式没探明**——实机测试时传裸字符串方向（`"l"`）静默无效，传 table
+（`{direction="l"}`）在不同状态下一次报错「Window not in a group」、一次仍无效果，
+测试序列还被用户自己的窗口切换打断了，没能测出稳定规律。**没有再继续硬猜**，
+和坑 8 的教训一致：`hl.dsp.*` 不认识的参数键直接静默忽略，猜错了不报错，
+容易做出一个「看着绑上了、按下去却什么都不发生」的死键。
+
+改用更底层、确定性更强的路径实现「整屏收组」，绕开这个不确定 API：
+
+```lua
+local wins = {}
+for _, w in ipairs(ws:get_windows()) do
+    if not w.floating then wins[#wins + 1] = w end
+end
+if not wins[1].group then
+    hl.dispatch(hl.dsp.focus({ window = wins[1] }))  -- 实测：focus 接受窗口对象，不只是 direction/workspace
+    hl.dispatch(hl.dsp.group.toggle())
+end
+local g = wins[1].group
+for i = 2, #wins do
+    g:add(wins[i])       -- HL.Group:add()，直接操作组对象，不经过 dispatcher
+end
+```
+
+两个新发现，都是**实机验证过、当场把两个真实窗口分组成功**的：
+
+1. **`hl.dsp.focus({ window = w })` 接受窗口对象**，不止 `{direction=}` / `{workspace=}`
+   这两种已知形式（`window.move({window=w})` 早就验证过，`focus` 也一样）。
+2. **`HL.Group:add(window)` 在 `hl.dispatch(group.toggle())` 之后立刻可用**——
+   `wins[1].group` 不是过期快照，dispatch 执行完 Lua 侧马上能读到新组对象，
+   同一个函数里不需要额外等待或重新查询。这填上了旧记忆「Lua API 缺
+   `movewindoworgroup`，没法批量分组」那条判断——**当时没找到的不是「做不到」，
+   是「不知道 `HL.Group:add()` 这条路」**，实际上 `Group` 类本身就足够。
+
 ---
 
 ## 纯动态工作区

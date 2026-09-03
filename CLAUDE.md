@@ -241,13 +241,13 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 ---
 
-## 现状（2026-08-31）
+## 现状（2026-09-03）
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **118** 条；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **120** 条；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
-  2026-08-31 加了 2 条 OCR 键位：116 → 118）
+  2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 2 条 group 键位：118 → 120）
 - 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
   `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
@@ -257,6 +257,13 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 - **抽屉架**（2026-08-26）：`ALT+S` 切换的是**第二套工作平面**，不是单个抽屉。
   一组 `special:rack1/rack2/…`，`ALT+[ ] · CTRL+1-4 · ALT+T` 在架内是**模态**的
   （切抽屉格而非工作桌面）。零新增键位。见 `docs/02-hyprland.md`
+- **窗口分组 group**（2026-09-03 新增）：某场景窗口数堆到 5+ 触发接入，此前评估过
+  判断「暂不需要」，触发条件成立才正式加。`ALT+G` 建组/拆组、`CTRL+ALT+SHIFT+G`
+  一键把当前工作区收进一组、`movefocus_cycles_groupfirst=true` 让已有
+  `CTRL+ALT+HJKL` 兼任组内切标签（零新增键位）。视觉配色是官方默认值，没改。
+  ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，批量分组改走
+  `HL.Group:add()` 直接操作组对象绕开它——比 `hl.dsp.*` 的 dispatcher 更底层、
+  确定性更强，见 `docs/02-hyprland.md`
 - nvim **44 装 / 45 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
 - 输入法：fcitx5 5.1.21 + rime，自制 `tokyonight` 主题；中文字体走
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
