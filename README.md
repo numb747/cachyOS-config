@@ -19,7 +19,7 @@
 ## 60 秒上手
 
 ```bash
-git clone https://github.com/numb747/cachyOS-config.git cachyOS-config
+git clone https://github.com/numb747/cachyOS-config.git
 cd cachyOS-config
 
 sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
@@ -90,7 +90,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ## 目录结构
 
 ```
-cachyOS-config/                  仓库根 = 包本身（没有中间层目录）
+cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── README.md              ← 你在这
 ├── CLAUDE.md              给 AI 会话的导航（坑清单 + 改配置的正确姿势）
 ├── LICENSE                MIT + 第三方内容（壁纸 / LazyVim）归属声明

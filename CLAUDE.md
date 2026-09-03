@@ -3,8 +3,11 @@
 > **新会话读这一份就够。** 这里是本机（CachyOS + Hyprland）全部桌面配置的归档、文档与
 > 安装器。要改配置、要迁到别的机器、要查「当初为什么这么设」，都从这里开始。
 
+> ⚠ 这份检出跑在**笔记本**上、包是从**源机器**打的，有 6 个文件永远显示「不一致」
+> 且**两个操作被禁止**（`sync.sh --pull`、裸 `install.sh`）——见「本机与源机的差异」一节。
+
 ```
-~/cachyOS-config/                   ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
+~/cachyOS-config/             ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
 ├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
 ├── README.md                 人读的总览（GitHub 首页渲染的就是它）
 ├── INSTALL.md                新机器从零到可用 + 验收清单
@@ -21,7 +24,7 @@
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
 ├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
-├── wallpaper/                参考壁纸 + ASCII 成品 + 壁纸库生成脚本
+├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
 
@@ -61,6 +64,10 @@ cd ~/cachyOS-config && ./sync.sh --pull
 
 **新增一个要纳管的配置文件**：只改 `manifest.map` 一行，三个脚本自动跟上。
 
+> ⚠ **上面这套姿势只适用于源机器。** 如果你是在 `/home/monkey/cachyOS-config` 这份
+> 检出里（笔记本），`./sync.sh --pull` 和不带参数的 `./install.sh` 都是**禁止操作**，
+> 理由见下面「本机与源机的差异」一节。
+
 ---
 
 ## 文档索引 —— 按你要解决的问题找
@@ -78,6 +85,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 | `docs/08-claude-code.md` |
 | 在 wine 里跑 Windows 程序 / 企业微信 / 沙箱边界 | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
+| 搞清楚本机（笔记本）哪些文件不能跟包同步 | 本文「本机与源机的差异」一节 |
 
 ---
 
@@ -227,7 +235,9 @@ cd ~/cachyOS-config && ./sync.sh --pull
 `~/.config/noctalia/storage.key`（剪贴板历史的加密主密钥 —— 引用它的
 `config.toml` 正常入包，**密钥本身不入**；新机器按 `docs/05` 重新生成即可，
 代价只是旧历史读不出来）·
-`~/.local/share/fcitx5/rime/`（个人词库）· 壁纸全库（166 MB，只带一张参考图 + 拉取脚本）·
+`~/.local/share/fcitx5/rime/`（个人词库）· 壁纸全库（本机 273 MB / 51 张，只带
+**两张**成品：`11-w55gjr.png` 参考图 + `wallhaven-kxwp96.jpg` 当前在用的那张，
+其余靠 `wallpaper/tokyonight/_fetch.py` 重新拉）·
 `~/.zsh_history` ·
 `~/.local/share/wineprefixes/`（wine prefix，企业微信那个 2 GB+，含聊天记录与登录态；
 新机器用 `winapp create/install` 重建，见 `docs/09`）·
@@ -238,6 +248,81 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ```bash
 grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 ```
+
+---
+
+## 本机与源机的差异（2026-08-27，只对 `/home/monkey/cachyOS-config` 这份检出成立）
+
+包是从**源机器**（用户 `david`，2560×1440 / 27" 外接显示器 `DP-1` / scale 1）打出来的。
+本机是**笔记本**（用户 `monkey`，1920×1080 / 15.5" 内置屏 `eDP-1` / scale 1.5）。
+两台机器的硬件参数不同，有 6 个文件**线上版本是对的、包里版本是错的**，
+`./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
+
+| 文件 | 本机（正确） | 包里（源机） | 为什么不能同步 |
+|---|---|---|---|
+| `~/.config/kitty/kitty.conf` | `font_size 10.0` | `12.5` | 本机 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
+| `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
+| `~/.config/hypr/config/misc.lua` | `background_color = rgb(040509)` | `rgb(1a1b26)` | 主色取自**当前壁纸**，本机是 `wallhaven-kxwp96.jpg`（`#040509` 占 84%），源机是那张 ASCII 图 |
+| `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + 本机壁纸路径 | 只有 `DP-1` | 覆盖会丢掉笔记本屏的锁屏配置，壁纸也会指向不存在的路径 |
+| `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
+| `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，见坑说明 |
+
+### 两个禁止操作
+
+1. **不要跑 `./sync.sh --pull`。** 它会把上面这 6 项**反向写死进包**——笔记本字号、
+   `eDP-1`、`/home/monkey` 硬路径全部进 git，推上去就污染源机器的配置。
+   要往包里回收改动，只能挑**单个文件**手工来。
+2. **不要跑不带参数的 `./install.sh`。** `mod_term` 会 put `kitty.conf`、
+   `mod_nvim` 是**整目录 mv 走再替换**、`mod_ui` 的 `put_module ui` 含 `settings.toml`
+   —— 三个模块各自会把上表对应项打回源机的值（有 `.bak-*` 备份，但等你发现字变大了
+   才想起来就晚了）。**安全的是 `./install.sh hypr cc`**；`term` / `nvim` / `ui`
+   要装就先看 `./sync.sh --diff`，手工只搬新增的段。
+
+### 本机已补齐的、包带不了的东西
+
+- `~/.config/noctalia/storage.key`（2026-08-27 生成，64 位 hex / 0600）——
+  剪贴板历史落盘的主密钥，**不入包**。验收信号是日志里的
+  `[clipboard] loaded encrypted clipboard history`，别看 `noctalia config export`（坑 9）。
+- ⚠ **待办**：`/etc/polkit-1/rules.d/49-noctalia-greeter.rules` 还没建（要 sudo）。
+  没有它 `privilege_command = "pkexec"` 只是换了个提权程序，换壁纸/主题**照样弹密码框**。
+  内容见 `docs/05-theme-ui.md`；验收 `pkcheck --action-id
+  org.noctalia.greeter.apply-appearance --process $$` 应从 `auth_admin` 变 `yes`。
+- `wine` 模块**有意未装**（本机没装 wine）：`winapp` / `wecom.conf` / `wecom.desktop` /
+  `wecom.png` 四个文件在 `./sync.sh` 里报「系统上不存在」，是预期。
+  `packages.txt` 里缺的也正好是这 4 个包（`wine-staging` / `wine-mono` / `wine-gecko` /
+  `winetricks`），其余全装了。
+- ⚠ **接外接显示器时会踩**：`~/.local/state/noctalia/settings.toml` 的
+  `[wallpaper.monitors.DP-1]` still 指向 `D-ASCII/a1-紫调少女.png`，而本机
+  `D-ASCII/` 下只有 a3 / a6 / a7 / a9，**没有 a1**。现在无影响（本机是 eDP-1），
+  但一接 DP-1 那块屏就是纯色背景、且不报错。届时在 noctalia 里给它重选一张即可。
+- ★ **「Mason 语言工具链未装齐」那条待办对本机不成立**（文末「现状」记的是源机器）。
+  本机运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
+  （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
+  别照着那条去「补装」。
+
+### `MANIFEST.txt` 在本机是过期的，别拿它验包
+
+它只由 `./sync.sh --pull` 生成，而 `--pull` 在本机是禁止操作（见上），所以**本机改了包内
+文件后它不会更新**，`sha256sum -c` 必然一片 FAILED。这不是包损坏。
+
+它本身还有个上游缺陷（扁平化的后遗症，同 `--pack` 那条）：`find . -type f` 从仓库根跑，
+把 **35 条 `.git/` 条目**也收了进去 —— 那些每次提交都变，永远校验不过；
+另外还记着两个 `.snapshots/*.tar.gz`，那是 gitignore 的产物，检出里根本不存在。
+159 条里只有 122 条对应真实包内文件。真要验完整性，得先滤掉：
+
+```bash
+grep -v '^#' MANIFEST.txt | grep -v '  \.git/' | grep -v '  \.snapshots/' | sha256sum -c -
+```
+
+### 备份放在哪（2026-08-27 整理）
+
+家目录根上的旧备份已集中到 `~/.local/state/config-backups/`（0700，里面有明文 token），
+那儿的 `README.txt` 记了内容清单。2026-08-26 的旧解包快照 `~/cccconfig/` 已删除
+（逐文件核验过是本仓库的子集）。**现在本机只有 `~/cachyOS-config` 一份配置源。**
+
+⚠ 但 `~/.config` / `~/.claude` 下那 17 个 `<文件名>.bak-时间戳` **原地保留、别归档**：
+`uninstall.sh` 的 `latest_bak()` 是在**目标文件旁边**找它们的，挪走等于废掉回滚。
+看回滚点用 `./uninstall.sh --list-baks`。
 
 ---
 

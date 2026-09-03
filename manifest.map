@@ -108,6 +108,14 @@ claude/pty_drive.py                       ~/.claude/pty_drive.py
 claude/probe_multiq.py                    ~/.claude/probe_multiq.py
 
 #@module wall
+# 当前正在用的那张（wallhaven kxwp96，3840x2160）。放在库根而不是 tokyonight/ 下，
+# 因为它不属于那个色系库，就是一张单独挑的图。
+# ★ 包内文件名必须和系统上的一致：state/noctalia/settings.toml 的
+#   [wallpaper.*] path 是【绝对路径字面量】，改名就等于让 noctalia 找不到图、
+#   退回纯色背景，而且不报错。
+# ★ 换掉这张的话，config/hypr/config/misc.lua 的 background_color 要重新采样
+#   （开机空档的纯色底要跟壁纸同色系），命令见那个文件的注释。
+wallpaper/wallhaven-kxwp96.jpg            ~/Pictures/Wallpapers/wallhaven-kxwp96.jpg
 wallpaper/tokyonight/_fetch.py            ~/Pictures/Wallpapers/tokyonight/_fetch.py
 wallpaper/tokyonight/_fetch2.py           ~/Pictures/Wallpapers/tokyonight/_fetch2.py
 wallpaper/tokyonight/_build.py            ~/Pictures/Wallpapers/tokyonight/_build.py
