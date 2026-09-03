@@ -243,7 +243,8 @@ hyprctl eval 'local f=io.open("/tmp/r","w") f:write(table.concat(RACK.slots(),",
 三个键：
 
 ```lua
-hl.bind("ALT + G", hl.dsp.group.toggle())          -- 建组/拆组
+hl.bind("ALT + G", hl.dsp.group.toggle())          -- 建组/拆组（整组解散）
+hl.bind("ALT + SHIFT + G", function() ... end)     -- 踢出当前这一个，其余保留
 hl.config({ binds = { movefocus_cycles_groupfirst = true } })  -- 组内标签复用 CTRL+ALT+HJKL
 hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)  -- 整屏收组
 ```
@@ -252,8 +253,8 @@ hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)  -- 整屏收组
 早就是 CachyOS 官方默认值（蓝色组边框 + 组内标签栏），是官方原版自带的，不是本次加的。
 
 `ALT+G` 是原生 `togglegroup`，实测：单窗口按一下变成独立小组；已在组里的窗口按一下
-**整组解散**（不是只踢走当前这个——要单独踢出一个成员得用 `moveoutofgroup`，本次没绑，
-用 groupbar 上把标签拖出去代替）。
+**整组解散**（不是只踢走当前这个）。「只踢走当前这个、其余保留」是另一个动作，
+补在 `ALT+SHIFT+G`——理由和实现见下面的 API 约束一节。
 
 `movefocus_cycles_groupfirst` 让已有的 `CTRL+ALT+HJKL` 兼任组内切标签，零新增键位：
 焦点在组内时优先切组内标签，不在组里时行为不变（`hl.config` 逐项合并，不影响
@@ -262,6 +263,10 @@ hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)  -- 整屏收组
 `CTRL+ALT+SHIFT+G` 一键把当前工作区的平铺窗口全收进一组——键位选择延续文件里已有的
 升级模式（`ALT+bracket` → `SHIFT+bracket`，`CONTROL+ALT+HJKL` →
 `CONTROL+ALT+SHIFT+HJKL`）：基础动作在 `ALT`，批量/加强动作多一个 `CONTROL+SHIFT`。
+`ALT+SHIFT+G` 走的是另一条已有惯例——`ALT+SHIFT+X` 在本文件里一贯是「针对当前窗口的
+动作变体」（`ALT+SHIFT+[ ]` 带窗口切桌面、`ALT+SHIFT+T` 带窗口去新桌面、
+`ALT+SHIFT+S` 藏窗口），这里跟着同一模式：`ALT+G` 对整个组动手，
+`ALT+SHIFT+G` 只对当前窗口动手。
 
 #### 实测出来的 API 约束
 
@@ -272,7 +277,7 @@ hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)  -- 整屏收组
 和坑 8 的教训一致：`hl.dsp.*` 不认识的参数键直接静默忽略，猜错了不报错，
 容易做出一个「看着绑上了、按下去却什么都不发生」的死键。
 
-改用更底层、确定性更强的路径实现「整屏收组」，绕开这个不确定 API：
+改用更底层、确定性更强的路径实现「整屏收组」和「踢出单个」，绕开这个不确定 API：
 
 ```lua
 local wins = {}
@@ -289,7 +294,15 @@ for i = 2, #wins do
 end
 ```
 
-两个新发现，都是**实机验证过、当场把两个真实窗口分组成功**的：
+```lua
+-- 踢出单个：ALT+SHIFT+G
+local w = hl.get_active_window()
+if w and w.group then
+    w.group:remove(w)    -- HL.Group:remove()，和 add() 对称
+end
+```
+
+三个新发现，都是**实机验证过、在真实窗口上跑成功**的：
 
 1. **`hl.dsp.focus({ window = w })` 接受窗口对象**，不止 `{direction=}` / `{workspace=}`
    这两种已知形式（`window.move({window=w})` 早就验证过，`focus` 也一样）。
@@ -298,6 +311,12 @@ end
    同一个函数里不需要额外等待或重新查询。这填上了旧记忆「Lua API 缺
    `movewindoworgroup`，没法批量分组」那条判断——**当时没找到的不是「做不到」，
    是「不知道 `HL.Group:add()` 这条路」**，实际上 `Group` 类本身就足够。
+3. **`HL.Group:remove(window)` 和 `:add()` 对称、同样可靠。** 在一个真实的
+   4 窗口组上验证过完整往返：`remove` 一个 → `size` 4→3、其余 3 个不受影响 →
+   `add` 回去 → `size` 3→4，恢复原状。`add`/`remove` 这一对方法比
+   `togglegroup`（只会整组解散）/ 参数不明的 `move_window` 更适合做「单个进出组」
+   这类精细操作——**优先走 `Group` 对象的方法，而不是猜 dispatcher 参数**，
+   是这次接入 group 摸出来的通用经验。
 
 ---
 

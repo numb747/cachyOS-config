@@ -826,16 +826,32 @@ hl.bind("SUPER + ALT + O",   hl.dsp.exec_cmd(ocrCall .. "screen"))
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 16. 窗口分组（group）：ALT + G 建组/拆组 ／ CTRL + ALT + SHIFT + G 整屏收组
+-- 16. 窗口分组（group）：ALT+G 建组/拆组 ／ ALT+SHIFT+G 踢出单个 ／
+--     CTRL+ALT+SHIFT+G 整屏收组
 --
 --     某个场景窗口数常态堆到 5+，平铺已经不够看，接入 group 当「标签页」。
 --     视觉配色不用改：config/decorations.lua 里 group.col.* / groupbar.col.*
 --     早就是 CachyOS 官方默认值（蓝色组边框 + 组内标签栏）。
 --
 --     ALT+G 是原生 togglegroup，已实测：单窗口按一下变成独立小组；
---     组内窗口按一下整组解散。
+--     组内窗口按一下【整组解散】——不是只踢走当前这个。
+--     只踢出一个、其余保留是另一个动作，见下面 ALT+SHIFT+G。
 -- ────────────────────────────────────────────────────────────────────────────
 hl.bind("ALT + G", hl.dsp.group.toggle())
+
+-- ALT+SHIFT+G：把当前窗口踢出所在组，其余成员不受影响（同 ALT+G 的「整组解散」
+-- 互补）。同第 17 行以下 CTRL+ALT+SHIFT+G 一样，不用 hl.dsp.group.move_window
+-- （参数格式没探明），改用 HL.Group:remove() —— 跟 :add() 对称，同样实测可靠：
+-- 亲测在一个 4 窗口的真实组上 remove 一个、size 4→3，再 add 回去 3→4，
+-- 中途组里剩下的窗口没受影响。
+-- 键位理由：ALT+SHIFT+X 在本文件里一贯是「针对当前窗口的动作变体」
+-- （ALT+SHIFT+[ ] 带窗口切桌面、ALT+SHIFT+T 带窗口去新桌面、ALT+SHIFT+S 藏窗口），
+-- 这里跟着同一个模式：ALT+G 对整个组动手，ALT+SHIFT+G 只对当前窗口动手。
+hl.bind("ALT + SHIFT + G", function()
+    local w = hl.get_active_window()
+    if not w or not w.group then return end
+    w.group:remove(w)
+end)
 
 -- 组内标签切换复用现有 CTRL+ALT+HJKL，不新增键位：焦点在组内时优先切标签页，
 -- 不在组里时行为不变。hl.config 是逐项合并（第 6b/11/13 节验证过），
