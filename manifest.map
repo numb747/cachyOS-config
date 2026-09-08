@@ -136,6 +136,8 @@ share/icons/wecom.png                     ~/.local/share/icons/hicolor/256x256/a
 #   并且已被 IgnorePkg 锁更新。整套缘由和重装步骤见 docs/10-ocr.md。
 bin/ocr-server                            ~/.local/bin/ocr-server
 bin/ocr-grab                              ~/.local/bin/ocr-grab
+bin/theme-switch                          ~/.local/bin/theme-switch
+bin/theme-preview                         ~/.local/bin/theme-preview
 config/systemd/user/ocrd.socket           ~/.config/systemd/user/ocrd.socket
 config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
 
@@ -150,5 +152,7 @@ config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
 # config/nvim/lua/plugins/example.lua      LazyVim 自带样例，从不改
 # share/fcitx5/themes/tokyonight/.src/     SVG 源与 render.sh，只在包里，不装到系统
 # docs/img/*.png                           文档配图，同上
+# bin/theme-switch                         主题循环切换脚本（Super+Shift+T 触发）
+# bin/theme-preview                        当前主题片单即时翻墙纸（Super+I）
 # ~/.ssh ~/.gnupg ~/.claude/settings.json  含密钥，永不入包
 # ~/.local/share/fcitx5/rime/              个人词库，体积不定

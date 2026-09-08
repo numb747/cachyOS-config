@@ -891,3 +891,29 @@ local function group_workspace()
 end
 
 hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+--  16. 主题循环切换：壁纸 + 全桌配色一键换（theme-switch）
+--      SUPER + SHIFT + T
+--      ★ 必须用绝对路径 —— Hyprland 的 exec 环境 PATH 不含 ~/.local/bin，
+--        theme-switch 放在 ~/.local/bin 里，裸名会被 exec 找不到而静默失败。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.unbind("SUPER + SHIFT + T")
+hl.bind("SUPER + SHIFT + T",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-switch"))
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+--  17. 即时预览：当前主题片单内逐张翻墙纸（theme-preview）
+--      SUPER + I         下一张（I = image）
+--      SUPER + SHIFT + I 上一张
+--      只翻本主题目录的片单图，不串到别的主题。纯 IPC，零延迟。
+--      ★ 绝对路径，理由同第 16 节（Hyprland PATH 不含 ~/.local/bin）。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.unbind("SUPER + I")
+hl.bind("SUPER + I",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-preview"))
+hl.unbind("SUPER + SHIFT + I")
+hl.bind("SUPER + SHIFT + I",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-preview prev"))

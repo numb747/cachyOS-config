@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# theme-switch —— 一键循环切换「精选主题」，每个主题 = 一张同调壁纸 + 官方调色板
+#
+# 用法:
+#   theme-switch            切到下一个主题（按 Super+Shift+T 循环）
+#   theme-switch rosepine   直接跳到指定主题
+#
+# 添加新主题:
+#   1) mkdir -p ~/Pictures/Wallpapers/<theme>/   放精选壁纸（子目录也可以）
+#   2) 放调色板 JSON 到 ~/.local/state/noctalia/community-palettes/<Name>.json
+#   3) 在 THEMES 数组加一行
+#
+# 纯 IPC，无 rofi/fzf/dmenu 依赖——在你机器上按一次就换，配色和壁纸一起变。
+set -euo pipefail
+
+WALLPAPER_ROOT="$HOME/Pictures/Wallpapers"
+STATE="$HOME/.local/state/noctalia/settings.toml"
+
+# theme-slug:壁纸目录名      palette-name:noctalia 社区调色板名
+THEMES=(
+  "tokyonight|Tokyo Night Moon"
+  "rosepine|Rose Pine Moon"
+  "everforest|Everforest"
+  "dracula|Dracula"
+  "oxocarbon|Oxocarbon"
+)
+
+current_theme() {
+  # 读出 settings.toml 里现在的 community_palette，反推出对应 slug
+  local palette
+  palette=$(grep -E '^\s*community_palette\s*=' "$STATE" 2>/dev/null | head -1 | sed -E 's/.*=\s*"([^"]+)".*/\1/')
+  for entry in "${THEMES[@]}"; do
+    local slug="${entry%%|*}" name="${entry#*|}"
+    [[ "$name" == "$palette" ]] && echo "$slug" && return 0
+  done
+  echo "${THEMES[0]%%|*}"   # 认不出就从头开始
+}
+
+list_images() {
+  # 主题目录下递归列图片（tokyonight 是「主题/分类/图片」两层，A-最搭/B-可选…）
+  find "$WALLPAPER_ROOT/$1" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) 2>/dev/null
+}
+
+next_wallpaper() {
+  # 在当前主题目录里循环：从 settings.toml 记录的当前位置往后走一张
+  local slug="$1" cur cur_path
+  cur_path=$(grep -A1 -E '^\[wallpaper\.default\]' "$STATE" 2>/dev/null | grep -E '^\s*path\s*=' | head -1 | sed -E 's/.*=\s*"([^"]+)".*/\1/')
+  mapfile -t imgs < <(list_images "$slug")
+  if [[ ${#imgs[@]} -eq 0 ]]; then
+    echo "✗ 壁纸目录为空: $WALLPAPER_ROOT/$slug（放几张图进去才能换）" >&2
+    exit 1
+  fi
+  cur=""
+  for i in "${!imgs[@]}"; do
+    [[ "${imgs[$i]}" == "$cur_path" ]] && cur="$i" && break
+  done
+  # 找不到当前位置就从 0 开始；找到就 +1
+  if [[ -z "$cur" ]]; then
+    printf '%s\n' "${imgs[0]}"
+  else
+    printf '%s\n' "${imgs[$(( (cur + 1) % ${#imgs[@]} ))]}"
+  fi
+}
+
+apply() {
+  local wallpaper="$1" palette="$2"
+  noctalia msg wallpaper-set "$wallpaper" >/dev/null     # 持久到 settings.toml 的 monitor/默认壁纸
+  noctalia msg color-scheme-set community "$palette" >/dev/null   # 人工精选调色板
+  noctalia msg templates-apply >/dev/null                # 渲染 gtk/kitty/btop/qt/alacritty
+  noctalia msg config-reload >/dev/null                  # 刷新 bar
+  noctalia msg greeter-sync >/dev/null 2>&1 || true      # 锁屏同步
+  echo "✓ $palette"
+}
+
+target="${1:-}"
+if [[ -z "$target" ]]; then
+  target=$(current_theme)
+  # 循环到下一个
+  for i in "${!THEMES[@]}"; do
+    if [[ "${THEMES[$i]%%|*}" == "$target" ]]; then
+      target="${THEMES[$(( (i + 1) % ${#THEMES[@]} ))]%%|*}"
+      break
+    fi
+  done
+fi
+
+palette=""
+for entry in "${THEMES[@]}"; do
+  if [[ "${entry%%|*}" == "$target" ]]; then palette="${entry#*|}"; break; fi
+done
+[[ -z "$palette" ]] && { echo "未知主题: $target" >&2; exit 1; }
+[[ -d "$WALLPAPER_ROOT/$target" ]] || { echo "缺少壁纸目录: $WALLPAPER_ROOT/$target" >&2; exit 1; }
+
+wp=$(next_wallpaper "$target")
+apply "$wp" "$palette"
+echo "  壁纸: $wp"
