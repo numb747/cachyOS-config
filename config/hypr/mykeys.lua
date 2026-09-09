@@ -403,23 +403,41 @@ hl.bind("ALT + W", hl.dsp.window.close())
 
 
 -- ────────────────────────────────────────────────────────────────────────────
---  9. 顶部栏显示/隐藏：ALT + 9
+--  9. 顶部栏显示/隐藏：ALT + 9，切工作区时再自动弹一下
 --
 --     顶部栏归 noctalia 管（layer 名 noctalia-bar-default），不是 Hyprland 的
 --     东西，所以走它的 IPC 而不是 hyprctl。
 --
 --     noctalia msg 的相关命令（noctalia msg --help 可看全集）：
---         bar-toggle          切换显示/隐藏  ← 这里用的
---         bar-hide / bar-show 单向隐藏／显示，并释放其占用的布局间距
+--         bar-toggle          切换显示/隐藏  ← ALT+9 用的
+--         bar-hide / bar-show 单向隐藏／显示，并释放其占用的布局间距  ← 下面自动弹出用的
 --         bar-reserve-toggle  栏保留可见，但不再为它预留空间（窗口顶上去）
 --         bar-auto-hide-set   自动隐藏模式，鼠标移到边缘才浮出
 --
 --     注意 noctalia msg 是发 IPC 消息，不是拉起应用，所以不加 uwsm 前缀
 --     （与官方 binds.lua 里 noctCall 的用法一致）。
+--
+--     noctalia 配置里 [bar.default] 的 auto_hide / smart_auto_hide 都关了——
+--     两者都自带"指针到达顶部边缘即触发 reveal"的命中条，鼠标划过顶部去点
+--     标签页之类的操作很容易被误触发弹出。改成下面这样纯 IPC 手动控制：
+--     启动时收起，只有切工作区那一下会弹出 1.5 秒，其余任何时候都不会自己冒出来。
 -- ────────────────────────────────────────────────────────────────────────────
 local noctCall = "noctalia msg "
 
 hl.bind("ALT + 9", hl.dsp.exec_cmd(noctCall .. "bar-toggle"))
+
+hl.on("hyprland.start", function()
+    hl.timer(function() hl.exec_cmd(noctCall .. "bar-hide") end,
+        { timeout = 1000, type = "oneshot" })
+end)
+
+local barRevealTimer = nil
+hl.on("workspace.active", function()
+    hl.exec_cmd(noctCall .. "bar-show")
+    if barRevealTimer then barRevealTimer:set_enabled(false) end
+    barRevealTimer = hl.timer(function() hl.exec_cmd(noctCall .. "bar-hide") end,
+        { timeout = 1500, type = "oneshot" })
+end)
 
 
 -- ════════════════════════════════════════════════════════════════════════════

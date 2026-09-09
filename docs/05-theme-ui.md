@@ -143,7 +143,7 @@ ls /usr/lib/libreoffice/program/libvclplug_*.so
 
 | 键 | 值 | 效果 |
 |---|---|---|
-| `auto_hide` + `smart_auto_hide` | true | 平时收起，鼠标移到顶边才浮出；有窗口遮挡时才隐藏 |
+| `auto_hide` + `smart_auto_hide` | false / false | 2026-09-09 起关闭：两者都自带"指针到达顶边即 reveal"的命中条，鼠标划过顶部点标签页之类操作很容易被误触发弹出。改成纯 IPC 手动控制（见下） |
 | `reserve_space` | false | 不为它预留布局空间，窗口可以顶到屏幕最上沿 |
 | `thickness` / `scale` | 35 / 1.10 | 栏高与栏内元素缩放 |
 | `radius_bottom_*` / `concave_edge_corners` | 12 / true | 下方两角圆角，边缘内凹 |
@@ -157,6 +157,11 @@ capsule。多数 widget 设了 `color = "secondary"`，电源键是 `error`（�
 
 `ALT+9` 手动开合顶栏（走 `noctalia msg bar-toggle`，见 [02](02-hyprland.md)）。
 其他相关 IPC：`bar-hide` / `bar-show` / `bar-reserve-toggle` / `bar-auto-hide-set`。
+
+顶栏默认收着，只在切工作区时用 `bar-show` 弹出 1.5 秒后 `bar-hide` 自动收回——
+逻辑在 `~/.config/hypr/mykeys.lua` 第 9 节（`hl.on("workspace.active", ...)` +
+`hl.timer`），不是 noctalia 自带能力，也不放官方 `config/*.lua` 里，理由同
+[02](02-hyprland.md) 的 mykeys.lua 设计。
 
 ### 截图 → satty
 

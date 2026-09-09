@@ -1,8 +1,13 @@
 [accessibility]
 ui_scale = 1.20
 
+# auto_hide/smart_auto_hide 都关掉：两者都自带"指针到达顶部边缘即触发
+# reveal"的 hit-test 条，鼠标去点浏览器标签页之类贴着顶部的 UI 时会被误
+# 触发弹出。改为纯 IPC 手动控制，逻辑在 ~/.config/hypr/mykeys.lua 第 9 节：
+# ALT+9 手动切换，切工作区时 `noctalia msg bar-show` 弹一下、1.5 秒后
+# `bar-hide` 自动收回。
 [bar.default]
-auto_hide = true
+auto_hide = false
 center = [ "workspaces", "spacer_1", "active_window" ]
 concave_edge_corners = true
 end = [ "media", "spacer_1", "tray", "notifications", "network", "volume", "session" ]
@@ -14,7 +19,7 @@ radius_top_left = 0
 radius_top_right = 0
 reserve_space = false
 scale = 1.10
-smart_auto_hide = true
+smart_auto_hide = false
 start = [ "launcher", "clock", "spacer_1", "group:g1" ]
 thickness = 35
 
