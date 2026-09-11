@@ -48,8 +48,15 @@ return {
     --   q 或 Esc 退出（退出键是下面 FileType autocmd 补的）。
     vim.g.molten_enter_output_behavior = "open_and_enter"
 
-    -- 不接 image.nvim（需要 magick luarock）。要在 buffer 里看验证码图片时
-    -- 再改成 "image.nvim"，见 docs/04-neovim.md。
+    -- 不接 image.nvim（需要 magick luarock，不是系统的 imagemagick 包）。
+    -- 代价：matplotlib 画的图看不到，只能看到 <Figure size ...> 这行文字。
+    --
+    -- ⚠ 别指望 snacks.image 顶上：molten 的 provider 只认三个值
+    --   none / image.nvim / wezterm（rplugin/python3/molten/images.py:265-274），
+    --   它不认 snacks。snacks.image 管的是「用 nvim 打开 png 文件」，
+    --   跟 molten 的「把 kernel 回传的图像字节画进输出窗口」是两套独立机制。
+    -- 要看 plot 只有两条路：装 image.nvim + magick luarock，或换 wezterm。
+    -- 见 docs/04-neovim.md「snacks.image —— 打开图片不再是一屏二进制」。
     vim.g.molten_image_provider = "none"
   end,
 

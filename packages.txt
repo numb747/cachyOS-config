@@ -110,6 +110,12 @@ python-onnxruntime-cpu
 # ── 壁纸工具链 ──────────────────────────────────────────────
 # wallpaper/tokyonight/_ascii.py 用：magick 做裁切/降采样/边缘图，
 # rsvg-convert 把生成的 SVG 光栅化成 4K PNG。不做 ASCII 壁纸可以不装。
+#
+# ⚠ imagemagick 现在有第二个消费者：nvim 的 snacks.image（2026-09-11 起启用）
+#   靠它把图片转成终端能画的格式。所以就算不做 ASCII 壁纸，它也不再是可选项
+#   ——不装的话 nvim 里打开 png 会退回二进制。见 docs/04-neovim.md。
+#   注意区分：snacks.image 要的是这个【系统包】（/usr/bin/magick），
+#   而 image.nvim 要的是 magick 的【luarock】，两者不能互相顶替。
 imagemagick
 librsvg
 
