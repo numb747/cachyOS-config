@@ -176,7 +176,7 @@ mod_nvim() {
     else
         mkdir -p "$D" && cp -a "$SRC/config/nvim/." "$D/" && ok "$D"
     fi
-    inf "首次 nvim 启动会按 lazy-lock.json 自动装 45 个插件，等它跑完"
+    inf "首次 nvim 启动会按 lazy-lock.json 自动装 46 个插件，等它跑完"
     inf "语言工具链（LSP/formatter）要在 :Mason 里装，前置运行时见 docs/04-neovim.md"
 }
 

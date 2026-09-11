@@ -82,7 +82,7 @@ chsh -s "$(command -v zsh)"
 ### 6. 首次进 nvim
 
 ```bash
-nvim        # 等 lazy 把 45 个插件装完再操作
+nvim        # 等 lazy 把 46 个插件装完再操作
 ```
 
 语言 LSP / formatter 要在 `:Mason` 里另装，前置运行时见
@@ -229,7 +229,7 @@ pkcheck --action-id org.noctalia.greeter.apply-appearance --process $$   # → p
 
 ### nvim
 
-- [ ] `:Lazy` 显示 44 installed（45 锁 − 1 个 `bufferline.nvim` 被 disable，属预期）
+- [ ] `:Lazy` 显示 45 installed（46 锁 − 1 个 `bufferline.nvim` 被 disable，属预期）
 - [ ] `Ctrl+/` 开出居中的浮动终端，里面是 zsh
 - [ ] `<leader>e`（空格 e）打开 mini.files
 - [ ] 打开一个 GBK 编码的中文文件不乱码

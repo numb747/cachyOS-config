@@ -44,6 +44,10 @@ config/nvim/lua/plugins/colorscheme.lua   ~/.config/nvim/lua/plugins/colorscheme
 config/nvim/lua/plugins/disabled.lua      ~/.config/nvim/lua/plugins/disabled.lua
 config/nvim/lua/plugins/lualine.lua       ~/.config/nvim/lua/plugins/lualine.lua
 config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
+# molten：.py 里跑 Jupyter kernel、输出内联。★ 光有这个文件不够 ——
+# 需要 python-pynvim + python-ipykernel（在 packages.txt），且首次装完要
+# :UpdateRemotePlugins 再重启 nvim，否则 :Molten* 全是 E492。见 docs/04-neovim.md。
+config/nvim/lua/plugins/molten.lua        ~/.config/nvim/lua/plugins/molten.lua
 config/nvim/lua/plugins/no-neck-pain.lua  ~/.config/nvim/lua/plugins/no-neck-pain.lua
 config/nvim/lua/plugins/snacks.lua        ~/.config/nvim/lua/plugins/snacks.lua
 config/nvim/lua/plugins/toggleterm.lua    ~/.config/nvim/lua/plugins/toggleterm.lua

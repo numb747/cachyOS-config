@@ -183,6 +183,29 @@ mini.files 窗口内：`l`/`L` 进入 · `h`/`H` 返回 · `=` 或 `Ctrl+s` 同�
 `gs`/`gv` 分屏打开 · `Esc`/`q` 关闭 · `g?` 帮助。
 它是「把目录当 buffer 编辑」——重命名 = 改那一行文字，然后按 `=` 提交。
 
+## molten —— .py 里的 Jupyter 式执行（`<leader>m` 系）
+
+用 `# %%` 分 cell，输出内联浮在 cell 下方。详见 `docs/04-neovim.md`。
+
+| 键 | 动作 |
+|---|---|
+| `<leader>mi` | 启动 kernel（每个 session 一次） |
+| `<leader>mm` / `Shift+Enter` | 运行当前 cell 并跳到下一个 |
+| `<leader>me` | 运行当前 cell（光标不动）；visual 模式下 = 运行选区 |
+| `<leader>ml` | 运行当前行 |
+| `<leader>mo` | 进入输出窗口（长输出在这里滚 / 搜；**要复制输出就按它**） |
+| `<leader>mc` | 中断执行 —— **变量全部保留** |
+| `<leader>mR` | 重启 kernel —— 清空所有变量 |
+| `<leader>mh` / `<leader>md` | 隐藏输出 / 删除该输出 |
+| `<leader>ms` | kernel 状态 |
+| `]x` / `[x` | 下一个 / 上一个 cell |
+
+输出窗口内 `q` 或 `Esc` 关闭 —— 那是 `molten.lua` 补的 buffer-local 映射；
+molten 自己不给输出窗口设键，而全局 `q` 在本配置里是禁用的，两边叠加会「按 q 没反应」。
+
+⚠ 内联显示的输出是**虚拟文本**，选不中也复制不了。要复制得 `<leader>mo` 进输出窗口，
+那里是真 buffer，`v`/`y`/`/` 全部正常。
+
 ---
 
 # ⚠️ 会被合成器吃掉的应用快捷键

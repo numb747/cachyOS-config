@@ -1,20 +1,20 @@
 # 04 · Neovim（LazyVim）
 
 对应目录：`config/nvim/` → `~/.config/nvim/`
-基座 LazyVim，锁 45 个插件（`lazy-lock.json`），实装 44 个。
+基座 LazyVim，锁 46 个插件（`lazy-lock.json`），实装 45 个。
 
 ---
 
 ## 首次启动
 
 ```bash
-nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 45 个插件
+nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 46 个插件
 ```
 
 等 lazy 界面跑完再操作。**不要**把旧机的 `~/.local/share/nvim/lazy/` 拷过来——
 版本由 `lazy-lock.json` 锁定，拷实体反而容易和 git 状态冲突。
 
-> 44 装 / 45 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
+> 45 装 / 46 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
 > `lua/plugins/disabled.lua` 设成 `enabled = false`，属预期。
 
 ---
@@ -28,7 +28,7 @@ lazy-lock.json              插件版本锁
 stylua.toml                 Lua 格式化：2 空格 / 120 列
 lua/config/
 ├── lazy.lua                lazy.nvim 引导 + LazyVim 挂载
-├── options.lua             编码、swapfile、内置终端 shell
+├── options.lua             编码、swapfile、内置终端 shell、python provider
 ├── keymaps.lua             只有一条：禁用 q 录制宏
 └── autocmds.lua            自动保存、终端双 Esc
 lua/plugins/
@@ -36,6 +36,7 @@ lua/plugins/
 ├── disabled.lua            关掉 bufferline
 ├── lualine.lua             状态栏
 ├── mini.lua                mini.files 文件管理器（替代 snacks explorer）
+├── molten.lua              .py 里跑 Jupyter kernel，输出内联
 ├── no-neck-pain.lua        居中阅读模式
 ├── snacks.lua              关掉与 mini.files 冲突的部分
 └── toggleterm.lua          浮动终端（本目录最大的一个定制）
@@ -128,6 +129,197 @@ mini.files 是「把目录当 buffer 编辑」的范式：**重命名文件 = �
 某些 LSP 会发出 `**/*.{}` 这种空花括号的 glob，Neovim 的 `vim.glob.to_lpeg` 解析
 不了直接抛错，表现为打开某类文件时 nvim 弹一堆红色 stack trace。这段把空花括号
 擦掉再交给原函数。属于上游 bug 的本地绕行——哪天 Neovim 修了可以删掉。
+
+### molten —— 在 .py 里跑 Jupyter kernel，输出内联
+
+2026-09-11 加入。做的是「Jupyter 那种交互」，但**不引入 .ipynb**：编辑的始终是普通
+`.py` 文件，用 `# %%` 分隔 cell，输出以虚拟文本浮在 cell 下方，重跑就地覆盖。
+
+```
+<leader>mi   启动 kernel（每个 nvim session 一次）
+<leader>mm   运行当前 cell 并跳到下一个   Shift+Enter 同功能
+<leader>me   运行当前 cell（光标不动）    visual 模式下 = 运行选区
+<leader>ml   运行当前行
+<leader>mo   进入输出窗口 —— ★ 要复制输出就按它，窗口内 q / Esc 关掉
+<leader>mc   中断执行（★ 保留所有变量）
+<leader>mR   重启 kernel（清空所有变量）
+<leader>mh   隐藏输出      <leader>md  删除该输出
+<leader>ms   kernel 状态   ]x / [x     下一个 / 上一个 cell
+```
+
+#### 输出复制不了？那是虚拟文本
+
+内联显示的输出是 `nvim_buf_set_extmark` 画上去的**虚拟文本**，不是 buffer 内容——
+所以 `v` 选不中、`y` 复制不到、更不能编辑。这是 `molten_virt_text_output` 的固有代价，
+换来的是「不污染文件、重跑就地覆盖」。
+
+要复制就按 `<leader>mo` 进输出窗口：那是一个真正的 buffer（`filetype=molten_output`），
+`v` / `V` / `y` / `/` 搜索全部正常，复制完 `q` 或 `Esc` 退出。
+
+两个相关设置已经调过了：
+
+- `molten_enter_output_behavior = "open_and_enter"` —— 默认值 `open_then_enter` 是
+  「第一次按开窗、第二次按才进去」，想 yank 一段输出要按两次很别扭，改成一次直达。
+- 没有开 `molten_copy_output`（执行完自动把输出塞进剪贴板）。它需要额外的 `pyperclip`
+  包，而且会无差别覆盖剪贴板，不如按需进窗口复制。要开的话装 `python-pyperclip` 再
+  `vim.g.molten_copy_output = true`。
+
+#### 为什么不用 iron.nvim / vim-slime 那类 REPL
+
+那类插件把代码喂进伪终端、再读回字符。molten 走的是 Jupyter 的 ZeroMQ 协议
+（shell + iopub 双通道），换来三件 tty REPL 给不了的东西，都是实测过的：
+
+| | tty REPL | molten |
+|---|---|---|
+| 执行 | 同步，占住那个终端 | **提交即返回：实测提交一个 6 秒的 cell，调用 2.6 ms 就返回** |
+| 长任务期间 | 那个 REPL 不能再用 | 照常编辑 buffer、切窗口，还能排队执行别的 cell |
+| 输出归属 | 一条流水账，靠自己认 | 每条输出带 msg_id，绑定到发起它的那段代码 |
+| 中断 | Ctrl-C 送进 tty | 独立信道，**实测中断后命名空间完整保留**（变量还在） |
+
+最后一条对爬虫特别值钱：一个请求挂住，`<leader>mc` 打断它，前面抓了 80 页的数据
+和登录态全都不丢。
+
+#### 为什么坚持 .py + `# %%` 而不是 .ipynb
+
+**LSP。** buffer 就是一个普通 Python 文件，basedpyright 看到的是完整上下文，
+补全 / 跳转 / hover / 重命名全部原生满血。走 `.ipynb` 得靠 otter.nvim 把 cell 抠出来
+喂影子 buffer，是打补丁，跨 cell 引用经常失效。
+
+附带三个好处：文件能直接 `python x.py` 跑；`git diff` 是纯代码而不是一坨 JSON；
+「原型转成品」只是把 cell 边界改成函数边界，不用把代码从 notebook 里搬出来。
+
+典型用法——**后写的定义覆盖前面的，不用回头改**（实测通过）：
+
+```python
+# %%
+import pathlib
+page = 1
+def main():
+    return fetch(page)
+
+# %%
+main()
+▏ 2384766          ← 虚拟文本，重跑就地覆盖
+
+# %% 结果不满意，就地改参数，不动上面的定义
+page = 3
+main()
+▏ 1927451
+```
+
+#### cell 是怎么界定的 —— 它不是语言特性
+
+`# %%` 在 Python 眼里就是**一条普通注释**，没有任何特殊含义。它之所以能分隔 cell，
+完全是因为 `molten.lua` 里这两行搜索：
+
+```lua
+local s = vim.fn.search("^# %%", "bcnW")   -- 往上找最近的标记
+local e = vim.fn.search("^# %%", "nW")     -- 往下找下一个
+```
+
+**是这个模式赋予它意义的。** molten 自己只认 line / visual / range 三种粒度，
+没有 cell 概念。想换成 `#%%` / `# ---` / `# CELL`，改这两处正则即可。
+
+因为匹配的是 `^# %%` **前缀**，后面跟什么都行 —— 所以 **cell 可以有名字**：
+
+```python
+# %% setup
+# %% 抓列表页
+# %% 解析 + 聚合
+```
+
+配套的视觉分隔（都在 `molten.lua` 里用 extmark 自己画的，没引入插件）：
+
+- **标记行拉一条横线到行尾**，`# %% 抓列表页` 就变成一条带标题的分隔线。
+  宽度用 `strdisplaywidth` 算，中文标题也不会算错。
+- **光标所在的 cell 在 signcolumn 用 `▎` 标出来**，相当于 Jupyter 的选中态，
+  一眼知道按 `<leader>mm` 会跑哪一段。
+
+两个高亮组可以自己换色，`default = true` 意味着换 colorscheme 会自动跟着走：
+
+```lua
+vim.api.nvim_set_hl(0, "MoltenCellBorder",  { link = "Comment" })   -- 分隔线
+vim.api.nvim_set_hl(0, "MoltenCellCurrent", { link = "Function" })  -- 当前 cell 竖线
+```
+
+实现上有三处是刻意的，改的时候别踩：
+
+- 用 **extmark 而不是 `matchadd`**：extmark 挂在 buffer 上，分屏/换窗口都不用重设。
+- `CursorMoved` 是高频事件，**不能每次都扫全文件**。所以 `draw_marks` 时把
+  「这个 buffer 有没有 cell」缓存进 `vim.b.molten_has_cells`，`draw_current` 只读它；
+  再加一层「范围没变就不重画」的短路。
+- **没有 cell 的普通 `.py` 完全不受影响**（实测 `has_cells=false`、标记数 0）——
+  否则整个文件会被当成一个 cell，每一行都挂上 sign。
+- `line:match` 用的是 lua pattern（`%` 要写成 `%%`，所以是 `"^# %%%%"`），
+  而 `vim.fn.search` 用的是 vim regex（`%` 不特殊，直接写 `"^# %%"`）。
+  **两者不能混用**，写串了就是找不到 cell。
+
+#### 前置依赖：两个系统包，不建 venv
+
+```bash
+sudo pacman -S --needed python-pynvim python-ipykernel   # 已在 packages.txt
+```
+
+`python-ipykernel` 连带拉进 `python-jupyter-client` 和 `ipython`，装完就有一个开箱可用的
+`python3` kernel，`<leader>mi` 直接能起。
+
+**为什么不像常见教程那样建 `~/.venvs/nvim` 装 pynvim**：那要在 `options.lua` 里写死一条
+本机路径，正是 `sync.sh` 里 `#@nopull` 那段记录的、`qt6ct.conf` 踩过的坑。用系统包后
+`vim.g.python3_host_prog = "/usr/bin/python3"`，任何 Arch 机器都成立，换机器零改动。
+
+**项目自己的依赖（requests / curl_cffi / pandas…）不要往系统 python 装**（Arch 是
+externally-managed，装不进去）。正确做法是项目 venv 注册成独立 kernel：
+
+```bash
+cd ~/myproject
+python -m venv .venv && .venv/bin/pip install ipykernel requests curl_cffi
+.venv/bin/python -m ipykernel install --user --name=myproject
+# 然后在 nvim 里 <leader>mi 选 myproject
+```
+
+kernel 跑在项目 venv 里，nvim 的 host 环境保持干净，每个项目一个 kernel 互不干扰。
+
+#### 五个坑（都是实测踩出来的）
+
+1. **`~/.local/share/jupyter/runtime/` 不存在 → kernel 起不来。** 装完
+   `python-ipykernel` 也不会预先建这个目录，jupyter_client 往里写 connection file 时
+   直接 `Errno 2`，而 molten 只报一句「Could not initialize kernel named 'python3'」，
+   完全看不出是目录问题，极易往 kernel spec / 权限方向乱查。
+   `molten.lua` 的 `init` 里已经 `mkdir -p` 兜掉了（幂等），换机器不用记。
+
+2. **`MoltenEvaluateRange` 是函数不是命令。** molten 40 多个接口里只有它（和几个内部
+   回调）在 rplugin 清单里是 `'type': 'function'`，写成 `vim.cmd("MoltenEvaluateRange 2 4")`
+   得到的是 `E492: Not an editor command`，必须 `vim.fn.MoltenEvaluateRange(s, e)`。
+   自己验：`grep EvaluateRange ~/.local/share/nvim/rplugin.vim`。
+
+3. **不能懒加载。** molten 是 remote plugin，`:UpdateRemotePlugins` 只扫描 runtimepath
+   里的插件；挂 `ft` / `cmd` 触发器的话启动时它不在 rtp 上，扫不到就不生成 rplugin 清单，
+   所有 `:Molten*` 报 E492。所以 spec 里是 `lazy = false`——代价几乎为零，python host
+   进程要等第一次 `:MoltenInit` 才真正启动。
+
+4. **`python3_host_prog` 必须显式钉死。** 不设的话 nvim 取 PATH 里的 `python3`，在
+   activate 过 venv 的 shell 里启动 nvim 就会取到那个 venv，而它没有 pynvim，
+   于是 molten 静默失效。同 `vim.opt.shell` 一样设在 `options.lua`。
+
+5. **输出窗口里按 `q` 关不掉——本配置特有，而且有个二级坑。** molten 不给输出窗口设
+   任何按键（它只在 `MoltenInfo` 窗口设了 `q`/`Esc`），官方退出方式是
+   `:MoltenHideOutput`；而 `keymaps.lua` 又把 `q` 全局设成了 `<Nop>`（防手滑录宏），
+   叠加结果是按 q 毫无反应。
+   ⚠ 二级坑：光靠 `FileType molten_output` 的 autocmd **补不上**——molten 文档要求
+   `MoltenEnterOutput` 带 `noautocmd`，而输出窗口正是在 enter 那一刻才创建的，
+   `noautocmd` 把创建时的 `FileType` 事件一并抑制掉了，autocmd 永远不触发（实测）。
+   所以 `molten.lua` 把 `<leader>mo` 包成了一个 lua 函数：先 `noautocmd` 进去，
+   进去之后再手动补一次 buffer-local 映射，另外保留 autocmd 兜住非 noautocmd 的路径。
+
+#### 两个调参经验
+
+- **`molten_virt_text_max_lines = 12`**：长跑任务（翻页进度这类）是**真流式**的，
+  kernel 每 print 一次就推一条 iopub 消息、虚拟文本实时增长，行数不封顶的话会把下面的
+  代码顶得很远。超过 12 行就该 `<leader>mo` 进输出窗口看，那里能滚能搜。
+- **`molten_image_provider = "none"`**：接 `image.nvim` 才能在 buffer 里内联显示图片
+  （kitty 的图形协议本机支持，看验证码图很有用），但它需要 `magick` luarock
+  （`luarocks --lua-version 5.1 install magick`），偶尔还要装 imagemagick 开发包。
+  不值得挡住主流程，要用时再单独开。
 
 ### 其他小项
 

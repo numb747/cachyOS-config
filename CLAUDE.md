@@ -241,7 +241,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 ---
 
-## 现状（2026-09-03）
+## 现状（2026-09-11）
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
@@ -266,7 +266,16 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **44 装 / 45 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- nvim **45 装 / 46 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
+  输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
+  basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
+  2.6 ms 返回）、中断保留命名空间（实测），对爬虫/接口调试比 tty REPL 强一档。
+  ★ 光装配置文件不够：要 `python-pynvim` + `python-ipykernel`（已入 packages.txt），
+  且 **`~/.local/share/jupyter/runtime/` 不存在时 kernel 起不来而报错完全指错方向**
+  （已在 `molten.lua` 的 init 里 mkdir 兜掉）。另有 4 个坑（`MoltenEvaluateRange` 是
+  function 不是 command、不能懒加载、`python3_host_prog` 要防 venv 污染、
+  输出窗口的 `q` 撞上本配置全局禁用的 `q`）全在 `docs/04-neovim.md`
 - 输入法：fcitx5 5.1.21 + rime，自制 `tokyonight` 主题；中文字体走
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
