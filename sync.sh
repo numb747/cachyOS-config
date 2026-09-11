@@ -97,8 +97,27 @@ cd "$SRC"
   echo "# 文件清单与校验和（sha256）"
   echo "# 由 sync.sh 生成。核对包完整性："
   echo "#   grep -v '^#' MANIFEST.txt | sha256sum -c -"
+  echo "#"
+  echo "# 只覆盖【入库的文件】。.git/ 自身、.snapshots/ 快照、__pycache__、*.key 不计。"
   echo
-  find . -type f ! -name MANIFEST.txt -printf '%P\n' | LC_ALL=C sort | xargs sha256sum
+  # ★ 2026-09-11：原来是裸 `find . -type f ! -name MANIFEST.txt`，把 .gitignore
+  #   挡掉的东西全收了进来 —— 305 条里 163 条是 .git/ 内部对象，还有 secret-age.key、
+  #   __pycache__、两个 2.7 MB 的 .snapshots/*.tar.gz。三重后果：
+  #     ① 每次 commit 都改写 .git/，MANIFEST 生成完立刻过期；
+  #     ② git 对象在别的机器上必然不同，`sha256sum -c` 在新机器上一定失败，
+  #        正好废掉这个文件「核对包完整性」的唯一用途；
+  #     ③ 上次提交时 docs/05-theme-ui.md 的哈希就已经是陈旧的，没人发现。
+  #   改成跟着 git 索引走，.gitignore 以后新增条目也自动跟上，不用维护排除清单。
+  #   -z 不可省：不带它 git 会把中文文件名输出成 "\347\264\253..." 转义形式，
+  #   sha256sum 按那个名字找不到文件（wallpaper/ascii/ 下有 8 个中文名壁纸）。
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+      git ls-files -z -- ':!MANIFEST.txt' | xargs -0 sha256sum
+  else
+      # 解压出来的 tar.gz 里没有 .git，退回 find 并手动排掉同样这些东西
+      find . \( -path ./.git -o -path ./.snapshots -o -name __pycache__ \) -prune -o \
+           -type f ! -name MANIFEST.txt ! -name '*.key' -printf '%P\n' \
+           | LC_ALL=C sort | xargs sha256sum
+  fi
 } > MANIFEST.txt
 ok "MANIFEST.txt 已重新生成（$(grep -c '^[0-9a-f]' MANIFEST.txt) 个文件）"
 

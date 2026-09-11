@@ -14,7 +14,7 @@
 ├── sync.sh                   系统 → 包（把线上改动收回来）
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
-├── MANIFEST.txt              sha256 校验（由 sync.sh 生成）
+├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     11 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱、ocr-* 屏幕取字）
@@ -323,6 +323,15 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `aur/README.md`。装完**必须** `IgnorePkg` 锁更新，但那写在 `/etc/pacman.conf`、
   **不在本包管辖**，换机器要手动加。它还会连带拉进 opencv 全套（含 vtk 371 MB），
   共约 936 MB
+- **MANIFEST 只覆盖入库文件**（2026-09-11 修）：`sync.sh` 原来用裸 `find`，把
+  `.gitignore` 挡掉的东西全收了进来——305 条里 **163 条是 `.git/` 内部对象**，
+  还有 `secret-age.key`、`__pycache__`、两个 2.7 MB 的 `.snapshots/*.tar.gz`。
+  后果是每次 commit 都改写 `.git/`、MANIFEST 生成完立刻过期，而 git 对象在别的
+  机器上必然不同、`sha256sum -c` 在新机器上一定失败，正好废掉它唯一的用途
+  （上次提交时 `docs/05-theme-ui.md` 的哈希就已经是陈旧的，没人发现）。
+  改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
+  ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
+  非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如

@@ -100,7 +100,7 @@ cachyOS-config/                  仓库根 = 包本身（没有中间层目录�
 ├── sync.sh                系统 → 包（把线上改动收回来）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
-├── MANIFEST.txt           所有文件的 sha256（由 sync.sh 生成）
+├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
 ├── docs/                  11 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
