@@ -91,8 +91,71 @@ if [ "$MODE" = check ] || [ "$MODE" = diff ]; then
     exit 0
 fi
 
-# ── pull / pack：重新生成 MANIFEST ──────────────────────────────────────────
+# ── pull / pack：hypr patch → 文档数字 → 最后才生成 MANIFEST ─────────────
+# ★ 2026-09-12 调序：MANIFEST 必须是最后一步。原来它排在 patch 重生成和
+#   文档数字对账之前，于是 --pull 跑完那一刻，被改写的 4 份文档在 MANIFEST
+#   里已是陈旧哈希，`sha256sum -c` 当场就会失败 —— 和 2026-09-11 修掉的
+#   「裸 find 导致 MANIFEST 生成完立刻过期」是同一个形状的 bug。
 cd "$SRC"
+# hypr 的四个官方文件改了的话，patch 也要跟着重生成
+# （windowrules 是 2026-08-27 加的，为了企业微信的幽灵窗规则，见 docs/09）
+if [ -d /etc/skel/.config/hypr/config ]; then
+    for f in binds variables workspaces windowrules misc; do
+        s="/etc/skel/.config/hypr/config/$f.lua"
+        [ -f "$s" ] && [ -f "$SRC/config/hypr/config/$f.lua" ] || continue
+        diff -u "$s" "$SRC/config/hypr/config/$f.lua" > "$SRC/config/hypr/patches/$f.lua.patch"
+    done
+    ok "config/hypr/patches/*.patch 已按当前 /etc/skel 重生成"
+fi
+# ── 文档里「能算出来的数字」统一对账重写 ──────────────────────────────────
+# ★ 2026-09-12 加。这类数字没有任何机制提醒它陈旧，只能靠人记得改，而人不会记得。
+#   一次对账查出 5 处过期：键位 118→124、ASCII 成品 4→8、壁纸库 167→348 MB、
+#   claude/ 9→10 个文件、docs 230→203 KB。加上此前 MANIFEST 跟着裸 find 走、
+#   hypr patch 文档只记 3 个实际 5 个，同类问题已是第七次 —— 形状完全一样：
+#   某个数字由人维护，却没有任何东西会在它过期时报警。能算出来的就别让人记。
+#   ⚠ 新增一条只要加一行 docnum，别再写独立的 sed 分支。
+docnum() {   # docnum <包内文件> <ERE 正则> <替换式>
+    # 用 # 作 sed 分隔符（文档里有 / 但没有 #），正则里因此不能带 #
+    [ -f "$SRC/$1" ] && sed -i -E "s#$2#$3#g" "$SRC/$1"
+}
+
+# 自定义键位数只认**行首**的 hl.bind( —— mykeys.lua 里 48 处含 hl.bind 的行有
+# 11 处在注释里（文件开头那段原理备忘），裸 grep -c 会数成 48 而不是 37。
+MINE=$(grep -cE '^[[:space:]]*hl\.bind\(' "$SRC/config/hypr/mykeys.lua" 2>/dev/null || echo 0)
+TOTAL=""
+command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 \
+    && TOTAL=$(hyprctl binds -j 2>/dev/null | jq length 2>/dev/null || echo "")
+ASCII_N=$(ls "$SRC/wallpaper/ascii" 2>/dev/null | wc -l)
+CLAUDE_N=$(ls "$SRC/claude" 2>/dev/null | wc -l)
+DOCS_KB=$(cat "$SRC"/docs/*.md 2>/dev/null | wc -c | awk '{printf "%.0f", $1/1024}')
+WALL_MB=$(du -sm "$HOME/Pictures/Wallpapers" 2>/dev/null | cut -f1)
+
+if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+    docnum README.md       "[0-9]+ custom binds → [0-9]+ total" "$MINE custom binds → $TOTAL total"
+    docnum README.zh-CN.md "[0-9]+ 条自定义绑定 → 共 [0-9]+ 条" "$MINE 条自定义绑定 → 共 $TOTAL 条"
+else
+    warn "hyprctl binds 读不到，键位数这次没同步（不在 Hyprland 会话里？）"
+    TOTAL="skip"
+fi
+if [ "$ASCII_N" -gt 0 ] 2>/dev/null; then
+    docnum README.md       "[0-9]+ rendered ASCII pieces" "$ASCII_N rendered ASCII pieces"
+    docnum README.zh-CN.md "[0-9]+ 张 ASCII 成品"         "$ASCII_N 张 ASCII 成品"
+    docnum INSTALL.md      "[0-9]+ 张 ASCII 成品"         "$ASCII_N 张 ASCII 成品"
+fi
+[ "$CLAUDE_N" -gt 0 ] 2>/dev/null && \
+    docnum CLAUDE.md "[0-9]+ 个文件在 \`claude/\`" "$CLAUDE_N 个文件在 \`claude/\`"
+[ -n "$DOCS_KB" ] && \
+    docnum README.md "roughly [0-9]+ KB explaining" "roughly $DOCS_KB KB explaining"
+# 壁纸全库在包外、随机器而异；取不到就跳过，不写入错数
+if [ -n "$WALL_MB" ]; then
+    docnum README.md       "library \([0-9]+ MB\)" "library ($WALL_MB MB)"
+    docnum README.zh-CN.md "全库（[0-9]+ MB）"      "全库（$WALL_MB MB）"
+    docnum INSTALL.md      "[0-9]+ MB。本包"        "$WALL_MB MB。本包"
+fi
+ok "文档数字已对账（键位 $MINE/$TOTAL · ASCII $ASCII_N · claude/ $CLAUDE_N · docs ${DOCS_KB}KB · 壁纸库 ${WALL_MB:-?}MB）"
+
+
+
 {
   echo "# 文件清单与校验和（sha256）"
   echo "# 由 sync.sh 生成。核对包完整性："
@@ -120,37 +183,6 @@ cd "$SRC"
   fi
 } > MANIFEST.txt
 ok "MANIFEST.txt 已重新生成（$(grep -c '^[0-9a-f]' MANIFEST.txt) 个文件）"
-
-# hypr 的四个官方文件改了的话，patch 也要跟着重生成
-# （windowrules 是 2026-08-27 加的，为了企业微信的幽灵窗规则，见 docs/09）
-if [ -d /etc/skel/.config/hypr/config ]; then
-    for f in binds variables workspaces windowrules misc; do
-        s="/etc/skel/.config/hypr/config/$f.lua"
-        [ -f "$s" ] && [ -f "$SRC/config/hypr/config/$f.lua" ] || continue
-        diff -u "$s" "$SRC/config/hypr/config/$f.lua" > "$SRC/config/hypr/patches/$f.lua.patch"
-    done
-    ok "config/hypr/patches/*.patch 已按当前 /etc/skel 重生成"
-fi
-
-# 两份 README 里的键位数跟着实际重写。
-# ★ 2026-09-12 加：这类数字没有任何机制提醒它陈旧，只能靠人记得改，而人不会记得 ——
-#   当天实测 README 写「35 条自定义 / 共 118」、CLAUDE.md 写 121、hyprctl 实际 124，
-#   三个数字互不相同。同理于 MANIFEST 和 hypr patch：能算出来的就别让人记。
-#   自定义数只认「行首的 hl.bind(」：mykeys.lua 里 48 处含 hl.bind 的行有 11 处在
-#   注释里（文件开头那段原理备忘），裸 grep -c 会数成 48。
-if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-    TOTAL=$(hyprctl binds -j 2>/dev/null | jq length 2>/dev/null || echo "")
-    MINE=$(grep -cE '^[[:space:]]*hl\.bind\(' "$SRC/config/hypr/mykeys.lua" 2>/dev/null || echo 0)
-    if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
-        sed -i -E "s/[0-9]+ custom binds → [0-9]+ total/$MINE custom binds → $TOTAL total/" \
-            "$SRC/README.md"
-        sed -i -E "s/[0-9]+ 条自定义绑定 → 共 [0-9]+ 条/$MINE 条自定义绑定 → 共 $TOTAL 条/" \
-            "$SRC/README.zh-CN.md"
-        ok "README 键位数已同步（自定义 $MINE · 共 $TOTAL）"
-    else
-        warn "hyprctl binds 读不到，README 键位数这次没同步（不在 Hyprland 会话里？）"
-    fi
-fi
 
 if [ "$MODE" = pack ]; then
     # ★ 仓库根就是包本身（没有中间层目录），所以不能像以前那样

@@ -325,7 +325,7 @@ winapp check wecom     # 用完全相同的 bwrap 参数跑 ls，不靠口头保
 | `~/.gnupg/` | 同上 |
 | `~/.claude/settings.json` | 含明文 API token。⚠ 只有**这一个文件**不含在内；`~/.claude/` 下的工具脚本由 cc 模块正常纳管，`install.sh` 会把 `statusLine` 段合并进你自己的 settings.json |
 | `~/.local/share/fcitx5/rime/` | rime 个人词库与方案 |
-| `~/Pictures/Wallpapers/` 全库 | 167 MB。本包只带当前那一张 + 4 张 ASCII 成品 + 重新拉取的脚本 |
+| `~/Pictures/Wallpapers/` 全库 | 348 MB。本包只带当前那一张 + 8 张 ASCII 成品 + 重新拉取的脚本 |
 | `~/mywork/tools/env.sh`、`~/hacktools/` | `.zshrc` 会探测它们；不存在就整段静默跳过，不影响 |
 | `~/.config/noctalia/storage.key` | 剪贴板历史的加密主密钥。**不必传**——新机器按步骤 7 重新生成即可，代价只是旧剪贴板历史读不出来（`~/.local/state/noctalia/clipboard/` 那堆 `.enc` 换了密钥就解不开，文件不会被删，换回原密钥仍可恢复）。真要连历史一起迁就用安全渠道单独传，别打进压缩包 |
 

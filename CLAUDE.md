@@ -45,10 +45,19 @@
 
 ```bash
 # 1. 正常改 ~/.config/... 下的真实配置，验证效果
-# 2. 收回包里（自动重生成 MANIFEST 和 hypr patch）
+# 2. 收回包里（顺序：hypr patch → 文档数字对账 → 最后生成 MANIFEST）
 cd ~/cachyOS-config && ./sync.sh --pull
 # 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
 ```
+
+> **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
+> ASCII 成品张数、`docs/` 总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数。
+> 表在 `sync.sh` 的「文档数字对账」段，新增一条加一行 `docnum` 即可。
+> ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
+> 于是 `--pull` 跑完那一刻，被改写的 4 份文档在 MANIFEST 里已是陈旧哈希，
+> `sha256sum -c` 当场失败 —— 和 2026-09-11 修掉的「裸 find 导致 MANIFEST
+> 生成完立刻过期」是同一个形状的 bug。往 `--pull` 里加任何会改文件的步骤，
+> 都必须加在 MANIFEST 之前。
 
 其他常用：
 
@@ -251,9 +260,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
   （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
   2026-09-12 实测为 124，中间那 3 条是什么当时没记 —— 这正是下面这条机制的由来）
-  ★ **两份 README 里的键位数现在由 `sync.sh --pull` 自动重写**，不要手改。
-  发现这个必要性是因为 2026-09-12 那天三处数字互不相同：README 写 118、
-  本文件写 121、`hyprctl` 实际 124。能算出来的就别让人记，同 MANIFEST 与 hypr patch。
+  ★ **两份 README 里的键位数由 `sync.sh --pull` 自动重写**，不要手改（详见开头
+  「改配置的正确姿势」下那段）。2026-09-12 顺带对账查出另外 4 处同类过期：
+  ASCII 成品 4→8、壁纸库 167→348 MB、`claude/` 9→10 个文件、docs 230→203 KB
+  （后者连 203 也是错的，用 `du -sh` 累加人类可读值算出来的，`wc -c` 才是 198）。
   ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 48 处含 `hl.bind` 的行有 11 处
   在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 48。
 - 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
@@ -302,7 +312,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  9 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  10 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，

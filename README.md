@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 11 documents under
-> `docs/` — roughly 230 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 198 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -148,7 +148,7 @@ cachyOS-config/                  repo root = the package itself (no intermediate
 │   ├── fcitx5/themes/     Tokyo Night input method theme (PNGs generated from SVG)
 │   └── applications/      imv-viewer.desktop (a new entry, not shadowing the system one)
 ├── state/noctalia/        → ~/.local/state/noctalia/ (★ where the theme actually takes effect)
-├── wallpaper/             reference wallpaper + 4 rendered ASCII pieces + the generator script
+├── wallpaper/             reference wallpaper + 8 rendered ASCII pieces + the generator script
 └── .snapshots/            tar.gz output of sync.sh --pack (not in git)
 ```
 
@@ -182,7 +182,7 @@ migrate machines.
 | What | Why |
 |---|---|
 | `~/.ssh/`, `~/.gnupg/`, `~/.claude/settings.json` | Contain secrets, see above |
-| The full `~/Pictures/Wallpapers/` library (167 MB) | Too large; ships 1 reference image + 4 rendered ASCII pieces + a script to re-fetch |
+| The full `~/Pictures/Wallpapers/` library (348 MB) | Too large; ships 1 reference image + 8 rendered ASCII pieces + a script to re-fetch |
 | `~/.zsh_history` | Personal trace, nothing to reuse |
 | `~/.bashrc`, wezterm and fish fragments | Abandoned; the login shell is zsh |
 | `qt5ct/`, `xsettingsd/` | The config files exist but neither program is installed here — pure skel leftovers, dead config |

@@ -131,7 +131,7 @@ cachyOS-config/                  仓库根 = 包本身（没有中间层目录�
 │   ├── fcitx5/themes/     Tokyo Night 输入法主题（PNG 由 SVG 生成）
 │   └── applications/      imv-viewer.desktop（自建条目，非覆盖系统的）
 ├── state/noctalia/        → ~/.local/state/noctalia/（★ 主题真正生效的地方）
-├── wallpaper/             参考壁纸 + 4 张 ASCII 成品 + 壁纸库生成脚本
+├── wallpaper/             参考壁纸 + 8 张 ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/            sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
 
@@ -162,7 +162,7 @@ cachyOS-config/                  仓库根 = 包本身（没有中间层目录�
 | 东西 | 为什么不带 |
 |---|---|
 | `~/.ssh/`、`~/.gnupg/`、`~/.claude/settings.json` | 含密钥，见上 |
-| `~/Pictures/Wallpapers/` 全库（167 MB） | 太大；只带 1 张参考图 + 4 张 ASCII 成品 + 重新拉取的脚本 |
+| `~/Pictures/Wallpapers/` 全库（348 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
 | `~/.zsh_history` | 个人痕迹，无复用价值 |
 | `~/.bashrc`、wezterm、fish 片段 | 已弃用，登录 shell 是 zsh |
 | `qt5ct/`、`xsettingsd/` | 配置文件在，但这两个程序本机没装，纯 skel 残留，是死配置 |
