@@ -246,10 +246,16 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **121** 条；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **124** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
-  （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121）
+  （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
+  2026-09-12 实测为 124，中间那 3 条是什么当时没记 —— 这正是下面这条机制的由来）
+  ★ **两份 README 里的键位数现在由 `sync.sh --pull` 自动重写**，不要手改。
+  发现这个必要性是因为 2026-09-12 那天三处数字互不相同：README 写 118、
+  本文件写 121、`hyprctl` 实际 124。能算出来的就别让人记，同 MANIFEST 与 hypr patch。
+  ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 48 处含 `hl.bind` 的行有 11 处
+  在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 48。
 - 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
   `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。

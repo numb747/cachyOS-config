@@ -48,10 +48,10 @@ source = "community"
 wallpaper_scheme = "m3-content"
 
 [wallpaper.default]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a2-雨中武士.png"
+path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
 
 [wallpaper.last]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a2-雨中武士.png"
+path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
 
 [wallpaper.monitors.DP-1]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a2-雨中武士.png"
+path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"

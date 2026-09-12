@@ -132,6 +132,26 @@ if [ -d /etc/skel/.config/hypr/config ]; then
     ok "config/hypr/patches/*.patch 已按当前 /etc/skel 重生成"
 fi
 
+# 两份 README 里的键位数跟着实际重写。
+# ★ 2026-09-12 加：这类数字没有任何机制提醒它陈旧，只能靠人记得改，而人不会记得 ——
+#   当天实测 README 写「35 条自定义 / 共 118」、CLAUDE.md 写 121、hyprctl 实际 124，
+#   三个数字互不相同。同理于 MANIFEST 和 hypr patch：能算出来的就别让人记。
+#   自定义数只认「行首的 hl.bind(」：mykeys.lua 里 48 处含 hl.bind 的行有 11 处在
+#   注释里（文件开头那段原理备忘），裸 grep -c 会数成 48。
+if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    TOTAL=$(hyprctl binds -j 2>/dev/null | jq length 2>/dev/null || echo "")
+    MINE=$(grep -cE '^[[:space:]]*hl\.bind\(' "$SRC/config/hypr/mykeys.lua" 2>/dev/null || echo 0)
+    if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+        sed -i -E "s/[0-9]+ custom binds → [0-9]+ total/$MINE custom binds → $TOTAL total/" \
+            "$SRC/README.md"
+        sed -i -E "s/[0-9]+ 条自定义绑定 → 共 [0-9]+ 条/$MINE 条自定义绑定 → 共 $TOTAL 条/" \
+            "$SRC/README.zh-CN.md"
+        ok "README 键位数已同步（自定义 $MINE · 共 $TOTAL）"
+    else
+        warn "hyprctl binds 读不到，README 键位数这次没同步（不在 Hyprland 会话里？）"
+    fi
+fi
+
 if [ "$MODE" = pack ]; then
     # ★ 仓库根就是包本身（没有中间层目录），所以不能像以前那样
     #   「tar 上一级目录里的那个包目录」——那会把整个 $HOME 的同级内容、

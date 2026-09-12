@@ -62,7 +62,7 @@ Installing only part of it:
 
 | Module | Contents | Docs (zh) |
 |---|---|---|
-| **hypr** | Hyprland keymap (35 custom binds → 118 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
+| **hypr** | Hyprland keymap (37 custom binds → 124 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
 | **term** | kitty (drops straight into nvim), alacritty, zsh, powerlevel10k | [03](docs/03-terminal.md) |
 | **nvim** | LazyVim customization: mini.files, toggleterm, lualine, transparent tokyonight | [04](docs/04-neovim.md) |
 | **ui** | noctalia bar wired to the theme engine, GTK/Qt/btop colors, fonts, cursor, input method, default applications | [05](docs/05-theme-ui.md) |
