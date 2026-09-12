@@ -48,16 +48,19 @@ return {
     --   q 或 Esc 退出（退出键是下面 FileType autocmd 补的）。
     vim.g.molten_enter_output_behavior = "open_and_enter"
 
-    -- 不接 image.nvim（需要 magick luarock，不是系统的 imagemagick 包）。
-    -- 代价：matplotlib 画的图看不到，只能看到 <Figure size ...> 这行文字。
-    --
-    -- ⚠ 别指望 snacks.image 顶上：molten 的 provider 只认三个值
-    --   none / image.nvim / wezterm（rplugin/python3/molten/images.py:265-274），
-    --   它不认 snacks。snacks.image 管的是「用 nvim 打开 png 文件」，
-    --   跟 molten 的「把 kernel 回传的图像字节画进输出窗口」是两套独立机制。
-    -- 要看 plot 只有两条路：装 image.nvim + magick luarock，或换 wezterm。
-    -- 见 docs/04-neovim.md「snacks.image —— 打开图片不再是一屏二进制」。
-    vim.g.molten_image_provider = "none"
+    -- 图像 provider 走 image.nvim(见 plugins/image.lua)。molten 只认
+    --   none / image.nvim / wezterm 三个值,不认 snacks —— 要 molten 内联出图,
+    --   就必须挂 image.nvim。当初躲它是因为它默认要 magick luarock;现在用它的
+    --   processor = "magick_cli" 走系统 ImageMagick,零 luarock,顾虑没了。
+    -- 效果:kernel 回传的 matplotlib / PNG 直接画在 cell 下方的虚拟文本输出里
+    --   (molten_image_location 默认 "both",virt_text_output=true 时就显示在内联输出中,
+    --   不用另开输出窗口)。
+    vim.g.molten_image_provider = "image.nvim"
+
+    -- ★ 关掉"自动用系统看图器弹窗"(molten 默认 true)。否则每产生一张图,molten
+    --   就调 python 的 Image.show() 用系统默认看图器外部弹一次 —— 我们要的是
+    --   image.nvim 在 nvim 里内联渲染,不是外部 viewer 满屏乱弹。
+    vim.g.molten_auto_image_popup = false
   end,
 
   config = function()

@@ -1,20 +1,20 @@
 # 04 · Neovim（LazyVim）
 
 对应目录：`config/nvim/` → `~/.config/nvim/`
-基座 LazyVim，锁 46 个插件（`lazy-lock.json`），实装 45 个。
+基座 LazyVim，锁 47 个插件（`lazy-lock.json`），实装 46 个。
 
 ---
 
 ## 首次启动
 
 ```bash
-nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 46 个插件
+nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 47 个插件
 ```
 
 等 lazy 界面跑完再操作。**不要**把旧机的 `~/.local/share/nvim/lazy/` 拷过来——
 版本由 `lazy-lock.json` 锁定，拷实体反而容易和 git 状态冲突。
 
-> 45 装 / 46 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
+> 46 装 / 47 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
 > `lua/plugins/disabled.lua` 设成 `enabled = false`，属预期。
 
 ---
@@ -34,11 +34,12 @@ lua/config/
 lua/plugins/
 ├── colorscheme.lua         tokyonight，透明
 ├── disabled.lua            关掉 bufferline
+├── image.lua               image.nvim：打开图片文件 + molten 出图，走 magick_cli 免 luarock
 ├── lualine.lua             状态栏
 ├── mini.lua                mini.files 文件管理器（替代 snacks explorer）
 ├── molten.lua              .py 里跑 Jupyter kernel，输出内联
 ├── no-neck-pain.lua        居中阅读模式
-├── snacks.lua              关掉与 mini.files 冲突的部分
+├── snacks.lua              关掉与 mini.files 冲突的部分，以及和 image.nvim 抢图片的 snacks.image
 └── toggleterm.lua          浮动终端（本目录最大的一个定制）
 ```
 
@@ -120,8 +121,8 @@ mini.files 是「把目录当 buffer 编辑」的范式：**重命名文件 = �
 `snacks.lua` 里把 `<leader>e` `<leader>E` `<leader>fe` `<leader>fE` `<c-/>` 全部设成
 `false`，是为了让出键位——不然两个文件管理器会抢同一个键。
 
-在这里按 `l` 打开图片能直接看到图（2026-09-11 起），靠的是 snacks.image；但右侧
-**preview 窗格不出图**，原因见下面「snacks.image」一节。
+在这里按 `l` 打开图片能直接看到图（2026-09-11 起；当时靠 snacks.image，2026-09-12 起
+改由 image.nvim 接管）；但右侧 **preview 窗格不出图**，原因见下面「image.nvim」一节。
 
 #### mini.lua 里那段 `vim.glob.to_lpeg` 补丁
 
@@ -319,73 +320,90 @@ kernel 跑在项目 venv 里，nvim 的 host 环境保持干净，每个项目�
 - **`molten_virt_text_max_lines = 12`**：长跑任务（翻页进度这类）是**真流式**的，
   kernel 每 print 一次就推一条 iopub 消息、虚拟文本实时增长，行数不封顶的话会把下面的
   代码顶得很远。超过 12 行就该 `<leader>mo` 进输出窗口看，那里能滚能搜。
-- **`molten_image_provider = "none"`**：接 `image.nvim` 才能把 kernel 回传的图像
-  （matplotlib 画的 plot）内联显示进输出窗口，但它需要 `magick` **luarock**
-  （`luarocks --lua-version 5.1 install magick`，注意不是系统的 imagemagick 包），
-  偶尔还要装 imagemagick 开发包。不值得挡住主流程，要用时再单独开。
-  现状代价：`plt.show()` 只能看到一行 `<Figure size 640x480 with 1 Axes>`。
-  ⚠ **`snacks.image` 顶不了这个班**，两者不是一回事，见下一节。
+- **`molten_image_provider = "image.nvim"`**（2026-09-12 起）：kernel 回传的图像
+  （matplotlib 的 plot、`IPython.display.Image` 塞的 PNG 字节）直接画在 cell 下方的
+  虚拟文本输出里。此前长期是 `"none"`，`plt.show()` 只能看到一行
+  `<Figure size 640x480 with 1 Axes>`——卡住的原因和后来怎么绕开的，见下一节。
+  ⚠ 配套必须 **`molten_auto_image_popup = false`**：molten 这项默认 `true`，每出一张图
+  就调 python 的 `Image.show()` 用系统看图器外部弹一次窗，和内联渲染叠在一起很烦。
 
-### snacks.image —— 打开图片不再是一屏二进制
+### image.nvim —— 打开图片、molten 出图，一套机制
 
-2026-09-11 加入。症状：在 mini.files 里按 `l` 打开一个 png，nvim 老老实实把二进制
-字节当文本渲染，满屏乱码。
+2026-09-12 起图片渲染统一由 `image.nvim`（`plugins/image.lua`）承担两件事：
+**用 nvim 打开一个图片文件**（mini.files 按 `l`、`:e x.png`、`gf`）就地渲染成图，以及
+**给 molten 当图像 provider**，把 kernel 回传的 plot 画进 cell 输出。`snacks.image`
+已关（`snacks.lua` 里 `image = { enabled = false }`）。
 
-根因是**整个 nvim 里没有任何东西能渲染图片**：没装 `image.nvim`，而 `snacks.nvim`
-虽然自带 image 模块，却处于关闭状态——它的 `defaults` 表里**压根没有顶层 `enabled`
-键**（`snacks/image/init.lua:50`，那张表第一个键就是 `formats`），取值为 `nil` 即假；
-LazyVim 默认也只开 indent / input / notifier / scope / scroll / words 六个模块
-（`lazyvim/plugins/ui.lua:275-282`），不含 image。两边都不开，于是一直没人管图片。
+#### 来龙去脉：为什么先走 snacks，又为什么切回 image.nvim
 
-`snacks.lua` 里加 `image = { enabled = true }` 即可。
+最初的症状（2026-09-11）：在 mini.files 里按 `l` 打开一个 png，nvim 把二进制字节当文本
+渲染，满屏乱码。根因是**整个 nvim 里没有任何东西能渲染图片**：没装 `image.nvim`，
+而 `snacks.nvim` 自带的 image 模块处于关闭状态——它的 `defaults` 表里压根没有顶层
+`enabled` 键（`snacks/image/init.lua:50`），取值为 `nil` 即假；LazyVim 默认也只开
+indent / input / notifier / scope / scroll / words 六个模块，不含 image。
 
-#### 为什么走 snacks.image 而不是 image.nvim
-
-**依赖形态不同，这是唯一的决定性差异：**
+当时选 snacks.image 而不是 image.nvim，理由只有一条——**依赖形态**：
 
 | | 要什么 | 本机状态 |
 |---|---|---|
-| `image.nvim` | `magick` **luarock**（luarocks 装，可能要编译） | 没有，且当初就是因为这个放弃的 |
+| `image.nvim`（默认 processor） | `magick` **luarock**（luarocks 装，可能要编译） | 没有 luarocks |
 | `snacks.image` | ImageMagick 的**命令行程序** `/usr/bin/magick` | ✅ 已装（做 ASCII 壁纸用的） |
 
-`molten.lua` 里那句「不接 image.nvim（需要 magick luarock）」记的就是当初卡住的地方。
-snacks.image 绕开了那个坎——它 fork 出 `magick` 进程做转换，不需要 Lua 绑定。
-额外好处是不用再多装一个插件，snacks 本来就在。
+`molten.lua` 里那句「不接 image.nvim（需要 magick luarock）」记的就是这个坎。
+
+但 snacks.image **顶不了 molten 的班**：molten 的 image provider 只认 `none` /
+`image.nvim` / `wezterm` 三个值（`molten/images.py:265-274`），不认 snacks。两者是
+彻底独立的机制——snacks.image 管「打开磁盘上的图片文件」，molten 管「把 kernel 通过
+iopub 回传的图像字节画进输出」，后者根本不经过文件系统，`BufReadCmd` 无从拦截。
+结果是 `plt.show()` 只剩一行 `<Figure size ...>`。
+
+破局点是 **image.nvim 其实有两种 processor**：默认的 `"magick_rock"`（FFI 绑定，
+要 luarock）之外还有 **`"magick_cli"`**——直接 shell out 到系统 ImageMagick 的
+`magick` / `convert` / `identify`，零 luarock。这和 snacks.image 的依赖形态完全一样，
+当初的顾虑就不存在了。既然 image.nvim 能同时干两件事，就没理由再养两套：**打开图片
+文件也交给它，snacks.image 关掉。**
+
+#### `image.lua` 里几处必须写对的地方
+
+- **`build = false`**。lazy.nvim 看到 image.nvim 的 rockspec 会去跑 luarocks 装
+  magick rock，本机没有 luarocks 那步必失败，插件直接装不上（image.nvim#91）。
+  我们走 CLI 不需要它。
+- **`processor = "magick_cli"`、`backend = "kitty"`**。两项其实都是默认值，显式写出
+  是因为它们就是这套方案的要点。
+- **`lazy = false`**。两个理由：molten 是 `lazy = false` 的 remote plugin，渲染图时要
+  现成的 image.nvim API；「打开图片文件即渲染」靠它注册的 autocmd，启动即就位才拦得住
+  第一次 `:e`。理论上可以挂事件懒加载，但 hijack 挂在 `BufWinEnter` 上，靠同一个事件
+  触发加载会错过首次打开，不值得为省几毫秒引入这个坑。
+- **snacks.image 必须关**，不是可选。两边都会拦图片文件，同时开谁后注册谁生效，
+  行为不可预期。留一个即可。
 
 #### 它做到了什么，没做到什么
 
-**做到了：** 注册 `BufReadCmd` 拦截图片文件（`snacks/image/init.lua:262`），所以任何
-「真的打开这个文件」的路径都会变成渲染图片而不是加载二进制——mini.files 按 `l`、
-`:e x.png`、`gf` 跳转，全都算。另外 markdown 里的图片会内联渲染在正文中
-（`doc.inline = true`）。支持 png/jpg/gif/webp/tiff/heic/avif/pdf 以及若干视频格式。
+**做到了：** 用 `hijack_file_patterns`（默认 png/jpg/jpeg/gif/webp/avif）在
+**`BufWinEnter`** 上接管图片文件——注意是 `BufWinEnter` 不是 snacks 用的 `BufReadCmd`，
+用 `nvim_get_autocmds` 查注册方时别查错事件（实测踩过）。markdown 里的图片内联渲染在
+正文中（`integrations.markdown`）。molten 那边 `molten_image_location` 默认 `"both"`，
+配合本配置的 `virt_text_output = true`，图就画在 cell 下方的内联输出里，不用另开窗。
 
-**没做到（两条，都别抱错期待）：**
-
-1. **molten 的 plot 还是看不到。** molten 的 image provider 只认 `none` /
-   `image.nvim` / `wezterm` 三个值（`molten/images.py:265-274`），**它不认 snacks**。
-   两者是彻底独立的机制：snacks.image 管「用 nvim 打开磁盘上的图片文件」，
-   molten 管「把 kernel 通过 iopub 回传的图像字节画进输出窗口」，后者根本不经过
-   文件系统，`BufReadCmd` 无从拦截。要 plot 只能装 image.nvim 或换 wezterm。
-
-2. **mini.files 的 preview 窗格仍然不显示图片。** 因为 mini.files 的预览不是「打开
-   文件」——它 `readfile` 出内容再 `nvim_buf_set_lines` 塞进一个 scratch buffer
-   （`mini/files.lua:2381`），压根没有 `BufReadCmd` 这一步。
-   ⚠ 顺带纠正一个误判：preview 窗格**本来就不会**显示二进制乱码。mini.files 自己有
-   检测——读前 1024 字节找 `\0`，命中就显示 `-Non-text-file----`（同一函数内）。
-   而且本机 `mini.lua` 根本没开 preview（默认 `preview = false`）。所以当初看到的
-   乱码一定来自「按 `l` 真的打开了文件」，不是预览。这条路现在已经通了。
-   真想要「光标移上去右边就出图」，得用 `MiniFilesBufferUpdate` 事件拿路径、
-   自己调 `Snacks.image.placement.new()` 往预览窗贴，属于几十行的定制，暂未做。
+**没做到：mini.files 的 preview 窗格仍然不显示图片。** 因为 mini.files 的预览不是
+「打开文件」——它 `readfile` 出内容再 `nvim_buf_set_lines` 塞进一个 scratch buffer
+（`mini/files.lua:2381`），没有任何 buffer 事件可拦。
+⚠ 顺带纠正一个误判：preview 窗格**本来就不会**显示二进制乱码。mini.files 自己有
+检测——读前 1024 字节找 `\0`，命中就显示 `-Non-text-file----`。而且本机 `mini.lua`
+根本没开 preview（默认 `preview = false`）。所以当初看到的乱码一定来自「按 `l` 真的
+打开了文件」，不是预览。这条路现在已经通了。真想要「光标移上去右边就出图」得用
+`MiniFilesBufferUpdate` 事件拿路径自己往预览窗贴，属于几十行的定制，暂未做。
 
 #### 前置条件：终端必须支持 kitty 图形协议
 
-kitty / ghostty / wezterm 可以，**alacritty 不行**（`snacks/image/terminal.lua:7-25`
-那张 environments 表）。本机两个终端都装了，日常用 kitty，所以没问题——但如果哪天在
-alacritty 里开 nvim，图片会静默地不显示，别以为是配置坏了。
+kitty / ghostty / wezterm 可以，**alacritty 不行**。本机两个终端都装了，日常用 kitty，
+所以没问题——但如果哪天在 alacritty 里开 nvim，图片会静默地不显示，别以为是配置坏了。
 
-检测方式是运行时向终端发查询转义序列读回应，**所以 `nvim --headless` 下必然报
-不支持**（实测 `supports_terminal()` 返回 false）。验证要在真终端里跑
-`:checkhealth snacks` 看 image 那一节。
+真正把像素画到屏幕上的是 **kitty**，nvim / image.nvim / molten 都只是把图像字节按
+kitty graphics protocol 的转义序列喂给终端的搬运工。所以 **`nvim --headless` 下
+验证不了渲染**（没有终端可对话）；headless 里能验的只有「插件加载了、hijack 注册了、
+snacks.image 关了」三件事，真出图要在 kitty 里 `:e x.png` 或跑一个 matplotlib cell。
+（`pillow` 只有 `:MoltenImagePopup` 外部弹窗才用，内联渲染不需要，所以没进 packages.txt。）
 
 ### 其他小项
 

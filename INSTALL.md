@@ -229,7 +229,7 @@ pkcheck --action-id org.noctalia.greeter.apply-appearance --process $$   # → p
 
 ### nvim
 
-- [ ] `:Lazy` 显示 45 installed（46 锁 − 1 个 `bufferline.nvim` 被 disable，属预期）
+- [ ] `:Lazy` 显示 46 installed（47 锁 − 1 个 `bufferline.nvim` 被 disable，属预期）
 - [ ] `Ctrl+/` 开出居中的浮动终端，里面是 zsh
 - [ ] `<leader>e`（空格 e）打开 mini.files
 - [ ] 打开一个 GBK 编码的中文文件不乱码

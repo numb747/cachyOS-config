@@ -42,6 +42,10 @@ config/nvim/lua/config/keymaps.lua        ~/.config/nvim/lua/config/keymaps.lua
 config/nvim/lua/config/autocmds.lua       ~/.config/nvim/lua/config/autocmds.lua
 config/nvim/lua/plugins/colorscheme.lua   ~/.config/nvim/lua/plugins/colorscheme.lua
 config/nvim/lua/plugins/disabled.lua      ~/.config/nvim/lua/plugins/disabled.lua
+# image.nvim：打开图片文件 + 给 molten 出图。走 processor = "magick_cli"，只要系统的
+# imagemagick 包（在 packages.txt），不要 luarock；build = false 防 lazy 去跑 luarocks。
+# 与 snacks.lua 里关掉的 snacks.image 二选一，不能同开。见 docs/04-neovim.md。
+config/nvim/lua/plugins/image.lua         ~/.config/nvim/lua/plugins/image.lua
 config/nvim/lua/plugins/lualine.lua       ~/.config/nvim/lua/plugins/lualine.lua
 config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
 # molten：.py 里跑 Jupyter kernel、输出内联。★ 光有这个文件不够 ——

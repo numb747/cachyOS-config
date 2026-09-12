@@ -11,25 +11,14 @@ return {
       -- },
     },
 
-    -- 图片查看器。snacks 里 image 默认是关的（defaults 表里压根没有顶层
-    -- enabled 键 → nil → 关），LazyVim 也不开它，所以 :e xxx.png 一直是二进制。
+    -- 图片渲染已统一交给 image.nvim(见 plugins/image.lua):打开图片文件、
+    -- markdown 内联、molten 预览图,三件事走同一套 provider,只维护一处。
     --
-    -- ★ 只依赖 ImageMagick 的 CLI（/usr/bin/magick），不需要 image.nvim 那个
-    --   magick luarock —— 那正是 molten.lua 里当初放弃图片的原因。
-    -- ★ 依赖终端的 kitty graphics protocol。kitty / ghostty / wezterm 可以，
-    --   alacritty 不行（你两个都装了，别在 alacritty 里指望它）。
-    -- ★ 它注册 BufReadCmd 拦截图片文件，所以 mini.files 里按 l/L 打开图片
-    --   会直接渲染，而不是加载成二进制 buffer。
-    image = {
-      enabled = true,
-      doc = {
-        -- markdown 里的图片直接内联渲染在正文中
-        inline = true,
-        float = true,
-        max_width = 60,
-        max_height = 30,
-      },
-    },
+    -- ★ snacks.image 必须关:它和 image.nvim 都注册 BufReadCmd 抢图片文件,
+    --   两个同时开会打架(谁后注册谁生效,行为不可预期)。留一个即可。
+    -- ★ 之所以从 snacks 切走:molten 的图像 provider 只认 none/image.nvim/wezterm,
+    --   不认 snacks —— 要 molten 内联出图就必须上 image.nvim,索性打开图片也统一用它。
+    image = { enabled = false },
   },
   keys = {
     -- 帮助禁用snacks内置的相关文件浏览器插件,从而使用mini-files

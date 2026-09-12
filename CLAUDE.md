@@ -267,7 +267,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **45 装 / 46 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- nvim **46 装 / 47 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
 - **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
   输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
   basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
@@ -277,20 +277,21 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   （已在 `molten.lua` 的 init 里 mkdir 兜掉）。另有 4 个坑（`MoltenEvaluateRange` 是
   function 不是 command、不能懒加载、`python3_host_prog` 要防 venv 污染、
   输出窗口的 `q` 撞上本配置全局禁用的 `q`）全在 `docs/04-neovim.md`
-- **snacks.image**（2026-09-11 新增）：在 mini.files 里按 `l` 打开 png 会满屏二进制
-  ——根因是 nvim 里没有任何东西能渲染图片：没装 image.nvim，而 snacks 的 image 模块
-  **默认关闭**（它的 defaults 表里压根没有顶层 `enabled` 键，取值 nil 即假），
-  LazyVim 也不开它。`snacks.lua` 里加 `image = { enabled = true }` 解决。
-  选它而不选 image.nvim 的**唯一理由**：image.nvim 要 `magick` **luarock**（当初就是
-  被这个卡住才放弃的），snacks.image 只要 ImageMagick 的**命令行程序**，而
-  `/usr/bin/magick` 早就为 ASCII 壁纸装好了 —— 所以 `imagemagick` 现在有两个消费者，
-  不再是「不做 ASCII 壁纸就可以不装」的可选项。
-  ⚠ 两个别抱错期待的地方：① **molten 的 plot 还是看不到**，molten 的 provider 只认
-  `none`/`image.nvim`/`wezterm`，**不认 snacks**，两者是独立机制；② mini.files 的
-  **preview 窗格仍不出图**（它是 readfile 进 scratch buffer，不走 `BufReadCmd`）。
-  ⚠ 依赖终端的 kitty 图形协议：kitty/ghostty/wezterm 行，**alacritty 不行**（会静默
-  不显示）；且运行时探测在 `--headless` 下必然报不支持，验证要在真终端 `:checkhealth snacks`。
-  见 `docs/04-neovim.md`
+- **image.nvim**（2026-09-12 起，取代前一天刚开的 snacks.image）：一套机制干两件事
+  ——打开图片文件（mini.files 按 `l`、`:e x.png`）就地渲染，以及给 molten 当图像
+  provider 让 `plt.show()` 的图直接画在 cell 下方。`plugins/image.lua` 新增，
+  `snacks.lua` 里 `image = { enabled = false }`，`molten.lua` 里
+  `molten_image_provider = "image.nvim"` + `molten_auto_image_popup = false`。
+  ★ 为什么切：snacks.image 顶不了 molten 的班（provider 只认 none/image.nvim/wezterm），
+  而当初躲 image.nvim 是因为它默认要 `magick` **luarock**——破局点是它还有
+  **`processor = "magick_cli"`**，直接用系统 `/usr/bin/magick`，依赖形态和 snacks 一样，
+  顾虑就没了；能一套干两件事就没理由养两套。
+  ★ 三处必须写对：`build = false`（否则 lazy 去跑 luarocks 必失败装不上）、
+  `lazy = false`（hijack 挂 `BufWinEnter`，靠同一事件懒加载会错过首次打开）、
+  **snacks.image 必须关**（两边都拦图片文件，同开谁后注册谁生效）。
+  ⚠ 别抱错期待：mini.files 的 **preview 窗格仍不出图**（readfile 进 scratch buffer，
+  无 buffer 事件可拦）。依赖 kitty 图形协议，**alacritty 不行**；`--headless` 下验证不了
+  渲染，只能验「加载了 / hijack 注册了 / snacks.image 关了」。见 `docs/04-neovim.md`
 - 输入法：fcitx5 5.1.21 + rime，自制 `tokyonight` 主题；中文字体走
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +

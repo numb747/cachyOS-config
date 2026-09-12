@@ -8,7 +8,7 @@
 
 > 快照时间：2026-08-26
 > 来源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 ·
-> neovim 0.12.5（LazyVim，45 插件）· zsh 5.9.2 + powerlevel10k 1.20.17
+> neovim 0.12.5（LazyVim，46 插件）· zsh 5.9.2 + powerlevel10k 1.20.17
 
 > ⚠ **这是个人配置，不是通用发行版。** 它按一台特定机器的硬件与习惯调过：
 > 单显示器 DP-1 2560×1440、AMD 显卡、中文输入法、特定键位肌肉记忆。
