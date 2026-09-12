@@ -6,7 +6,8 @@
 ```
 ~/cachyOS-config/                   ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
 ├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
-├── README.md                 人读的总览（GitHub 首页渲染的就是它）
+├── README.md                 人读的总览【英文】，GitHub 首页渲染的就是它
+├── README.zh-CN.md           同一份的中文版，两份要一起改
 ├── INSTALL.md                新机器从零到可用 + 验收清单
 ├── LICENSE                   MIT + 第三方内容（壁纸/LazyVim）归属声明
 ├── manifest.map              ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
@@ -31,7 +32,7 @@
 >
 > 2026-08-28 目录由 `~/ccconfig` **改名为 `~/cachyOS-config`**，与远程仓库名对齐。
 > 同样靠 `BASH_SOURCE` 自定位，脚本零改动。改名时要跟着动的只有四处硬编码：
-> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、`README.md` 的 clone 示例、
+> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、两份 README 的 clone 示例、
 > 本文件——**`config/hypr/patches/*.patch` 里的绝对路径不用管**，`sync.sh --pull` 会重生成。
 > 另外 `~/.claude.json` 的 `projects` 键是按绝对路径索引的，改名后需手动迁移键名，
 > 否则 Claude Code 把新路径当陌生目录（重弹信任对话框、丢 `allowedTools`）。
