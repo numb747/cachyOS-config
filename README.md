@@ -1,5 +1,7 @@
 # CachyOS + Hyprland 桌面配置包
 
+![桌面预览：Hyprland + noctalia + ASCII 壁纸，Tokyo Night 配色](docs/img/desktop.webp)
+
 一台已经调顺手的 CachyOS 机器的完整配置快照，目标是**在另一台机器上一条命令复现**。
 
 > 快照时间：2026-08-26
@@ -12,7 +14,7 @@
 > （每个都先备份成 `.bak-时间戳`，且不需要 sudo、不碰系统目录），
 > 但**请先 `--dry-run` 看一遍**再决定。出了问题用 `./uninstall.sh` 回滚。
 >
-> 授权与第三方内容（壁纸来自 wallhaven、nvim 部分来自 LazyVim）见 [LICENSE](../LICENSE)。
+> 授权与第三方内容（壁纸来自 wallhaven、nvim 部分来自 LazyVim）见 [LICENSE](LICENSE)。
 
 ---
 
