@@ -110,8 +110,11 @@ swallow_regex  = "(kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce[0-9]?-
 极易误判成「程序把 shell 占住了」，然后徒劳地去试 `nohup` / `&` / `disown`——
 它的判据是**进程祖先链**，跟作业控制毫无关系，那三个都改不了父子关系。
 
-单次绕开：`setsid -f CMD`。完整判据、根因与四种方案的实测对比见
-[07](07-troubleshooting.md) 坑 9。
+单次绕开：`setsid -f CMD`。⚠ 尾部不必再加 `&` 或重定向，它们不动父子关系，挡不住
+也拦不住。要**永久**豁免某个应用加 `misc.swallow_exception_regex`（匹配**被启动窗口的
+title**，不是 class），要**彻底关掉**改 `enable_swallow = false` —— 两者都走 `mykeys.lua`
+的 `hl.config`，别动这份官方文件（坑 4）。完整判据、根因、四种方案实测对比与这两条
+永久路线的取舍见 [07](07-troubleshooting.md) 坑 9。
 
 ### 抽屉架（rack）：第二套工作平面
 
