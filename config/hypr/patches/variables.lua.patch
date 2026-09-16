@@ -1,4 +1,4 @@
---- /etc/skel/.config/hypr/config/variables.lua	2026-08-16 02:19:18.000000000 +0800
+--- /etc/skel/.config/hypr/config/variables.lua	2026-09-13 17:48:20.000000000 +0800
 +++ /home/david/cachyOS-config/config/hypr/config/variables.lua	2026-08-26 10:32:46.004048527 +0800
 @@ -13,4 +13,9 @@
  PRIMARY_MONITOR = MONITOR1

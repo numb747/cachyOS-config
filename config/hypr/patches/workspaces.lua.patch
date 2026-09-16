@@ -1,4 +1,4 @@
---- /etc/skel/.config/hypr/config/workspaces.lua	2026-08-16 02:19:18.000000000 +0800
+--- /etc/skel/.config/hypr/config/workspaces.lua	2026-09-13 17:48:20.000000000 +0800
 +++ /home/david/cachyOS-config/config/hypr/config/workspaces.lua	2026-08-26 10:32:46.005048538 +0800
 @@ -1,12 +1,29 @@
  -- Workspace rules wiki https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
@@ -12,7 +12,7 @@
 --- hl.workspace_rule({ workspace = "6", monitor = MONITOR2, default = true, persistent = true })
 -
 --- For other layouts such as scrolling, see example below
---- hl.workspace_rule({ workspace = "1", monitor = MONITOR1, default = true, persistent = true, layout = scroling })
+--- hl.workspace_rule({ workspace = "1", monitor = MONITOR1, default = true, persistent = true, layout = "scrolling" })
 +--
 +-- ★ 本配置采用【纯动态工作区】策略：这里刻意不定义任何 persistent 规则。
 +--
