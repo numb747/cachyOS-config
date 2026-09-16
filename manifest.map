@@ -116,19 +116,18 @@ claude/pty_drive.py                       ~/.claude/pty_drive.py
 claude/probe_multiq.py                    ~/.claude/probe_multiq.py
 
 #@module wall
-# ★★ 当前正在用的那张。state/noctalia/settings.toml 的四处 [wallpaper.*] path
-#    全部指向它，而那是【绝对路径字面量】—— 文件不到位 noctalia 就退回纯色背景，
-#    而且不报错。2026-09-16 之前它只存在于包内的 wallpaper/ascii/，没有任何安装
-#    步骤把它铺到 ~/Pictures/，新机器装完必然是纯色桌面。这一行就是补那个洞。
-# ★ 目标路径里的 D-ASCII/ 是壁纸库的分类目录，成品在包里则统一放 wallpaper/ascii/，
-#   两边目录名不同是有意的（包里按「成品」归类，系统上按「色系库分类」归类），
-#   但【文件名必须一字不差】，改名 = 让 settings.toml 的绝对路径落空。
-# ★ 换掉这张的话，config/hypr/config/misc.lua 的 background_color 要重新采样
-#   （开机空档的纯色底要跟壁纸同色系），命令见坑 15。当前 a1 的主色是 #1a1b26。
-wallpaper/ascii/a1-紫调少女.png           ~/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png
-# 备选：wallhaven kxwp96（3840x2160，主色 #040509）。2026-09-03~09-16 期间是本机
-# 在用的那张，现已跟远程切回 a1。留在包里当备选，放库根而不是 tokyonight/ 下，
-# 因为它不属于那个色系库，就是一张单独挑的图。
+# ⚠ D-ASCII 成品（wallpaper/ascii/*，含 settings.toml 默认指向的 a1-紫调少女.png）
+#   【不要往这里加】—— install.sh 的 mod_wall 已经有一个 for 循环把整个
+#   wallpaper/ascii/ 铺到 ~/Pictures/Wallpapers/tokyonight/D-ASCII/，
+#   再在 manifest 里列一遍就是同一个文件被 put 两次、还会多出一条 sync 追踪项。
+#   加新成品只要把图丢进 wallpaper/ascii/，那个循环自动带上（它按 * 匹配，
+#   不是 *.png —— c2 是 .jpg）。
+#
+# 备选壁纸：wallhaven kxwp96（3840x2160，主色 #040509）。2026-09-03~09-16 期间是
+# 本机在用的那张，现已跟远程切回 a1（主色 #1a1b26）。它不属于 tokyonight 色系库、
+# 就是一张单独挑的图，所以放库根而不是 tokyonight/ 下，也就走 manifest 而非上面
+# 那个循环。换回它的话 config/hypr/config/misc.lua 的 background_color 要重新采样，
+# 命令见坑 15。
 wallpaper/wallhaven-kxwp96.jpg            ~/Pictures/Wallpapers/wallhaven-kxwp96.jpg
 wallpaper/tokyonight/_fetch.py            ~/Pictures/Wallpapers/tokyonight/_fetch.py
 wallpaper/tokyonight/_fetch2.py           ~/Pictures/Wallpapers/tokyonight/_fetch2.py

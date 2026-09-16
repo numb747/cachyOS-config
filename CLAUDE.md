@@ -277,7 +277,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 | `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
 | `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
-| `~/.zshrc` | 路径为 `/home/monkey` | `/home/david` | 同上，但 **`rewrite_home` 覆盖不到它**（只管 settings.toml / noctalia config.toml / wecom.desktop），只能手工改写 |
+| `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / wecom.desktop），只能手工改；顺手按本文件自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
 | `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，见坑说明 |
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
@@ -315,6 +315,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   切到其余四个会打印「缺少壁纸目录」并 `exit 1` —— **不改任何状态，是安全失败**。
   想补就往对应目录丢图，`THEMES` 数组不用动。
   `theme-preview`（`SUPER+I` / `SUPER+SHIFT+I`）只在当前主题目录内翻，本机可用。
+- ⚠ **待办**：`python-pynvim` + `python-ipykernel` 还没装（要 sudo，本机 sudo 需要密码）。
+  这是 molten 的前置——配置文件 `plugins/molten.lua` 已经就位，但**不装这两个包
+  `:MoltenInit` 起不来 kernel**。装法 `sudo pacman -S --needed python-pynvim python-ipykernel`，
+  装完必须在 nvim 里 `:UpdateRemotePlugins` 再重启，否则 `:Molten*` 全是 E492（坑见 `docs/04`）。
 - ★ **「Mason 语言工具链未装齐」那条待办对本机不成立**（文末「现状」记的是源机器）。
   本机运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
   （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
