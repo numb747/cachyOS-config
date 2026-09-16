@@ -434,13 +434,23 @@ end, 3000)'
 
 ## 遗留 / 可继续调
 
-1. **切桌面时光标闪一下**。已试过 `no_warps`（治好了切窗口的闪）、`follow_mouse = 2`、
-   `mouse_refocus = false`。下一步候选，按代价从小到大：
-   - `follow_mouse = 1` + `mouse_refocus = false`
-     （`mouse_refocus` 疑似只在 `follow_mouse = 1` 下生效，当前可能是空转）
-   - `cursor:inactive_timeout = 1`（治标：闪出来后 1 秒自动消失）
-   - `follow_mouse = 3`（代价太大：点击也不切键盘焦点，鼠标基本失去意义）
-2. **Mason 语言工具链未装齐** —— 见 [04](04-neovim.md#语言工具链mason)。
-3. **`mykeys.lua` 第 4 节有一句过时注释**：写着「`NUM_WPM = 3`，默认只有三个工作区」，
+1. **Mason 语言工具链未装齐** —— 见 [04](04-neovim.md#语言工具链mason)。
+2. **`mykeys.lua` 第 4 节有一句过时注释**：写着「`NUM_WPM = 3`，默认只有三个工作区」，
    实际已改成纯动态工作区、`NUM_WPM = 9`。只是注释，不影响行为。
-4. **rime 词库未打包** —— `~/.local/share/fcitx5/rime/` 属个人数据，换机时单独拷。
+3. **rime 词库未打包** —— `~/.local/share/fcitx5/rime/` 属个人数据，换机时单独拷。
+
+### 已结案
+
+- **切桌面/切窗口时光标闪一下 + 切完窗口一两秒焦点自己跳回原窗口** —— 两个症状，
+  一个根因。修法是**全部删掉**、回到 Hyprland 默认，只留 `hide_on_key_press = true`。
+
+  完整机制见 [02](02-hyprland.md#鼠标行为第-6--6b-节)。要点是：当初为了「不闪」而
+  上的 `no_warps = true` 把指针和焦点拆开了，反而造出了焦点被抢的洞；为了堵这个洞
+  再上的 `follow_mouse = 2` 又锁死了 warp 的开关，绕成死循环。默认配置里根本没有
+  这个洞——「切焦点时指针跟着 warp」正是让指针底下永远是焦点窗口、因而抢不走焦点的
+  那个机制。闪烁是它的代价，接受即可。
+
+  作废的候选方案（不要再试）：`follow_mouse = 1`、`inactive_timeout`、
+  `follow_mouse = 3`、`follow_mouse_threshold`。前三个是在给一个错误的因果判断
+  打补丁；最后一个更隐蔽——它和 `mouse_refocus`、`follow_mouse_shrink` 一样，
+  读取点都在 `FOLLOWMOUSE == 1` 的分支里，在 `follow_mouse = 2` 下是空转配置。

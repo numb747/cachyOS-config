@@ -78,8 +78,10 @@ FocusLost    → silent! wa      -- 切走窗口就全部保存
 InsertLeave  → silent! write   -- 退出插入模式就保存
 ```
 
-配合 Hyprland 的 `follow_mouse = 2`（悬停不切焦点），`FocusLost` 只在真正点击别的
-窗口时触发，不会因为鼠标划过就狂写盘。
+配合 Hyprland 默认的 `follow_mouse = 1`（悬停即切键盘焦点），鼠标**划过**窗口就会
+触发 `FocusLost` 从而写盘。键盘流日常不会把鼠标往编辑器上晃，实际影响很小；如果
+哪天觉得写盘太频繁，再考虑把它挪出 `FocusLost`（比如只在 `InsertLeave` 和
+`BufLeave` 上保存）。
 
 代价：不适合编辑「必须显式保存才生效」的文件（如正在被守护进程监听的配置）。
 临时关掉：`:autocmd! * <buffer>`。
