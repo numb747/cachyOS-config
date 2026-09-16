@@ -314,7 +314,18 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `~/Pictures/Wallpapers/<slug>/` 下有图。本机只有 `tokyonight/`（5 张），
   切到其余四个会打印「缺少壁纸目录」并 `exit 1` —— **不改任何状态，是安全失败**。
   想补就往对应目录丢图，`THEMES` 数组不用动。
-  `theme-preview`（`SUPER+I` / `SUPER+SHIFT+I`）只在当前主题目录内翻，本机可用。
+  实测 `theme-switch tokyonight` 正常（它 `find` 不加 `-maxdepth`，递归取图）。
+- ⚠ **`theme-preview`（`SUPER+I` / `SUPER+SHIFT+I`）在本机直接报错，不是装坏了**
+  （2026-09-16 实测）：它的 `list_images` 写的是 **`find ... -maxdepth 1`**，
+  只认**主题目录根上那一层**的「片单图」；而本机 `tokyonight/` 根上只有
+  `_*.py` / `_picks*.json` / `index.html`，图全在 `A-最搭/` 和 `D-ASCII/` 两个
+  子目录里，于是列出来是空集 → `✗ 主题目录无片单图` → `exit 1`。
+  ★ 这是**两个脚本对目录布局的假设不一致**，不是本机配置缺失：`theme-switch`
+  递归、`theme-preview` 只看一层，而 `docs/05-theme-ui.md` 加新主题那三步写的是
+  「可带子目录，脚本递归取图」—— 按文档的布局摆图，`theme-preview` 必然失效。
+  两条路，**都别急着改脚本**（那是远程的东西，改了下次拉取要冲突）：
+  往 `tokyonight/` 根上放几张想快速轮换的「片单」副本，或者确认源机器上
+  该目录根到底是什么布局再决定以谁为准。
 - ⚠ **待办**：`python-pynvim` + `python-ipykernel` 还没装（要 sudo，本机 sudo 需要密码）。
   这是 molten 的前置——配置文件 `plugins/molten.lua` 已经就位，但**不装这两个包
   `:MoltenInit` 起不来 kernel**。装法 `sudo pacman -S --needed python-pynvim python-ipykernel`，
