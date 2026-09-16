@@ -42,8 +42,16 @@ config/nvim/lua/config/keymaps.lua        ~/.config/nvim/lua/config/keymaps.lua
 config/nvim/lua/config/autocmds.lua       ~/.config/nvim/lua/config/autocmds.lua
 config/nvim/lua/plugins/colorscheme.lua   ~/.config/nvim/lua/plugins/colorscheme.lua
 config/nvim/lua/plugins/disabled.lua      ~/.config/nvim/lua/plugins/disabled.lua
+# image.nvim：打开图片文件 + 给 molten 出图。走 processor = "magick_cli"，只要系统的
+# imagemagick 包（在 packages.txt），不要 luarock；build = false 防 lazy 去跑 luarocks。
+# 与 snacks.lua 里关掉的 snacks.image 二选一，不能同开。见 docs/04-neovim.md。
+config/nvim/lua/plugins/image.lua         ~/.config/nvim/lua/plugins/image.lua
 config/nvim/lua/plugins/lualine.lua       ~/.config/nvim/lua/plugins/lualine.lua
 config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
+# molten：.py 里跑 Jupyter kernel、输出内联。★ 光有这个文件不够 ——
+# 需要 python-pynvim + python-ipykernel（在 packages.txt），且首次装完要
+# :UpdateRemotePlugins 再重启 nvim，否则 :Molten* 全是 E492。见 docs/04-neovim.md。
+config/nvim/lua/plugins/molten.lua        ~/.config/nvim/lua/plugins/molten.lua
 config/nvim/lua/plugins/no-neck-pain.lua  ~/.config/nvim/lua/plugins/no-neck-pain.lua
 config/nvim/lua/plugins/snacks.lua        ~/.config/nvim/lua/plugins/snacks.lua
 config/nvim/lua/plugins/toggleterm.lua    ~/.config/nvim/lua/plugins/toggleterm.lua
@@ -108,13 +116,19 @@ claude/pty_drive.py                       ~/.claude/pty_drive.py
 claude/probe_multiq.py                    ~/.claude/probe_multiq.py
 
 #@module wall
-# 当前正在用的那张（wallhaven kxwp96，3840x2160）。放在库根而不是 tokyonight/ 下，
-# 因为它不属于那个色系库，就是一张单独挑的图。
-# ★ 包内文件名必须和系统上的一致：state/noctalia/settings.toml 的
-#   [wallpaper.*] path 是【绝对路径字面量】，改名就等于让 noctalia 找不到图、
-#   退回纯色背景，而且不报错。
+# ★★ 当前正在用的那张。state/noctalia/settings.toml 的四处 [wallpaper.*] path
+#    全部指向它，而那是【绝对路径字面量】—— 文件不到位 noctalia 就退回纯色背景，
+#    而且不报错。2026-09-16 之前它只存在于包内的 wallpaper/ascii/，没有任何安装
+#    步骤把它铺到 ~/Pictures/，新机器装完必然是纯色桌面。这一行就是补那个洞。
+# ★ 目标路径里的 D-ASCII/ 是壁纸库的分类目录，成品在包里则统一放 wallpaper/ascii/，
+#   两边目录名不同是有意的（包里按「成品」归类，系统上按「色系库分类」归类），
+#   但【文件名必须一字不差】，改名 = 让 settings.toml 的绝对路径落空。
 # ★ 换掉这张的话，config/hypr/config/misc.lua 的 background_color 要重新采样
-#   （开机空档的纯色底要跟壁纸同色系），命令见那个文件的注释。
+#   （开机空档的纯色底要跟壁纸同色系），命令见坑 15。当前 a1 的主色是 #1a1b26。
+wallpaper/ascii/a1-紫调少女.png           ~/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png
+# 备选：wallhaven kxwp96（3840x2160，主色 #040509）。2026-09-03~09-16 期间是本机
+# 在用的那张，现已跟远程切回 a1。留在包里当备选，放库根而不是 tokyonight/ 下，
+# 因为它不属于那个色系库，就是一张单独挑的图。
 wallpaper/wallhaven-kxwp96.jpg            ~/Pictures/Wallpapers/wallhaven-kxwp96.jpg
 wallpaper/tokyonight/_fetch.py            ~/Pictures/Wallpapers/tokyonight/_fetch.py
 wallpaper/tokyonight/_fetch2.py           ~/Pictures/Wallpapers/tokyonight/_fetch2.py
@@ -144,6 +158,8 @@ share/icons/wecom.png                     ~/.local/share/icons/hicolor/256x256/a
 #   并且已被 IgnorePkg 锁更新。整套缘由和重装步骤见 docs/10-ocr.md。
 bin/ocr-server                            ~/.local/bin/ocr-server
 bin/ocr-grab                              ~/.local/bin/ocr-grab
+bin/theme-switch                          ~/.local/bin/theme-switch
+bin/theme-preview                         ~/.local/bin/theme-preview
 config/systemd/user/ocrd.socket           ~/.config/systemd/user/ocrd.socket
 config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
 
@@ -158,5 +174,7 @@ config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
 # config/nvim/lua/plugins/example.lua      LazyVim 自带样例，从不改
 # share/fcitx5/themes/tokyonight/.src/     SVG 源与 render.sh，只在包里，不装到系统
 # docs/img/*.png                           文档配图，同上
+# bin/theme-switch                         主题循环切换脚本（Super+Shift+T 触发）
+# bin/theme-preview                        当前主题片单即时翻墙纸（Super+I）
 # ~/.ssh ~/.gnupg ~/.claude/settings.json  含密钥，永不入包
 # ~/.local/share/fcitx5/rime/              个人词库，体积不定

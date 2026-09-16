@@ -311,6 +311,23 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 `-f` 不能省：`setsid` 只在自己是进程组长时才 fork，写脚本里（无作业控制）会不 fork，
 链就还在。
 
+⚠ **命令尾部的 `>/dev/null 2>&1 </dev/null &` 与断链无关，别当成必要条件**（2026-09-16）。
+`&` 只改前后台、`</dev/null` 只改 stdin 指向，两者都不动父子关系 —— 和上面 `nohup`/`disown`
+失效是同一个理由，见「为什么没用」那段。加上它们不会坏事，但少了它们也照样不被吞。
+从**交互式 zsh** 里调（有作业控制）时，`setsid -f` 会立刻 fork 并立刻返回，提示符马上
+回来，`&` 纯属多余；真正需要重定向的场合是 stdout 还想留着的脚本调用，那时用
+`>/dev/null 2>&1 </dev/null` 防住后台进程写终端。
+
+**Hyprland 并非「必然吞」**，两条永久路线都在这份配置里可及：
+
+| 想做到 | 改哪 | 代价 |
+|---|---|---|
+| 某个应用永久豁免 | `misc.swallow_exception_regex`（匹配**被启动窗口的 title**） | 只对这个应用生效，其余照吞 |
+| 整个功能关掉 | `misc.enable_swallow = false` | 全局改变行为，本配置刻意保持官方默认 |
+
+⚠ 别自己改 `config/hypr/config/misc.lua` —— 那是 5 个 CachyOS 官方文件之一，动了就要多
+维护一个 patch（见 [CLAUDE.md](../CLAUDE.md) 坑 4）。要改走 `mykeys.lua` 的 `hl.config`。
+
 **候选方案实测**（2026-08-27，从 `/tmp` 下调用，shell pid 73965）：
 
 | 方法 | 结果 PPID | cwd | 能否躲开 swallow |
@@ -334,7 +351,7 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 
 | 症状 | 排查方向 |
 |---|---|
-| 快捷键全无反应 | `hyprctl binds -j \| jq length`；116 = 正常，95 = `require("mykeys")` 没挂上，81 = 连 `binds.lua`/`variables.lua` 都还是 skel 原版（`NUM_WPM` 不同，循环少展开 9 条） |
+| 快捷键全无反应 | `hyprctl binds -j \| jq length` 看总数（2026-09-16 实测 **124**，这个数会随加键位变，以 CLAUDE.md「现状」段为准）；**95 = `require("mykeys")` 没挂上**（自定义那部分全丢），**81 = 连 `binds.lua`/`variables.lua` 都还是 skel 原版**（`NUM_WPM` 不同，循环少展开 9 条）。后两个才是判据，别拿总数硬比 |
 | `Super+Shift/Alt+R` 没反应、或录完打不开 | 先 `command -v wl-screenrec`（AUR 包，不在 packages.txt 的 pacman 行里）。文件损坏多半是被 `SIGTERM`/`SIGKILL` 杀的——必须 `SIGINT`，见 [05](05-theme-ui.md#录屏--wl-screenrec) |
 | 双击图片/视频没反应，或还是用浏览器打开 | `xdg-mime query default image/png`；配置写坏的典型症状是 `mimeapps.list` 里出现一行挤了几十个类型的畸形 key，见 [05](05-theme-ui.md#默认打开方式图片--imv音视频--mpv) |
 | `Alt+[` / `Ctrl+1` 跑去切抽屉格了 | 这是**模态**，说明抽屉架正浮着。`Alt+S` 收起即可。见 [02](02-hyprland.md#抽屉架rack第二套工作平面) |
@@ -417,13 +434,23 @@ end, 3000)'
 
 ## 遗留 / 可继续调
 
-1. **切桌面时光标闪一下**。已试过 `no_warps`（治好了切窗口的闪）、`follow_mouse = 2`、
-   `mouse_refocus = false`。下一步候选，按代价从小到大：
-   - `follow_mouse = 1` + `mouse_refocus = false`
-     （`mouse_refocus` 疑似只在 `follow_mouse = 1` 下生效，当前可能是空转）
-   - `cursor:inactive_timeout = 1`（治标：闪出来后 1 秒自动消失）
-   - `follow_mouse = 3`（代价太大：点击也不切键盘焦点，鼠标基本失去意义）
-2. **Mason 语言工具链未装齐** —— 见 [04](04-neovim.md#语言工具链mason)。
-3. **`mykeys.lua` 第 4 节有一句过时注释**：写着「`NUM_WPM = 3`，默认只有三个工作区」，
+1. **Mason 语言工具链未装齐** —— 见 [04](04-neovim.md#语言工具链mason)。
+2. **`mykeys.lua` 第 4 节有一句过时注释**：写着「`NUM_WPM = 3`，默认只有三个工作区」，
    实际已改成纯动态工作区、`NUM_WPM = 9`。只是注释，不影响行为。
-4. **rime 词库未打包** —— `~/.local/share/fcitx5/rime/` 属个人数据，换机时单独拷。
+3. **rime 词库未打包** —— `~/.local/share/fcitx5/rime/` 属个人数据，换机时单独拷。
+
+### 已结案
+
+- **切桌面/切窗口时光标闪一下 + 切完窗口一两秒焦点自己跳回原窗口** —— 两个症状，
+  一个根因。修法是**全部删掉**、回到 Hyprland 默认，只留 `hide_on_key_press = true`。
+
+  完整机制见 [02](02-hyprland.md#鼠标行为第-6--6b-节)。要点是：当初为了「不闪」而
+  上的 `no_warps = true` 把指针和焦点拆开了，反而造出了焦点被抢的洞；为了堵这个洞
+  再上的 `follow_mouse = 2` 又锁死了 warp 的开关，绕成死循环。默认配置里根本没有
+  这个洞——「切焦点时指针跟着 warp」正是让指针底下永远是焦点窗口、因而抢不走焦点的
+  那个机制。闪烁是它的代价，接受即可。
+
+  作废的候选方案（不要再试）：`follow_mouse = 1`、`inactive_timeout`、
+  `follow_mouse = 3`、`follow_mouse_threshold`。前三个是在给一个错误的因果判断
+  打补丁；最后一个更隐蔽——它和 `mouse_refocus`、`follow_mouse_shrink` 一样，
+  读取点都在 `FOLLOWMOUSE == 1` 的分支里，在 `follow_mouse = 2` 下是空转配置。

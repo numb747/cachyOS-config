@@ -31,6 +31,12 @@ npm
 go
 python-pip
 tree-sitter-cli
+# molten-nvim 的两个前置（见 docs/04-neovim.md）。python-ipykernel 会连带拉进
+# python-jupyter-client 和 ipython，装完 :MoltenInit 就有一个开箱可用的 python3 kernel。
+# ⚠ 爬虫/数据分析那些包别往系统 python 装（Arch 是 externally-managed），
+#   在项目 venv 里装 ipykernel 注册成独立 kernel，molten 照样连得上。
+python-pynvim
+python-ipykernel
 
 # ── 字体 ────────────────────────────────────────────────────
 # kitty 是 Adwaita Mono（正文）+ Meslo（Nerd 图标）两个拼的，缺一不可
@@ -104,6 +110,12 @@ python-onnxruntime-cpu
 # ── 壁纸工具链 ──────────────────────────────────────────────
 # wallpaper/tokyonight/_ascii.py 用：magick 做裁切/降采样/边缘图，
 # rsvg-convert 把生成的 SVG 光栅化成 4K PNG。不做 ASCII 壁纸可以不装。
+#
+# ⚠ imagemagick 现在有第二个消费者：nvim 的 image.nvim（2026-09-12 起，此前一天是
+#   snacks.image）靠它把图片转成终端能画的格式。所以就算不做 ASCII 壁纸，它也不再是
+#   可选项——不装的话 nvim 里打开 png 会退回二进制、molten 的 plot 出不来。
+#   注意：image.nvim 走的是 processor = "magick_cli"，要的就是这个【系统包】
+#   （/usr/bin/magick）；它默认的 "magick_rock" 才要 luarock，本机不用。见 docs/04-neovim.md。
 imagemagick
 librsvg
 

@@ -9,7 +9,8 @@
 ```
 ~/cachyOS-config/             ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
 ├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
-├── README.md                 人读的总览（GitHub 首页渲染的就是它）
+├── README.md                 人读的总览【英文】，GitHub 首页渲染的就是它
+├── README.zh-CN.md           同一份的中文版，两份要一起改
 ├── INSTALL.md                新机器从零到可用 + 验收清单
 ├── LICENSE                   MIT + 第三方内容（壁纸/LazyVim）归属声明
 ├── manifest.map              ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
@@ -17,7 +18,7 @@
 ├── sync.sh                   系统 → 包（把线上改动收回来）
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
-├── MANIFEST.txt              sha256 校验（由 sync.sh 生成）
+├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     11 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱、ocr-* 屏幕取字）
@@ -34,7 +35,7 @@
 >
 > 2026-08-28 目录由 `~/ccconfig` **改名为 `~/cachyOS-config`**，与远程仓库名对齐。
 > 同样靠 `BASH_SOURCE` 自定位，脚本零改动。改名时要跟着动的只有四处硬编码：
-> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、`README.md` 的 clone 示例、
+> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、两份 README 的 clone 示例、
 > 本文件——**`config/hypr/patches/*.patch` 里的绝对路径不用管**，`sync.sh --pull` 会重生成。
 > 另外 `~/.claude.json` 的 `projects` 键是按绝对路径索引的，改名后需手动迁移键名，
 > 否则 Claude Code 把新路径当陌生目录（重弹信任对话框、丢 `allowedTools`）。
@@ -47,10 +48,19 @@
 
 ```bash
 # 1. 正常改 ~/.config/... 下的真实配置，验证效果
-# 2. 收回包里（自动重生成 MANIFEST 和 hypr patch）
+# 2. 收回包里（顺序：hypr patch → 文档数字对账 → 最后生成 MANIFEST）
 cd ~/cachyOS-config && ./sync.sh --pull
 # 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
 ```
+
+> **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
+> ASCII 成品张数、`docs/` 总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数。
+> 表在 `sync.sh` 的「文档数字对账」段，新增一条加一行 `docnum` 即可。
+> ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
+> 于是 `--pull` 跑完那一刻，被改写的 4 份文档在 MANIFEST 里已是陈旧哈希，
+> `sha256sum -c` 当场失败 —— 和 2026-09-11 修掉的「裸 find 导致 MANIFEST
+> 生成完立刻过期」是同一个形状的 bug。往 `--pull` 里加任何会改文件的步骤，
+> 都必须加在 MANIFEST 之前。
 
 其他常用：
 
@@ -251,31 +261,39 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 ---
 
-## 本机与源机的差异（2026-08-27，只对 `/home/monkey/cachyOS-config` 这份检出成立）
+## 本机与源机的差异（2026-09-16 复核，只对 `/home/monkey/cachyOS-config` 这份检出成立）
 
 包是从**源机器**（用户 `david`，2560×1440 / 27" 外接显示器 `DP-1` / scale 1）打出来的。
 本机是**笔记本**（用户 `monkey`，1920×1080 / 15.5" 内置屏 `eDP-1` / scale 1.5）。
-两台机器的硬件参数不同，有 6 个文件**线上版本是对的、包里版本是错的**，
-`./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
+
+> **总原则：以远程仓库为准。** 本机配置本来就是照着 `origin/main` 学的，那份是对的那份。
+> 拉取远程后默认**全量对齐**，只有下面这 6 个文件例外——它们要么绑死在本机硬件上、
+> 要么绑死在 `/home/monkey` 这个用户路径上，照搬远程会真的变坏。
+> `./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
 
 | 文件 | 本机（正确） | 包里（源机） | 为什么不能同步 |
 |---|---|---|---|
 | `~/.config/kitty/kitty.conf` | `font_size 10.0` | `12.5` | 本机 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
 | `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
-| `~/.config/hypr/config/misc.lua` | `background_color = rgb(040509)` | `rgb(1a1b26)` | 主色取自**当前壁纸**，本机是 `wallhaven-kxwp96.jpg`（`#040509` 占 84%），源机是那张 ASCII 图 |
-| `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + 本机壁纸路径 | 只有 `DP-1` | 覆盖会丢掉笔记本屏的锁屏配置，壁纸也会指向不存在的路径 |
+| `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
+| `~/.zshrc` | 路径为 `/home/monkey` | `/home/david` | 同上，但 **`rewrite_home` 覆盖不到它**（只管 settings.toml / noctalia config.toml / wecom.desktop），只能手工改写 |
 | `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，见坑说明 |
+
+> ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
+> `background_color` 要取当前壁纸的主色，而两台机器壁纸不同。现在本机壁纸也跟远程换成了
+> `D-ASCII/a1-紫调少女.png`，主色一致（`rgb(1a1b26)`），文件逐字节相同。
+> 换壁纸换色系时重新采样的命令见坑 15。
 
 ### 两个禁止操作
 
 1. **不要跑 `./sync.sh --pull`。** 它会把上面这 6 项**反向写死进包**——笔记本字号、
    `eDP-1`、`/home/monkey` 硬路径全部进 git，推上去就污染源机器的配置。
    要往包里回收改动，只能挑**单个文件**手工来。
-2. **不要跑不带参数的 `./install.sh`。** `mod_term` 会 put `kitty.conf`、
+2. **不要跑不带参数的 `./install.sh`。** `mod_term` 会 put `kitty.conf` 和 `.zshrc`、
    `mod_nvim` 是**整目录 mv 走再替换**、`mod_ui` 的 `put_module ui` 含 `settings.toml`
    —— 三个模块各自会把上表对应项打回源机的值（有 `.bak-*` 备份，但等你发现字变大了
-   才想起来就晚了）。**安全的是 `./install.sh hypr cc`**；`term` / `nvim` / `ui`
+   才想起来就晚了）。**安全的是 `./install.sh hypr cc ocr wall`**；`term` / `nvim` / `ui`
    要装就先看 `./sync.sh --diff`，手工只搬新增的段。
 
 ### 本机已补齐的、包带不了的东西
@@ -291,10 +309,12 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `wecom.png` 四个文件在 `./sync.sh` 里报「系统上不存在」，是预期。
   `packages.txt` 里缺的也正好是这 4 个包（`wine-staging` / `wine-mono` / `wine-gecko` /
   `winetricks`），其余全装了。
-- ⚠ **接外接显示器时会踩**：`~/.local/state/noctalia/settings.toml` 的
-  `[wallpaper.monitors.DP-1]` still 指向 `D-ASCII/a1-紫调少女.png`，而本机
-  `D-ASCII/` 下只有 a3 / a6 / a7 / a9，**没有 a1**。现在无影响（本机是 eDP-1），
-  但一接 DP-1 那块屏就是纯色背景、且不报错。届时在 noctalia 里给它重选一张即可。
+- ⚠ **`theme-switch`（`SUPER+SHIFT+T`）在本机只有 1/5 能用**：它循环
+  `tokyonight / rosepine / everforest / dracula / oxocarbon` 五个主题，每个要
+  `~/Pictures/Wallpapers/<slug>/` 下有图。本机只有 `tokyonight/`（5 张），
+  切到其余四个会打印「缺少壁纸目录」并 `exit 1` —— **不改任何状态，是安全失败**。
+  想补就往对应目录丢图，`THEMES` 数组不用动。
+  `theme-preview`（`SUPER+I` / `SUPER+SHIFT+I`）只在当前主题目录内翻，本机可用。
 - ★ **「Mason 语言工具链未装齐」那条待办对本机不成立**（文末「现状」记的是源机器）。
   本机运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
   （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
@@ -305,14 +325,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 它只由 `./sync.sh --pull` 生成，而 `--pull` 在本机是禁止操作（见上），所以**本机改了包内
 文件后它不会更新**，`sha256sum -c` 必然一片 FAILED。这不是包损坏。
 
-它本身还有个上游缺陷（扁平化的后遗症，同 `--pack` 那条）：`find . -type f` 从仓库根跑，
-把 **35 条 `.git/` 条目**也收了进去 —— 那些每次提交都变，永远校验不过；
-另外还记着两个 `.snapshots/*.tar.gz`，那是 gitignore 的产物，检出里根本不存在。
-159 条里只有 122 条对应真实包内文件。真要验完整性，得先滤掉：
-
-```bash
-grep -v '^#' MANIFEST.txt | grep -v '  \.git/' | grep -v '  \.snapshots/' | sha256sum -c -
-```
+> 此前这里还记着一条「MANIFEST 把 `.git/` 卷了进去」的上游缺陷——**2026-09-11 的
+> `8caafb7` 已经修掉**：`sync.sh` 从裸 `find` 改成跟着 `git ls-files` 走，现在只收入库文件。
+> 所以不用再手工滤 `.git/` / `.snapshots/`，直接 `sha256sum -c` 即可（前提是 MANIFEST 是新的）。
 
 ### 备份放在哪（2026-08-27 整理）
 
@@ -326,14 +341,21 @@ grep -v '^#' MANIFEST.txt | grep -v '  \.git/' | grep -v '  \.snapshots/' | sha2
 
 ---
 
-## 现状（2026-09-03）
+## 现状（2026-09-11）
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **121** 条；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **124** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
-  （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121）
+  （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
+  2026-09-12 实测为 124，中间那 3 条是什么当时没记 —— 这正是下面这条机制的由来）
+  ★ **两份 README 里的键位数由 `sync.sh --pull` 自动重写**，不要手改（详见开头
+  「改配置的正确姿势」下那段）。2026-09-12 顺带对账查出另外 4 处同类过期：
+  ASCII 成品 4→8、壁纸库 167→348 MB、`claude/` 9→10 个文件、docs 230→203 KB
+  （后者连 203 也是错的，用 `du -sh` 累加人类可读值算出来的，`wc -c` 才是 198）。
+  ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 48 处含 `hl.bind` 的行有 11 处
+  在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 48。
 - 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
   `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
@@ -351,12 +373,36 @@ grep -v '^#' MANIFEST.txt | grep -v '  \.git/' | grep -v '  \.snapshots/' | sha2
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **44 装 / 45 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- nvim **46 装 / 47 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
+  输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
+  basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
+  2.6 ms 返回）、中断保留命名空间（实测），对爬虫/接口调试比 tty REPL 强一档。
+  ★ 光装配置文件不够：要 `python-pynvim` + `python-ipykernel`（已入 packages.txt），
+  且 **`~/.local/share/jupyter/runtime/` 不存在时 kernel 起不来而报错完全指错方向**
+  （已在 `molten.lua` 的 init 里 mkdir 兜掉）。另有 4 个坑（`MoltenEvaluateRange` 是
+  function 不是 command、不能懒加载、`python3_host_prog` 要防 venv 污染、
+  输出窗口的 `q` 撞上本配置全局禁用的 `q`）全在 `docs/04-neovim.md`
+- **image.nvim**（2026-09-12 起，取代前一天刚开的 snacks.image）：一套机制干两件事
+  ——打开图片文件（mini.files 按 `l`、`:e x.png`）就地渲染，以及给 molten 当图像
+  provider 让 `plt.show()` 的图直接画在 cell 下方。`plugins/image.lua` 新增，
+  `snacks.lua` 里 `image = { enabled = false }`，`molten.lua` 里
+  `molten_image_provider = "image.nvim"` + `molten_auto_image_popup = false`。
+  ★ 为什么切：snacks.image 顶不了 molten 的班（provider 只认 none/image.nvim/wezterm），
+  而当初躲 image.nvim 是因为它默认要 `magick` **luarock**——破局点是它还有
+  **`processor = "magick_cli"`**，直接用系统 `/usr/bin/magick`，依赖形态和 snacks 一样，
+  顾虑就没了；能一套干两件事就没理由养两套。
+  ★ 三处必须写对：`build = false`（否则 lazy 去跑 luarocks 必失败装不上）、
+  `lazy = false`（hijack 挂 `BufWinEnter`，靠同一事件懒加载会错过首次打开）、
+  **snacks.image 必须关**（两边都拦图片文件，同开谁后注册谁生效）。
+  ⚠ 别抱错期待：mini.files 的 **preview 窗格仍不出图**（readfile 进 scratch buffer，
+  无 buffer 事件可拦）。依赖 kitty 图形协议，**alacritty 不行**；`--headless` 下验证不了
+  渲染，只能验「加载了 / hijack 注册了 / snacks.image 关了」。见 `docs/04-neovim.md`
 - 输入法：fcitx5 5.1.21 + rime，自制 `tokyonight` 主题；中文字体走
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  9 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  10 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，
@@ -399,6 +445,15 @@ grep -v '^#' MANIFEST.txt | grep -v '  \.git/' | grep -v '  \.snapshots/' | sha2
   `aur/README.md`。装完**必须** `IgnorePkg` 锁更新，但那写在 `/etc/pacman.conf`、
   **不在本包管辖**，换机器要手动加。它还会连带拉进 opencv 全套（含 vtk 371 MB），
   共约 936 MB
+- **MANIFEST 只覆盖入库文件**（2026-09-11 修）：`sync.sh` 原来用裸 `find`，把
+  `.gitignore` 挡掉的东西全收了进来——305 条里 **163 条是 `.git/` 内部对象**，
+  还有 `secret-age.key`、`__pycache__`、两个 2.7 MB 的 `.snapshots/*.tar.gz`。
+  后果是每次 commit 都改写 `.git/`、MANIFEST 生成完立刻过期，而 git 对象在别的
+  机器上必然不同、`sha256sum -c` 在新机器上一定失败，正好废掉它唯一的用途
+  （上次提交时 `docs/05-theme-ui.md` 的哈希就已经是陈旧的，没人发现）。
+  改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
+  ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
+  非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如

@@ -20,7 +20,7 @@ require("mykeys")
   想替换官方键位，必须先 `hl.unbind("键位字符串")`。unbind 一个不存在的键位不报错，
   所以脚本可以放心幂等执行。
 - **`hl.config` 是「逐项合并」不是整块替换。**
-  已实测：`mykeys.lua` 设了 `input.follow_mouse` 之后，官方 `inputs.lua` 里的
+  已实测：`mykeys.lua` 设了 `cursor.hide_on_key_press` 之后，官方 `inputs.lua` 里的
   `accel_profile = "flat"` 仍然保留。所以可以安心只写自己关心的那几项。
 
 ---
@@ -79,23 +79,58 @@ hl.config({ input = { kb_options = "caps:escape" } })
 > 想要「轻按 Esc、按住 Ctrl」那种双功能：XKB 做不到，需要 `keyd` 或
 > `interception-tools` 这类在 evdev 层工作的工具。
 
-### 鼠标行为三连（第 6 / 6b 节）
+### 鼠标行为（第 6 / 6b 节）
+
+整个配置里鼠标相关的设置只有**一行**：
 
 ```lua
-cursor.hide_on_key_press = true   -- 打字时隐藏光标，动鼠标才回来
-cursor.no_warps          = true   -- 切焦点时指针不瞬移
-input.follow_mouse       = 2      -- 悬停不抢键盘焦点，点击才切
-input.mouse_refocus      = false  -- 指针不动、脚下窗口换了时不重新派发焦点
+cursor.hide_on_key_press = true   -- 打字时隐藏光标，指针真实移动才回来
 ```
 
-这四项是**互相咬合**的，不是四个独立开关：
+`no_warps`、`follow_mouse`、`mouse_refocus` 全部删掉，交回 Hyprland 默认
+（`follow_mouse = 1` + `no_warps = false`）。
 
-`no_warps` 是为 `hide_on_key_press` 服务的——光标「重新显形」的条件正是「指针发生
-移动」，而 Hyprland 默认切焦点会把指针 warp 过去，于是每次切窗口光标都闪一下。
-第 2 节的 `focus_dir` 每按一次连发三个 dispatch，闪烁被放大三倍。关掉 warp 就消失了。
+这条官方选项的原文描述就是「按下任意键时隐藏光标，**直到鼠标移动为止**」——
+键盘流「打字时别挡着、一动鼠标就出现」的需求，字面上一一对应，不需要任何配套。
+Hyprland 原生支持，也不需要 unclutter / xbanish 之类的外部守护进程。
 
-关掉 warp 之后，如果还停在 `follow_mouse = 1`，手碰一下鼠标就会把焦点抢回指针
-所在的窗口——所以必须同时改成 2。
+**为什么默认组合本身就是自洽的。**
+
+默认是 `follow_mouse = 1`（悬停即切键盘焦点）+ `no_warps = false`（切焦点时指针
+跟着瞬移过去）。这两条必须**成对保留**，因为整套东西能自洽全靠一个不变式：
+
+> 指针永远被 warp 到当前焦点窗口上，所以它底下永远是刚切过去的那个窗口。
+
+于是任何杂散鼠标抖动（2.4G 接收器抖一下就够）都抢不走键盘焦点——它底下没有别人。
+
+**① 单独关掉 warp，正好是「切窗口后焦点自己跳回来」的根因。**
+
+指针不跟着焦点跑 → 它永久滞留在旧窗口上 → 旧窗口就永远是「指针下那个窗口」。
+于是同样的杂散抖动就会让 loose 分支把键盘焦点交还给旧窗口。表现为：切到 B 之后
+一两秒，焦点自己跳回 A，同时光标在 A 浮现——**两者是同一个事件的同一个后果**，
+不是两个毛病。
+
+反过来，当年之所以觉得「关掉 warp 就不闪了」，真正起作用的是同一批改动里的
+`follow_mouse = 1 → 2`；`no_warps` 只是搭了便车，副作用却留了下来。
+
+**② `follow_mouse = 2` 是个治标方案，会绕成死循环。**
+
+取 2 是为了「悬停不抢键盘焦点」去堵上面那个洞，但取 2 之后就**不能再关 warp**
+（一关就复发），而开着 warp 时光标会在切焦点时闪一下，于是又想去关 warp——
+闭环。回到默认根本没有这个洞，两个选项一起删掉即可。
+
+**③ `follow_mouse_threshold` / `mouse_refocus` / `follow_mouse_shrink` 在
+`follow_mouse = 2` 下全是空转配置。**
+
+三者的读取点都在 `InputManager.cpp` 的 `FOLLOWMOUSE == 1` 分支里（`:700` 的
+`else` 块，`threshold` 在 `:711`、`mouse_refocus` 在 `:703`）。取 2 时代码从
+`:679` 的 `if (FOLLOWMOUSE != 1 && !refocus)` 走到 `:699` 就 `return` 了，压根
+执行不到。`m_mousePosDelta` 同理，只在 `FOLLOWMOUSE == 1` 时累加（`:254`），
+否则在 `:256` 被清零。
+
+**这些踩坑的意义**：在 `follow_mouse = 2` 上给鼠标行为打补丁是徒劳的，看见
+「键名语义对得上」不等于「这段代码会执行」。判据是先 grep 出读取点，再确认它
+落在哪个分支里。
 
 ### window swallowing：官方默认开着，本配置未改
 
@@ -110,8 +145,11 @@ swallow_regex  = "(kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce[0-9]?-
 极易误判成「程序把 shell 占住了」，然后徒劳地去试 `nohup` / `&` / `disown`——
 它的判据是**进程祖先链**，跟作业控制毫无关系，那三个都改不了父子关系。
 
-单次绕开：`setsid -f CMD`。完整判据、根因与四种方案的实测对比见
-[07](07-troubleshooting.md) 坑 9。
+单次绕开：`setsid -f CMD`。⚠ 尾部不必再加 `&` 或重定向，它们不动父子关系，挡不住
+也拦不住。要**永久**豁免某个应用加 `misc.swallow_exception_regex`（匹配**被启动窗口的
+title**，不是 class），要**彻底关掉**改 `enable_swallow = false` —— 两者都走 `mykeys.lua`
+的 `hl.config`，别动这份官方文件（坑 4）。完整判据、根因、四种方案实测对比与这两条
+永久路线的取舍见 [07](07-troubleshooting.md) 坑 9。
 
 ### 抽屉架（rack）：第二套工作平面
 

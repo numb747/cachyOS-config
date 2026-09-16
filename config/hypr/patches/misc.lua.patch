@@ -1,4 +1,4 @@
---- /etc/skel/.config/hypr/config/misc.lua	2026-08-16 02:19:18.000000000 +0800
+--- /etc/skel/.config/hypr/config/misc.lua	2026-09-13 17:48:20.000000000 +0800
 +++ /home/david/cachyOS-config/config/hypr/config/misc.lua	2026-08-27 14:14:30.791825262 +0800
 @@ -10,6 +10,14 @@
          col = {
@@ -15,3 +15,12 @@
          middle_click_paste = false,
          enable_swallow = true,
          swallow_regex = "(kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce[0-9]?-terminal)",
+@@ -17,8 +25,6 @@
+     },
+     render = {
+         direct_scanout = 2,
+-        -- Use the option below if you find games constantly black screening for a couple seconds whenever direct scanout enables/disables
+-        -- non_shader_cm = 0,
+     },
+     xwayland = {
+         force_zero_scaling = true

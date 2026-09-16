@@ -74,3 +74,7 @@ coach() {
   [ -f "$p" ] || { echo "coach: 提示词缺失 $p" >&2; return 1; }
   claude --append-system-prompt "$(cat "$p")" "$@"
 }
+
+
+# Added by Antigravity CLI installer
+export PATH="/home/david/.local/bin:$PATH"

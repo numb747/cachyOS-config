@@ -143,7 +143,7 @@ ls /usr/lib/libreoffice/program/libvclplug_*.so
 
 | 键 | 值 | 效果 |
 |---|---|---|
-| `auto_hide` + `smart_auto_hide` | true | 平时收起，鼠标移到顶边才浮出；有窗口遮挡时才隐藏 |
+| `auto_hide` + `smart_auto_hide` | false / false | 2026-09-09 起关闭：两者都自带"指针到达顶边即 reveal"的命中条，鼠标划过顶部点标签页之类操作很容易被误触发弹出。改成纯 IPC 手动控制（见下） |
 | `reserve_space` | false | 不为它预留布局空间，窗口可以顶到屏幕最上沿 |
 | `thickness` / `scale` | 35 / 1.10 | 栏高与栏内元素缩放 |
 | `radius_bottom_*` / `concave_edge_corners` | 12 / true | 下方两角圆角，边缘内凹 |
@@ -157,6 +157,11 @@ capsule。多数 widget 设了 `color = "secondary"`，电源键是 `error`（�
 
 `ALT+9` 手动开合顶栏（走 `noctalia msg bar-toggle`，见 [02](02-hyprland.md)）。
 其他相关 IPC：`bar-hide` / `bar-show` / `bar-reserve-toggle` / `bar-auto-hide-set`。
+
+顶栏默认收着，只在切工作区时用 `bar-show` 弹出 1.5 秒后 `bar-hide` 自动收回——
+逻辑在 `~/.config/hypr/mykeys.lua` 第 9 节（`hl.on("workspace.active", ...)` +
+`hl.timer`），不是 noctalia 自带能力，也不放官方 `config/*.lua` 里，理由同
+[02](02-hyprland.md) 的 mykeys.lua 设计。
 
 ### 截图 → satty
 
@@ -696,7 +701,48 @@ magick 新壁纸.png -colors 5 -format '%c' histogram:info: | sort -rn | head -1
 > ASCII 那 4 张是本包 `_ascii.py` 自己的产出，本来可以重生成——但**重生成依赖
 > wallhaven 上的源图还在**，那个不可控，所以直接带成品兜底。
 
-### 壁纸库的生成管线
+### 多主题一键切换（主题领导壁纸，非壁纸领导主题）
+
+`bin/theme-switch`：按 `Super+Shift+T` 循环切换「精选主题」。每个主题 =
+**人工精选的同调壁纸目录** + **官方社区调色板**（不是壁纸自动抽色）。
+
+理念：让 noctalia 用`wallpaper` 抽色模式实时跟图换色是「壁纸领导主题」——但动漫平涂稿抽出来
+往往偏成傻瓜色，很难保持 Rose Pine / Everforest 那种克制的高级灰调。所以反过来用
+`community` 模式钉死调色板（色相克制、明度统一、作者精调），壁纸只负责视觉氛围。
+
+| 主题 | 壁纸目录 | 调色板 | 匹配画面 |
+|---|---|---|---|
+| tokyonight | `~/Pictures/Wallpapers/tokyonight` | Tokyo Night Moon | 夜景、蓝紫调、雨夜霓虹 |
+| rosepine | `.../rosepine` | Rose Pine Moon | 薰衣草紫天空、蓝调时刻、暖光室内 |
+| everforest | `.../everforest` | Everforest（自定义 JSON） | 森林、苔藓、吉卜力乡村、治愈系 |
+| dracula | `.../dracula` | Dracula（自定义 JSON） | 赛博朋克夜城、霓虹灯箱、紫粉青绿 |
+| oxocarbon | `.../oxocarbon` | Oxocarbon | 冷白蓝灰、清冷克制 |
+
+原理（每一步都是 IPC，改的是 `~/.local/state/noctalia/settings.toml`，即真相源）：
+
+```bash
+noctalia msg color-scheme-set community <名>   # 钉官方调色板
+noctalia msg wallpaper-set <图>                # 设壁纸（持久到 default/monitors）
+noctalia msg templates-apply                   # 渲染 gtk/kitty/btop/qt/alacritty
+noctalia msg config-reload                     # 刷新 bar
+noctalia msg greeter-sync                      # 锁屏配色同步
+```
+
+调色板是 `~/.local/state/noctalia/community-palettes/*.json`（`{dark,light}` 两档结构，
+terminal.normal/bright 一套）。本包新加了 `Everforest.json`、`Dracula.json` 两个，
+其余沿用社区自带。**自定义调色板照抄 `Rose Pine Moon.json` 的结构即可**，
+关键 6 个 Material 键（mPrimary/mSecondary/mTertiary/mSurface/mSurfaceVariant/mOnSurface）
+决定 bar 与 GTK 观感，terminal 段决定 kitty/btop。
+
+加新主题三步：
+1. `mkdir -p ~/Pictures/Wallpapers/<slug>/` 放精选壁纸（可带子目录，脚本递归取图，循环轮换）
+2. 放 `.json` 到 `community-palettes/`（并在 `cachyOS-config/state/noctalia/community-palettes/` 同放一份供 install）
+3. 在 `bin/theme-switch` 的 `THEMES` 数组加一行 `slug|Palette Name`，
+
+⚠ **切主题会覆盖 `misc.lua` 的 `background_color` 的对齐值**——换了色系记得重新采样
+（见上 `magick ... histogram` 命令），否则开机仍会闪一下内置壁纸。
+
+## 壁纸库的生成管线
 
 `wallpaper/tokyonight/` 下四个脚本：
 

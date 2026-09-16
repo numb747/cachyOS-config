@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# theme-preview —— 在当前主题片单内逐张即时翻墙纸（不跨主题）
+#
+# 用法:
+#   theme-preview            下一张（Super+I）
+#   theme-preview prev       上一张
+#   theme-preview <slug>    跳到指定主题再翻
+#
+# 原理: 读 settings.toml 的 community_palette 定位当前主题，
+#       只列该主题目录里的片单图，按当前位置循环翻一张。
+#       用 wallpaper-set 即刻切换（无动画、零延迟）。
+#       注意: 不用 wallpaper-next——它在「全局池」里翻，会串到别的主题。
+set -euo pipefail
+
+WALLPAPER_ROOT="$HOME/Pictures/Wallpapers"
+STATE="$HOME/.local/state/noctalia/settings.toml"
+
+THEMES=(
+  "tokyonight|Tokyo Night Moon"
+  "rosepine|Rose Pine Moon"
+  "everforest|Everforest"
+  "dracula|Dracula"
+  "oxocarbon|Oxocarbon"
+)
+
+current_theme() {
+  local palette
+  palette=$(grep -E '^\s*community_palette\s*=' "$STATE" 2>/dev/null | head -1 | sed -E 's/.*=\s*"([^"]+)".*/\1/')
+  for entry in "${THEMES[@]}"; do
+    local slug="${entry%%|*}" name="${entry#*|}"
+    [[ "$name" == "$palette" ]] && echo "$slug" && return 0
+  done
+  echo "${THEMES[0]%%|*}"
+}
+
+list_images() {
+  find "$WALLPAPER_ROOT/$1" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) 2>/dev/null
+}
+
+step_wallpaper() {
+  local slug="$1" dir="$2" cur
+  cur=$(grep -A1 -E '^\[wallpaper\.default\]' "$STATE" 2>/dev/null | grep -E '^\s*path\s*=' | head -1 | sed -E 's/.*=\s*"([^"]+)".*/\1/')
+  mapfile -t imgs < <(list_images "$slug")
+  if [[ ${#imgs[@]} -eq 0 ]]; then
+    echo "✗ 主题目录无片单图: $WALLPAPER_ROOT/$slug" >&2
+    exit 1
+  fi
+  local idx=-1
+  for i in "${!imgs[@]}"; do
+    [[ "${imgs[$i]}" == "$cur" ]] && idx=$i && break
+  done
+  local next
+  if [[ "$dir" == "prev" ]]; then
+    if [[ $idx -eq -1 ]]; then next=$(( ${#imgs[@]} - 1 )); else next=$(( (idx - 1 + ${#imgs[@]}) % ${#imgs[@]} )); fi
+  else
+    if [[ $idx -eq -1 ]]; then next=0; else next=$(( (idx + 1) % ${#imgs[@]} )); fi
+  fi
+  printf '%s\n' "${imgs[$next]}"
+}
+
+target="${1:-}"
+dir="next"
+if [[ "$target" == "prev" ]]; then dir="prev"; target=""; fi
+
+if [[ -z "$target" ]]; then
+  slug=$(current_theme)
+else
+  slug="$target"
+fi
+
+wp=$(step_wallpaper "$slug" "$dir")
+noctalia msg wallpaper-set "$wp" >/dev/null
+echo "✓ [$slug] $(basename "$wp")"

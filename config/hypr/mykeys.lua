@@ -289,50 +289,45 @@ hl.bind("ALT + SHIFT + backslash",   hl.dsp.layout("togglesplit"))
 --  6. 鼠标行为：打字时自动隐藏光标，一动鼠标就回来
 --     （KDE「输入时隐藏光标」/ Windows「键入时隐藏指针」的等价物）
 --
---     hide_on_key_press —— 按下任意键即隐藏光标，直到鼠标移动才重新出现。
+--     hide_on_key_press —— 按下任意键即隐藏光标，**直到指针真实移动**才回来。
 --     Hyprland 原生支持，不需要 unclutter / xbanish 之类的外部守护进程。
 --
 --     官方 config/*.lua 没有配置任何 cursor 选项（binds.lua 里只用了
 --     zoom_factor 做缩放），所以这里不会冲突。
+--
+--     这是全文件唯一一处鼠标相关的设置。第 6b 节只留说明、不设值——
+--     焦点跟随时长什么样，交给 Hyprland 默认。
 -- ────────────────────────────────────────────────────────────────────────────
 hl.config({
     cursor = {
         hide_on_key_press = true,
-
-        -- 焦点切换时不要把鼠标指针瞬移(warp)到新窗口上。
-        -- Hyprland 默认会 warp，而 hide_on_key_press 的「重新显形」条件正是
-        -- 「指针发生移动」——于是每次切窗口光标都会闪一下再隐藏。
-        -- 上面第 2 节的 focus_dir 每按一次连发三个 dispatch，闪烁被放大三倍。
-        -- 关掉 warp 后指针原地不动，闪烁消失。
-        no_warps = true,
-
-        -- 可选：静止 N 秒后也自动隐藏（0 = 关闭）。想要「看视频时光标自己消失」
-        -- 就把下面这行的注释去掉，数字按口味调。
-        -- inactive_timeout = 3,
-
-        -- 可选：触屏设备上碰屏幕后隐藏光标
-        -- hide_on_touch = true,
     },
 })
 
 
---  6b. 焦点跟随鼠标的程度
---      0 = 鼠标移动完全不改焦点
---      1 = 悬停即切键盘焦点（Hyprland 默认，官方配置未改）
---      2 = 悬停只切「光标焦点」（哪个窗口收鼠标事件），点击才切键盘焦点
---      3 = 光标焦点与键盘焦点彻底分离，点击也不切
+--  6b. 焦点跟随鼠标：全部保持 Hyprland 默认，本文件不设 input 段。
 --
---      配合 no_warps 使用：指针不再跟着焦点跑，若还停留在 follow_mouse=1
---      下，手碰一下鼠标就会把焦点抢回指针所在的那个窗口。改成 2 可避免。
-hl.config({
-    input = {
-        follow_mouse = 2,
-
-        -- 指针不动、但脚下的窗口因为切工作区/布局变化而换了一批时，
-        -- 不要重新派发鼠标焦点。切桌面时光标闪一下正是这个引起的。
-        mouse_refocus = false,
-    },
-})
+--      默认是 follow_mouse = 1（悬停即切键盘焦点）+ no_warps = false
+--      （切焦点时指针跟着瞬移过去）。这两条必须成对保留，拆开就会出问题：
+--
+--      「指针下 = 焦点窗口」这个不变式是整套东西能自洽的前提。指针永远被
+--      warp 到当前焦点窗口上，所以它底下永远是刚切过去的那个窗口，任何杂散
+--      鼠标抖动（2.4G 接收器抖一下就够）都抢不走键盘焦点。
+--
+--      一旦单独把 no_warps 设成 true，指针就被留在旧窗口上，那个窗口变成
+--      「指针下那个窗口」，于是同样的杂散抖动会把焦点抢回去——切完窗口
+--      一两秒后焦点自己跳回原窗口、光标在原窗口浮现，就是这么来的。
+--      那不是两个毛病，是同一个事件的同一个后果。
+--
+--      历史上还试过用 follow_mouse = 2 去堵这个洞，但那是治标：取 2 就
+--      不能再关 warp（一关就复发），而开着 warp 时光标会闪一下，于是又
+--      想去关 warp，绕成一个死循环。回到默认就没有这个洞，两个选项一起
+--      删掉即可。
+--
+--      另一条死路记在这里免得重走：follow_mouse_threshold / mouse_refocus /
+--      follow_mouse_shrink 在 follow_mouse = 2 下全是空转配置——它们的读取点
+--      在 InputManager.cpp 的 FOLLOWMOUSE == 1 分支里，取 2 时代码提前 return，
+--      压根执行不到；m_mousePosDelta 也只在 == 1 时才累加。别在 2 上打补丁。
 
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -403,23 +398,41 @@ hl.bind("ALT + W", hl.dsp.window.close())
 
 
 -- ────────────────────────────────────────────────────────────────────────────
---  9. 顶部栏显示/隐藏：ALT + 9
+--  9. 顶部栏显示/隐藏：ALT + 9，切工作区时再自动弹一下
 --
 --     顶部栏归 noctalia 管（layer 名 noctalia-bar-default），不是 Hyprland 的
 --     东西，所以走它的 IPC 而不是 hyprctl。
 --
 --     noctalia msg 的相关命令（noctalia msg --help 可看全集）：
---         bar-toggle          切换显示/隐藏  ← 这里用的
---         bar-hide / bar-show 单向隐藏／显示，并释放其占用的布局间距
+--         bar-toggle          切换显示/隐藏  ← ALT+9 用的
+--         bar-hide / bar-show 单向隐藏／显示，并释放其占用的布局间距  ← 下面自动弹出用的
 --         bar-reserve-toggle  栏保留可见，但不再为它预留空间（窗口顶上去）
 --         bar-auto-hide-set   自动隐藏模式，鼠标移到边缘才浮出
 --
 --     注意 noctalia msg 是发 IPC 消息，不是拉起应用，所以不加 uwsm 前缀
 --     （与官方 binds.lua 里 noctCall 的用法一致）。
+--
+--     noctalia 配置里 [bar.default] 的 auto_hide / smart_auto_hide 都关了——
+--     两者都自带"指针到达顶部边缘即触发 reveal"的命中条，鼠标划过顶部去点
+--     标签页之类的操作很容易被误触发弹出。改成下面这样纯 IPC 手动控制：
+--     启动时收起，只有切工作区那一下会弹出 1.5 秒，其余任何时候都不会自己冒出来。
 -- ────────────────────────────────────────────────────────────────────────────
 local noctCall = "noctalia msg "
 
 hl.bind("ALT + 9", hl.dsp.exec_cmd(noctCall .. "bar-toggle"))
+
+hl.on("hyprland.start", function()
+    hl.timer(function() hl.exec_cmd(noctCall .. "bar-hide") end,
+        { timeout = 1000, type = "oneshot" })
+end)
+
+local barRevealTimer = nil
+hl.on("workspace.active", function()
+    hl.exec_cmd(noctCall .. "bar-show")
+    if barRevealTimer then barRevealTimer:set_enabled(false) end
+    barRevealTimer = hl.timer(function() hl.exec_cmd(noctCall .. "bar-hide") end,
+        { timeout = 1500, type = "oneshot" })
+end)
 
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -891,3 +904,29 @@ local function group_workspace()
 end
 
 hl.bind("CONTROL + ALT + SHIFT + G", group_workspace)
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+--  16. 主题循环切换：壁纸 + 全桌配色一键换（theme-switch）
+--      SUPER + SHIFT + T
+--      ★ 必须用绝对路径 —— Hyprland 的 exec 环境 PATH 不含 ~/.local/bin，
+--        theme-switch 放在 ~/.local/bin 里，裸名会被 exec 找不到而静默失败。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.unbind("SUPER + SHIFT + T")
+hl.bind("SUPER + SHIFT + T",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-switch"))
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+--  17. 即时预览：当前主题片单内逐张翻墙纸（theme-preview）
+--      SUPER + I         下一张（I = image）
+--      SUPER + SHIFT + I 上一张
+--      只翻本主题目录的片单图，不串到别的主题。纯 IPC，零延迟。
+--      ★ 绝对路径，理由同第 16 节（Hyprland PATH 不含 ~/.local/bin）。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.unbind("SUPER + I")
+hl.bind("SUPER + I",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-preview"))
+hl.unbind("SUPER + SHIFT + I")
+hl.bind("SUPER + SHIFT + I",
+    hl.dsp.exec_cmd("$HOME/.local/bin/theme-preview prev"))
