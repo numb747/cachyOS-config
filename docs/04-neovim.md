@@ -503,6 +503,72 @@ kitty graphics protocol 的转义序列喂给终端的搬运工。所以 **`nvim
 snacks.image 关了」三件事，真出图要在 kitty 里 `:e x.png` 或跑一个 matplotlib cell。
 （`pillow` 只有 `:MoltenImagePopup` 外部弹窗才用，内联渲染不需要，所以没进 packages.txt。）
 
+### tabby —— 给 tab 起名，并重画顶栏（2026-09-18 新增）
+
+`plugins/tabby.lua`。日常是三个 tab：一个跑 Claude Code、一个看代码、一个常驻 shell。
+**原生 tabline 会把两个终端都显示成 `term://~/xxx//12345:zsh`，肉眼分不出谁是谁**——
+这才是装它的唯一理由，不是为了好看。
+
+`bufferline.nvim` 仍然在 `disabled.lua` 里关着，两者不冲突：bufferline 画的是 buffer，
+tabby 画的是 tabpage。
+
+- `<leader><tab>r` 重命名（键位不带 `<cr>`，停在命令行等你输入）
+- 不起名也能分清：终端显示**正在跑的程序名**，代码 tab 显示文件名 + 类型图标
+- 图标跟着**当前窗口**走：一个 tab 里开五个文件，图标是你正看的那个
+- `showtabline = 1`，只有一个 tab 时顶栏自动消失
+
+配色只写高亮组名（`TabLineFill` / `TabLineSel` / `Comment`），不写死颜色，
+所以 tokyonight 的 `transparent` 和以后换 flavour 都自动跟上。分隔符用圆头
+`\u{e0b6}` / `\u{e0b4}`，和 `lualine.lua` 的 bubbles 同形。
+⚠ 非当前 tab **不能**用 `TabLine`——它的 `fg` 是 `fg_gutter`，在透明背景上几乎看不见，
+所以用了 `Comment`。
+
+#### 五个坑（都是这次实测踩出来的）
+
+1. **⚠ `term_title` 是个假信号，别拿它认 Claude Code。**
+   它只在**新会话还没说话**时是「✳ Claude Code」，一开始对话就变成会话话题。
+   实测同时开着的三个实例分别是「✳ Claude Code」「✳ 院感模块的医疗废物与紫外线消毒
+   实现现状」「◑ LazyVim 中 tab 重命名」（连前缀都会变成转圈动画），拿 `find("claude")`
+   匹配三中一。**这个坑的恶劣之处在于它"看着能用"**——刚开的 tab 恰好能匹配上，
+   于是很容易验收通过然后带病上线。
+   正解是问内核：读 `/proc/<terminal_job_pid>/task/<pid>/children` 拿 shell 的子进程，
+   再读它的 `comm`。与对话状态无关。顺带把 lazygit/btop 这类也认出来了。
+   两条分支都要处理：交互 shell 里敲 `claude`（claude 是**子进程**，最常见），
+   和终端直接以某程序启动（那个程序**就是** job 进程本身，children 为空）。
+
+2. **⚠ buffer 名同样不能用。** `term://…//12345:/usr/bin/zsh` 记的是**启动命令**。
+   先开 shell 再敲 `claude`，buffer 名永远是 zsh。
+
+3. **⚠ 名字和图标必须走同一个函数。** 最早写成两条独立代码路径，结果出现
+   「魔杖图标 + zsh 名字」——同一个 tab 两个信息源打架，比单纯显示 zsh 更误导人。
+   现在统一走 `term_label()`，从结构上杜绝。
+
+4. **⚠ 图标一律写 `\u{xxxx}` 转义，不要写字面 Nerd Font 字符。**
+   字面字形在编辑/传输环节会被**静默吃掉**，变成空格和空字符串。
+   现象伪装得很像缺字体：顶栏只剩文字、当前 tab 是直角方块。
+   判据：`lualine` 的圆角 bubbles 如果照样正常，那字体就没问题，是文件内容丢了。
+   验证也别只看渲染出的文本（空格和缺字都"看不出来"），要把码位列出来：
+   `vim.fn.str2list(渲染结果)` 挑出 `>= 0xE000` 的，逐个核对。
+
+5. **⚠ 换图标前必须核对 kitty 的 `symbol_map`**（`~/.config/kitty/kitty.conf` 第 17 行）。
+   落在范围外的码位会掉到别的 fallback 字体上，**那才是真方块**。
+   踩线的例子：`cod-robot` U+EC20 只比范围上界 `EA60-EC1E` 多**一个码位**。
+   挑图标的正确姿势是从字体文件里按字形名搜，别凭码位猜——本文件最初用的 `U+F085F`
+   当时被注释成「四角星」，实际是 `md-comment_multiple`（对话气泡），
+   真正的四角星是 `U+F0AE2`。用 `fontTools` 读 `getBestCmap()` 可以一次列全。
+
+`tabby.lua` 顶部有两个常量可调：`GAP`（tab 间距，嫌挤嫌散改这一个值）和
+`ICON_CLAUDE`（当前是 `\u{f1844}` md-magic_staff 魔杖，注释里列了另外五个验过可用的）。
+
+⚠ 还有一个和 tabby 无关但同形状的坑：它的 `margin` 属性是**插在子节点之间**的分隔，
+不是给整组加外边距。写成「图标、空格、名字」三个节点时，margin 会被插进图标和文字
+中间（撑得老远），而组与组的边界上反而没有（相邻 tab 贴死）。
+解法是把图标和名字**拼成一个节点**，间距全部自己写。
+
+> 一条明确不做的：**没有 tab 搜索/picker**。日常 ≤ 6 个 tab 且顺序一天内不变，
+> `{count}gt` 或 `<leader><tab>]` 就够，浮窗打字反而更慢。snacks.picker 也没有
+> tabs 数据源，要做得自己写 finder——评估过，不划算。别再提议加。
+
 ### 其他小项
 
 - **`q` 被禁用**（`keymaps.lua`）：手滑按 `q` 开始录制宏，然后所有按键被吞进寄存器

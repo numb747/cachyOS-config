@@ -283,7 +283,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **46 装 / 47 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- nvim **47 装 / 48 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期。
+  2026-09-18 加 tabby.nvim：46/47 → 47/48。⚠ 这个数字**不在** `sync.sh` 的文档数字
+  对账表里，加减插件要手改）
 - **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
   输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
   basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
