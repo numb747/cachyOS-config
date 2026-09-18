@@ -107,6 +107,102 @@ height = 屏幕高度的 90%
 宽度锁在 80~110 列的阅读舒适区，高度尽量拉满，不指定 `row`/`col` 时 toggleterm 会
 自动居中。
 
+### 专注模式 —— `<leader>z` 和 `<leader>uz` 是两层，不是两套
+
+两个都留着，职责不同，别当成重复功能删掉一个：
+
+| 键 | 是什么 | 机制 |
+|---|---|---|
+| `<leader>z` | no-neck-pain | **布局层**：真开两个 split 撑出左右边距，主窗口居中 120 列 |
+| `<leader>uz` | snacks.zen（LazyVim 自带） | **模态层**：把当前窗口单独抬进浮窗放大，其余压暗 |
+
+日常用 `<leader>z` 常驻居中阅读；多屏布局下想临时把某一个窗口捞出来放大，再叠一层
+`<leader>uz`。
+
+#### 关掉 zen 的 dim（2026-09-18）
+
+snacks.zen 默认 `toggles = { dim = true }`，进 zen 会顺手打开 `Snacks.dim` —— 用
+treesitter 算出光标所在的 scope，把 scope 之外的所有行变暗，且跟着光标实时重算。
+效果是「只有光标附近是实的，其他代码全是虚的」，读整段代码时很难受。`snacks.lua` 里：
+
+```lua
+zen = { toggles = { dim = false } },
+```
+
+⚠ **`zen = { enabled = false }` 是无效的**，别再那么写（包里此前就是这么写的，
+一直以为关掉了，其实一直开着）。LazyVim 在 `lazyvim/config/keymaps.lua` 里直接
+`Snacks.toggle.zen():map("<leader>uz")` 手动调用，snacks 的 `enabled` 只拦得住
+自启动 setup 的那类模块（indent/scroll/notifier），拦不住按需调用。
+
+#### no-neck-pain 上游补丁：在 zen 里按 `<leader>z` 会让整个 nvim 闪退（2026-09-18）
+
+复现：`<leader>z` 开 NNP → `<leader>uz` 开 zen → 再按 `<leader>z` 关 NNP，
+**nvim 直接退出，终端窗口跟着关掉**。执行的是带 `!` 的 `quitall!`（disable 里有一道
+modified buffer 检查兜底会中止退出，但别依赖它）。
+
+根因在 `no-neck-pain/util/api.lua` 的 `is_relative_window(win)`：
+
+```lua
+vim.api.nvim_win_get_config(0).relative ~= ""      -- 0 = 当前窗口，不是参数 win
+    or vim.api.nvim_win_get_config(win).relative ~= ""
+```
+
+`0` 在 nvim API 里指当前窗口，两个条件 `or` 起来，**只要人在浮窗里，传任何窗口 id
+进去都返回 true**。而 `main.disable` 拿它盘点窗口：
+
+```lua
+local wins = vim.tbl_filter(function(win)
+    return win ~= left and win ~= right and not api.is_relative_window(win)
+end, vim.api.nvim_tabpage_list_wins(active_tab))
+
+if #vim.api.nvim_list_tabpages() == 1 and #wins == 0 then
+    return vim.cmd("quitall!")
+end
+```
+
+在 zen 浮窗里触发 disable，三个普通窗口全被误判成浮窗滤掉 → `#wins == 0` → NNP
+认定「关掉边距后什么都不剩了，用户就是想退出」→ `quitall!`。
+
+**这不是笔误。** 函数的文档注释写的就是「the given win **or** the current window」，
+`event.skip()` / `skip_enable()` 那几处**无参**调用正是靠这个语义做「当前在浮窗就别管」
+的守卫，在那里它完全正确。出事的是 `disable` 的 filter —— 它需要的是纯粹的谓词
+「这个窗口是不是浮窗」。同一个函数同时当守卫和谓词用，守卫位置一直是对的，
+所以这个 bug 一直藏到有人在浮窗里去拆布局才炸。
+
+补丁写在 `no-neck-pain.lua` 的 `config` 里，把它改成只看传入的 `win`。运行时覆盖，
+不动插件文件，`:Lazy update` 不会冲掉。⚠ 安全性是逐个调用点核过的：三处**无参**调用
+（`main.lua` 的 QuitPre、`event.lua` 的 `skip` / `skip_enable`）行为**完全不变**
+—— 无参时 `win` 本就等于当前窗口，两个判据等价；五处带参调用修复后才符合其字面语义。
+
+上游 main 分支截至 2026-09-18 仍是这段代码。
+
+#### 操作顺序有讲究
+
+- **开**：先 `<leader>z` 再 `<leader>uz`。**反过来无效** —— `event.skip_enable()`
+  第二道门就是「当前窗口是浮窗就 return」，在 zen 里按 `<leader>z` 被静默拒绝，
+  按了没有任何反应也没有提示，很容易以为键位坏了。这是上游有意的防护，不是 bug。
+- **关**：`<leader>uz` 只退 zen；`<leader>z` 两层一起退。后者的机制是 NNP 拆除时
+  会把焦点交还给主窗口（`nvim_set_current_win(curr)`），而 zen 的契约是「焦点离开即销毁」，
+  于是一个动作触发了两层退出 —— 两个插件互不知情，是两个正交设计恰好对接上了。
+- `<C-w>w` 从 zen 切出去会掉进左边那条空白 scratchpad（NNP 默认
+  `skipEnteringNoNeckPainBuffer = false`，不自动跳过边距窗口）。用 `<C-w>h`/`l`
+  或直接 `<leader>uz` 更稳。
+
+⚠ **别在 toggleterm 的浮动终端里按 `<leader>uz`。** 两者是同一个契约（失焦即销毁）：
+zen 一创建窗口，`WinLeave` 就触发 toggleterm 的 `handle_term_leave` → `term:close()`
+把终端窗口杀了，紧接着 zen 去读已失效的 `parent_win`，报
+`snacks/zen.lua: Invalid window id`。更糟的是 `M.win = win` 排在报错行之后没执行到，
+zen 拿不到自己窗口的引用（`Snacks.zen.win = nil`），窗口却实实在在挂在屏幕上关不掉
+—— **每按一次泄漏 2 个浮窗**，且第二次起不再报错（`term.window` 记着已失效的旧 id，
+`term:close()` 打在空气上），静默堆积。`:only` 清不掉（它不动浮窗），要手动关：
+
+```vim
+:lua for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.api.nvim_win_get_config(w).relative ~= "" then pcall(vim.api.nvim_win_close, w, true) end end
+```
+
+这个**没有修，只是绕开** —— 想要全屏终端应该去改 toggleterm 自己的 `float_opts`
+（那两个 `width`/`height` 函数），而不是在浮窗上再套一层浮窗。
+
 ### mini.files 取代 snacks explorer
 
 ```
@@ -414,6 +510,8 @@ snacks.image 关了」三件事，真出图要在 kitty 里 `:e x.png` 或跑一
 - **tokyonight 透明**：`transparent = true` + sidebars/floats 也透明，配合 kitty 的
   `background_opacity 0.6` 才能真的透出壁纸。只改一边是没用的。
 - **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，scratchPad 存在 `~/doc/`。
+  它和 `<leader>uz`（snacks.zen）是两层关系，另有一个「在 zen 里按 `<leader>z`
+  会闪退」的上游补丁 —— 都在上面「专注模式」一节。
 
 ---
 

@@ -2,7 +2,16 @@ return {
   "folke/snacks.nvim",
   opts = {
     explorer = { enabled = false },
-    zen = { enabled = false },
+
+    -- ★ zen 的 `enabled = false` 是无效的:LazyVim 在 config/keymaps.lua 里直接
+    --   `Snacks.toggle.zen():map("<leader>uz")` 手动调用,`enabled` 只拦得住
+    --   自启动 setup 的模块(indent/scroll/notifier),拦不住按需调用。
+    -- ★ 真正要关的是 toggles.dim:snacks.zen 默认 dim = true,进 zen 会顺手打开
+    --   Snacks.dim —— 用 treesitter 算光标所在 scope,把 scope 外的所有行变暗,
+    --   跟着光标实时重算。效果就是"只有光标附近是实的,其他代码全是虚的"。
+    zen = {
+      toggles = { dim = false },
+    },
     terminal = {
       enabled = false,
       -- win = {
