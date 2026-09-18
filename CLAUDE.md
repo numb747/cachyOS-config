@@ -69,7 +69,12 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ./install.sh hypr nvim # 只装指定模块（--list 看全部）
 ```
 
-**新增一个要纳管的配置文件**：只改 `manifest.map` 一行，三个脚本自动跟上。
+**新增一个要纳管的配置文件**：改 `manifest.map` 一行，三个脚本自动跟上。
+⚠ **但要先 `git add` 那个新文件，再跑 `--pull`**，顺序反了 MANIFEST 会漏掉它 ——
+因为 MANIFEST 跟着 `git ls-files` 走（2026-09-11 那次修的），未跟踪的文件它**看不见**，
+而且**不报错**：`sha256sum -c` 照样全过，只是少了一条，极难发现。
+2026-09-18 加 `tabby.lua` 时实测踩到（142 条里没有它，`git add` 后重跑才变 143）。
+和上面「MANIFEST 必须排最后」是同一类静默陷阱。
 
 ---
 
