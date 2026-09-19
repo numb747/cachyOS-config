@@ -72,7 +72,12 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ./install.sh hypr nvim # 只装指定模块（--list 看全部）
 ```
 
-**新增一个要纳管的配置文件**：只改 `manifest.map` 一行，三个脚本自动跟上。
+**新增一个要纳管的配置文件**：改 `manifest.map` 一行，三个脚本自动跟上。
+⚠ **但要先 `git add` 那个新文件，再跑 `--pull`**，顺序反了 MANIFEST 会漏掉它 ——
+因为 MANIFEST 跟着 `git ls-files` 走（2026-09-11 那次修的），未跟踪的文件它**看不见**，
+而且**不报错**：`sha256sum -c` 照样全过，只是少了一条，极难发现。
+2026-09-18 加 `tabby.lua` 时实测踩到（142 条里没有它，`git add` 后重跑才变 143）。
+和上面「MANIFEST 必须排最后」是同一类静默陷阱。
 
 > ⚠ **上面这套姿势只适用于源机器。** 如果你是在 `/home/monkey/cachyOS-config` 这份
 > 检出里（笔记本），`./sync.sh --pull` 和不带参数的 `./install.sh` 都是**禁止操作**，
@@ -388,7 +393,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **46 装 / 47 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期）
+- nvim **47 装 / 48 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期。
+  2026-09-18 加 tabby.nvim：46/47 → 47/48。⚠ 这个数字**不在** `sync.sh` 的文档数字
+  对账表里，加减插件要手改）
 - **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
   输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
   basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell

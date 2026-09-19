@@ -176,12 +176,17 @@
 | `<leader>tt` | 一次开 4 个终端 |
 | `<leader>e` / `<leader>E` | mini.files（cwd / 项目根） |
 | `<leader>fm` | mini.files（当前文件所在目录） |
-| `<leader>z` | no-neck-pain 居中阅读模式 |
+| `<leader>z` | no-neck-pain 居中阅读模式（布局层：真 split 撑边距） |
+| `<leader>uz` | snacks.zen 专注模式（模态层：单窗口抬进浮窗放大） |
 | `q` | **已禁用**（防手滑录宏） |
 
 mini.files 窗口内：`l`/`L` 进入 · `h`/`H` 返回 · `=` 或 `Ctrl+s` 同步改动 ·
 `gs`/`gv` 分屏打开 · `Esc`/`q` 关闭 · `g?` 帮助。
 它是「把目录当 buffer 编辑」——重命名 = 改那一行文字，然后按 `=` 提交。
+
+专注模式两层可以叠：`<leader>z` 先居中，再 `<leader>uz` 把单个窗口放大。
+⚠ **顺序不能反**（在 zen 里按 `<leader>z` 会被静默拒绝，没有任何提示），
+关的时候 `<leader>z` 会两层一起退。详见 `docs/04-neovim.md`「专注模式」。
 
 ## molten —— .py 里的 Jupyter 式执行（`<leader>m` 系）
 

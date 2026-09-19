@@ -107,6 +107,102 @@ height = 屏幕高度的 90%
 宽度锁在 80~110 列的阅读舒适区，高度尽量拉满，不指定 `row`/`col` 时 toggleterm 会
 自动居中。
 
+### 专注模式 —— `<leader>z` 和 `<leader>uz` 是两层，不是两套
+
+两个都留着，职责不同，别当成重复功能删掉一个：
+
+| 键 | 是什么 | 机制 |
+|---|---|---|
+| `<leader>z` | no-neck-pain | **布局层**：真开两个 split 撑出左右边距，主窗口居中 120 列 |
+| `<leader>uz` | snacks.zen（LazyVim 自带） | **模态层**：把当前窗口单独抬进浮窗放大，其余压暗 |
+
+日常用 `<leader>z` 常驻居中阅读；多屏布局下想临时把某一个窗口捞出来放大，再叠一层
+`<leader>uz`。
+
+#### 关掉 zen 的 dim（2026-09-18）
+
+snacks.zen 默认 `toggles = { dim = true }`，进 zen 会顺手打开 `Snacks.dim` —— 用
+treesitter 算出光标所在的 scope，把 scope 之外的所有行变暗，且跟着光标实时重算。
+效果是「只有光标附近是实的，其他代码全是虚的」，读整段代码时很难受。`snacks.lua` 里：
+
+```lua
+zen = { toggles = { dim = false } },
+```
+
+⚠ **`zen = { enabled = false }` 是无效的**，别再那么写（包里此前就是这么写的，
+一直以为关掉了，其实一直开着）。LazyVim 在 `lazyvim/config/keymaps.lua` 里直接
+`Snacks.toggle.zen():map("<leader>uz")` 手动调用，snacks 的 `enabled` 只拦得住
+自启动 setup 的那类模块（indent/scroll/notifier），拦不住按需调用。
+
+#### no-neck-pain 上游补丁：在 zen 里按 `<leader>z` 会让整个 nvim 闪退（2026-09-18）
+
+复现：`<leader>z` 开 NNP → `<leader>uz` 开 zen → 再按 `<leader>z` 关 NNP，
+**nvim 直接退出，终端窗口跟着关掉**。执行的是带 `!` 的 `quitall!`（disable 里有一道
+modified buffer 检查兜底会中止退出，但别依赖它）。
+
+根因在 `no-neck-pain/util/api.lua` 的 `is_relative_window(win)`：
+
+```lua
+vim.api.nvim_win_get_config(0).relative ~= ""      -- 0 = 当前窗口，不是参数 win
+    or vim.api.nvim_win_get_config(win).relative ~= ""
+```
+
+`0` 在 nvim API 里指当前窗口，两个条件 `or` 起来，**只要人在浮窗里，传任何窗口 id
+进去都返回 true**。而 `main.disable` 拿它盘点窗口：
+
+```lua
+local wins = vim.tbl_filter(function(win)
+    return win ~= left and win ~= right and not api.is_relative_window(win)
+end, vim.api.nvim_tabpage_list_wins(active_tab))
+
+if #vim.api.nvim_list_tabpages() == 1 and #wins == 0 then
+    return vim.cmd("quitall!")
+end
+```
+
+在 zen 浮窗里触发 disable，三个普通窗口全被误判成浮窗滤掉 → `#wins == 0` → NNP
+认定「关掉边距后什么都不剩了，用户就是想退出」→ `quitall!`。
+
+**这不是笔误。** 函数的文档注释写的就是「the given win **or** the current window」，
+`event.skip()` / `skip_enable()` 那几处**无参**调用正是靠这个语义做「当前在浮窗就别管」
+的守卫，在那里它完全正确。出事的是 `disable` 的 filter —— 它需要的是纯粹的谓词
+「这个窗口是不是浮窗」。同一个函数同时当守卫和谓词用，守卫位置一直是对的，
+所以这个 bug 一直藏到有人在浮窗里去拆布局才炸。
+
+补丁写在 `no-neck-pain.lua` 的 `config` 里，把它改成只看传入的 `win`。运行时覆盖，
+不动插件文件，`:Lazy update` 不会冲掉。⚠ 安全性是逐个调用点核过的：三处**无参**调用
+（`main.lua` 的 QuitPre、`event.lua` 的 `skip` / `skip_enable`）行为**完全不变**
+—— 无参时 `win` 本就等于当前窗口，两个判据等价；五处带参调用修复后才符合其字面语义。
+
+上游 main 分支截至 2026-09-18 仍是这段代码。
+
+#### 操作顺序有讲究
+
+- **开**：先 `<leader>z` 再 `<leader>uz`。**反过来无效** —— `event.skip_enable()`
+  第二道门就是「当前窗口是浮窗就 return」，在 zen 里按 `<leader>z` 被静默拒绝，
+  按了没有任何反应也没有提示，很容易以为键位坏了。这是上游有意的防护，不是 bug。
+- **关**：`<leader>uz` 只退 zen；`<leader>z` 两层一起退。后者的机制是 NNP 拆除时
+  会把焦点交还给主窗口（`nvim_set_current_win(curr)`），而 zen 的契约是「焦点离开即销毁」，
+  于是一个动作触发了两层退出 —— 两个插件互不知情，是两个正交设计恰好对接上了。
+- `<C-w>w` 从 zen 切出去会掉进左边那条空白 scratchpad（NNP 默认
+  `skipEnteringNoNeckPainBuffer = false`，不自动跳过边距窗口）。用 `<C-w>h`/`l`
+  或直接 `<leader>uz` 更稳。
+
+⚠ **别在 toggleterm 的浮动终端里按 `<leader>uz`。** 两者是同一个契约（失焦即销毁）：
+zen 一创建窗口，`WinLeave` 就触发 toggleterm 的 `handle_term_leave` → `term:close()`
+把终端窗口杀了，紧接着 zen 去读已失效的 `parent_win`，报
+`snacks/zen.lua: Invalid window id`。更糟的是 `M.win = win` 排在报错行之后没执行到，
+zen 拿不到自己窗口的引用（`Snacks.zen.win = nil`），窗口却实实在在挂在屏幕上关不掉
+—— **每按一次泄漏 2 个浮窗**，且第二次起不再报错（`term.window` 记着已失效的旧 id，
+`term:close()` 打在空气上），静默堆积。`:only` 清不掉（它不动浮窗），要手动关：
+
+```vim
+:lua for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.api.nvim_win_get_config(w).relative ~= "" then pcall(vim.api.nvim_win_close, w, true) end end
+```
+
+这个**没有修，只是绕开** —— 想要全屏终端应该去改 toggleterm 自己的 `float_opts`
+（那两个 `width`/`height` 函数），而不是在浮窗上再套一层浮窗。
+
 ### mini.files 取代 snacks explorer
 
 ```
@@ -407,6 +503,72 @@ kitty graphics protocol 的转义序列喂给终端的搬运工。所以 **`nvim
 snacks.image 关了」三件事，真出图要在 kitty 里 `:e x.png` 或跑一个 matplotlib cell。
 （`pillow` 只有 `:MoltenImagePopup` 外部弹窗才用，内联渲染不需要，所以没进 packages.txt。）
 
+### tabby —— 给 tab 起名，并重画顶栏（2026-09-18 新增）
+
+`plugins/tabby.lua`。日常是三个 tab：一个跑 Claude Code、一个看代码、一个常驻 shell。
+**原生 tabline 会把两个终端都显示成 `term://~/xxx//12345:zsh`，肉眼分不出谁是谁**——
+这才是装它的唯一理由，不是为了好看。
+
+`bufferline.nvim` 仍然在 `disabled.lua` 里关着，两者不冲突：bufferline 画的是 buffer，
+tabby 画的是 tabpage。
+
+- `<leader><tab>r` 重命名（键位不带 `<cr>`，停在命令行等你输入）
+- 不起名也能分清：终端显示**正在跑的程序名**，代码 tab 显示文件名 + 类型图标
+- 图标跟着**当前窗口**走：一个 tab 里开五个文件，图标是你正看的那个
+- `showtabline = 1`，只有一个 tab 时顶栏自动消失
+
+配色只写高亮组名（`TabLineFill` / `TabLineSel` / `Comment`），不写死颜色，
+所以 tokyonight 的 `transparent` 和以后换 flavour 都自动跟上。分隔符用圆头
+`\u{e0b6}` / `\u{e0b4}`，和 `lualine.lua` 的 bubbles 同形。
+⚠ 非当前 tab **不能**用 `TabLine`——它的 `fg` 是 `fg_gutter`，在透明背景上几乎看不见，
+所以用了 `Comment`。
+
+#### 五个坑（都是这次实测踩出来的）
+
+1. **⚠ `term_title` 是个假信号，别拿它认 Claude Code。**
+   它只在**新会话还没说话**时是「✳ Claude Code」，一开始对话就变成会话话题。
+   实测同时开着的三个实例分别是「✳ Claude Code」「✳ 院感模块的医疗废物与紫外线消毒
+   实现现状」「◑ LazyVim 中 tab 重命名」（连前缀都会变成转圈动画），拿 `find("claude")`
+   匹配三中一。**这个坑的恶劣之处在于它"看着能用"**——刚开的 tab 恰好能匹配上，
+   于是很容易验收通过然后带病上线。
+   正解是问内核：读 `/proc/<terminal_job_pid>/task/<pid>/children` 拿 shell 的子进程，
+   再读它的 `comm`。与对话状态无关。顺带把 lazygit/btop 这类也认出来了。
+   两条分支都要处理：交互 shell 里敲 `claude`（claude 是**子进程**，最常见），
+   和终端直接以某程序启动（那个程序**就是** job 进程本身，children 为空）。
+
+2. **⚠ buffer 名同样不能用。** `term://…//12345:/usr/bin/zsh` 记的是**启动命令**。
+   先开 shell 再敲 `claude`，buffer 名永远是 zsh。
+
+3. **⚠ 名字和图标必须走同一个函数。** 最早写成两条独立代码路径，结果出现
+   「魔杖图标 + zsh 名字」——同一个 tab 两个信息源打架，比单纯显示 zsh 更误导人。
+   现在统一走 `term_label()`，从结构上杜绝。
+
+4. **⚠ 图标一律写 `\u{xxxx}` 转义，不要写字面 Nerd Font 字符。**
+   字面字形在编辑/传输环节会被**静默吃掉**，变成空格和空字符串。
+   现象伪装得很像缺字体：顶栏只剩文字、当前 tab 是直角方块。
+   判据：`lualine` 的圆角 bubbles 如果照样正常，那字体就没问题，是文件内容丢了。
+   验证也别只看渲染出的文本（空格和缺字都"看不出来"），要把码位列出来：
+   `vim.fn.str2list(渲染结果)` 挑出 `>= 0xE000` 的，逐个核对。
+
+5. **⚠ 换图标前必须核对 kitty 的 `symbol_map`**（`~/.config/kitty/kitty.conf` 第 17 行）。
+   落在范围外的码位会掉到别的 fallback 字体上，**那才是真方块**。
+   踩线的例子：`cod-robot` U+EC20 只比范围上界 `EA60-EC1E` 多**一个码位**。
+   挑图标的正确姿势是从字体文件里按字形名搜，别凭码位猜——本文件最初用的 `U+F085F`
+   当时被注释成「四角星」，实际是 `md-comment_multiple`（对话气泡），
+   真正的四角星是 `U+F0AE2`。用 `fontTools` 读 `getBestCmap()` 可以一次列全。
+
+`tabby.lua` 顶部有两个常量可调：`GAP`（tab 间距，嫌挤嫌散改这一个值）和
+`ICON_CLAUDE`（当前是 `\u{f1844}` md-magic_staff 魔杖，注释里列了另外五个验过可用的）。
+
+⚠ 还有一个和 tabby 无关但同形状的坑：它的 `margin` 属性是**插在子节点之间**的分隔，
+不是给整组加外边距。写成「图标、空格、名字」三个节点时，margin 会被插进图标和文字
+中间（撑得老远），而组与组的边界上反而没有（相邻 tab 贴死）。
+解法是把图标和名字**拼成一个节点**，间距全部自己写。
+
+> 一条明确不做的：**没有 tab 搜索/picker**。日常 ≤ 6 个 tab 且顺序一天内不变，
+> `{count}gt` 或 `<leader><tab>]` 就够，浮窗打字反而更慢。snacks.picker 也没有
+> tabs 数据源，要做得自己写 finder——评估过，不划算。别再提议加。
+
 ### 其他小项
 
 - **`q` 被禁用**（`keymaps.lua`）：手滑按 `q` 开始录制宏，然后所有按键被吞进寄存器
@@ -414,6 +576,8 @@ snacks.image 关了」三件事，真出图要在 kitty 里 `:e x.png` 或跑一
 - **tokyonight 透明**：`transparent = true` + sidebars/floats 也透明，配合 kitty 的
   `background_opacity 0.6` 才能真的透出壁纸。只改一边是没用的。
 - **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，scratchPad 存在 `~/doc/`。
+  它和 `<leader>uz`（snacks.zen）是两层关系，另有一个「在 zen 里按 `<leader>z`
+  会闪退」的上游补丁 —— 都在上面「专注模式」一节。
 
 ---
 

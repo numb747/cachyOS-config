@@ -54,6 +54,10 @@ config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
 config/nvim/lua/plugins/molten.lua        ~/.config/nvim/lua/plugins/molten.lua
 config/nvim/lua/plugins/no-neck-pain.lua  ~/.config/nvim/lua/plugins/no-neck-pain.lua
 config/nvim/lua/plugins/snacks.lua        ~/.config/nvim/lua/plugins/snacks.lua
+# tabby：给 tab 起名 + 重画顶栏。三个 tab 里两个是终端，原生 tabline 全显示成
+# term://…:zsh 分不清。配色只写高亮组名（跟 tokyonight transparent 走），
+# 分隔符用圆头 / 对齐 lualine 的 bubbles。依赖 Nerd Font 图标。
+config/nvim/lua/plugins/tabby.lua         ~/.config/nvim/lua/plugins/tabby.lua
 config/nvim/lua/plugins/toggleterm.lua    ~/.config/nvim/lua/plugins/toggleterm.lua
 
 #@module ui
