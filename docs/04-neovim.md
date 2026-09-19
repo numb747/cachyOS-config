@@ -569,6 +569,78 @@ tabby 画的是 tabpage。
 > `{count}gt` 或 `<leader><tab>]` 就够，浮窗打字反而更慢。snacks.picker 也没有
 > tabs 数据源，要做得自己写 finder——评估过，不划算。别再提议加。
 
+### util/term.lua —— 终端命名 + 别让 picker 打乱布局（2026-09-19 新增）
+
+`lua/util/term.lua`，由 `config/autocmds.lua` 的 `require("util.term").setup()` 拉起。
+**这是 `lua/` 下第一个 `config/` 与 `plugins/` 之外的目录**，新增文件时别忘了
+`manifest.map` 那一行 —— 漏了新机器启动即报 `module 'util.term' not found`，
+而且 `plugins/tabby.lua` 也 require 它，顶栏的终端名会连带失效。
+
+管三件事，互相独立，哪块出问题都能单独摘掉：
+
+**① 终端在 `<leader>fb` 里认得出谁是谁。** 和 tabby 共用同一个 `term_label()`
+（`/proc` 读正在跑的程序），没起名的终端跑 `claude` 就显示 `claude`。
+`<C-r>`（终端模式直接按）或 `<leader>tn` 起自定义名，起了名以自定义名为准。
+
+**② 在终端窗口里选文件，文件落在当前窗口，不再乱窜。**
+
+**③ 被文件顶掉的终端，召回时不会反过来挤走你的文件。**
+
+#### 坑（全部实测过）
+
+1. **⚠ 自动命名这条路走不通，别再加回来。** 曾经在 `TermOpen` 时生成
+   `zsh:目录#序号` 烤进 buffer 名。问题是**那一刻 shell 刚起来、还没有子进程**，
+   `term_prog()` 只能拿到 `zsh` —— 正是 tabby 那节坑 1/2 认定「没有信息量」的名字，
+   而且一旦烤死就永远是它。名字**必须是显示时才算**的，和顶栏同源。
+
+2. **⚠ 标签只能插在 `;#toggleterm#N` 之前，不能追加到末尾。**
+   toggleterm 的 `identify()` 是 `vim.split(name, sep)` 之后对**最后一段** `tonumber()`。
+   写成 `…;#toggleterm#7 [编译]` 会让 `tonumber("7 [编译]")` 得到 `nil`，
+   之后 `:ToggleTerm 7`、toggle、关闭**全部静默失效**。
+
+3. **⚠ snacks picker 默认永远不会选中终端窗口。**
+   `snacks/picker/core/main.lua` 的 `find()` 带 `file = true`，会排除所有
+   `buftype ~= ""` 的窗口，于是你在终端里选文件，文件被扔进**别的**窗口、
+   把那儿原有的内容顶掉。
+   **别用全局 `main = { file = false }`** —— 那是把 buftype 过滤整个摘掉，
+   quickfix / help / trouble 一起变成候选，副作用太大。
+   正解是窗口局部变量 `vim.w[win].snacks_main`，它在过滤器里提前 `return true`，
+   只对打了标的窗口生效。
+
+4. **⚠ 浮���终端要排除，但理由不是 `bufhidden=wipe`。**
+   `toggleterm/ui.lua` 里那句 `bufhidden = "wipe"` 在 **`open_tab`** 里，管的是
+   `tabedit new` 造出的空临时 buffer；`open_float` 走 `nvim_create_buf(false, false)`，
+   **从不设 bufhidden**。实测浮动终端被文件覆盖后 buffer 和 shell 进程都活着。
+   真正的理由是 toggleterm 在 `WinLeave` 上自动关浮窗 —— 它不是你布局的一部分，
+   把文件 edit 进一个随时会消失的覆盖层没有意义。
+   （这条曾被我判断反了并写进注释，核对源码上下文才发现。）
+
+5. **⚠ 终端被顶出窗口后，toggleterm 的 `self.window` 不会更新。**
+   下次 `<C-/>` 召回时它**既抢回旧窗口、又新开一个**：终端同时占两��窗口，
+   而你刚打开的文件被挤没了。实测窗口数 2 → 3、文件不可见。
+   解法是 `BufWinLeave` 里把陈旧引用清掉。
+   ⚠ 取窗口**不能用 `nvim_get_current_win()`**：`BufWinLeave` 说的是「buffer 要离开
+   某个窗口」，那个窗口未必是当前窗口（别的插件用 `nvim_win_set_buf(其它窗口, buf)`
+   顶掉终端时根本不切焦点）。要用 `vim.fn.win_findbuf()`。
+
+6. **⚠ `nvim_buf_set_name` 每次都泄漏一个孤儿 buffer。**
+   它内部走 `rename_buffer`，把旧名字留成一个未列出的空 buffer。实测开一个终端
+   改两次名会留下 3 个 `term://` 孤儿。unlisted 所以平时看不见，但一旦把 buffers
+   picker 的 `hidden` 打开就全冒出来。改完名顺手清掉。
+
+7. **⚠ 重名消歧要盯「标签」，不能靠 `nvim_buf_set_name` 报 E95。**
+   buffer 全名里带 pid（`term:///tmp//4276:/usr/bin/zsh`），两个终端**永远撞不上**，
+   靠 E95 兜是死代码。真正会撞的是标签本身，而 picker 里只显示标签、又没有 bufnr
+   可区分，撞了就是两行一模一样。
+
+8. **`get_all(true)` 和 `get(id)` 必须成对。** toggleterm 的签名是
+   `get(id, include_hidden)`，不传第二个参数时 hidden 的终端一律返回 `nil`。
+   `<leader>tl` 用 `get_all(true)` 列举却用 `get(id)` 取，选中后**毫无反应还不报错**。
+
+> 顺带一个事实：**toggleterm 的终端 `buflisted = false`，压根不出现在 `<leader>fb` 里**
+> （snacks 的 buffers 源默认 `hidden = false`，只收 buflisted 的）。出现在那里的是
+> 原生 `:terminal` 开的。toggleterm 的终端走 `<leader>tl` 或顶栏找。
+
 ### 其他小项
 
 - **`q` 被禁用**（`keymaps.lua`）：手滑按 `q` 开始录制宏，然后所有按键被吞进寄存器

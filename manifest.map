@@ -40,6 +40,17 @@ config/nvim/lua/config/lazy.lua           ~/.config/nvim/lua/config/lazy.lua
 config/nvim/lua/config/options.lua        ~/.config/nvim/lua/config/options.lua
 config/nvim/lua/config/keymaps.lua        ~/.config/nvim/lua/config/keymaps.lua
 config/nvim/lua/config/autocmds.lua       ~/.config/nvim/lua/config/autocmds.lua
+# util/term.lua：终端体验补丁，由 config/autocmds.lua 的 require("util.term").setup() 拉起。
+# 四件事：① term_label() —— 读 /proc 认出终端里【正在跑的程序】，tabby.lua 的顶栏、
+# <leader>fb 的条目、<leader>tl 的列表��处共用这一份，避免各读各的再次出现
+# 「图标和名字打架」（那正是 tabby 当初踩过的坑）；② <C-r>/<leader>tn 手动起名，
+# 改的是 buffer 名本身所以 <leader>fb 里搜得到；③ 给非浮动终端窗口打 snacks_main，
+# 否则在终端里选文件会落到别的窗口、把布局挤乱；④ 终端被文件顶出窗口时清掉
+# toggleterm 的陈旧 window 引用，否则下次 Ctrl+/ 会反过来挤走你刚打开的文件。
+# ★ 这是 lua/ 下第一个 config/ 与 plugins/ 之外的目录。漏掉这行则新机器上 nvim
+#   启动即报 module 'util.term' not found —— autocmds.lua 无条件 require 它，
+#   且 plugins/tabby.lua 也 require 它（顶栏的终端名会连带失效）。
+config/nvim/lua/util/term.lua             ~/.config/nvim/lua/util/term.lua
 config/nvim/lua/plugins/colorscheme.lua   ~/.config/nvim/lua/plugins/colorscheme.lua
 config/nvim/lua/plugins/disabled.lua      ~/.config/nvim/lua/plugins/disabled.lua
 # image.nvim：打开图片文件 + 给 molten 出图。走 processor = "magick_cli"，只要系统的

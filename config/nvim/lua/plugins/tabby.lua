@@ -52,75 +52,14 @@ return {
       return ok2 and buf or nil
     end
 
-    -- 终端 buffer 名形如 term://{cwd}//{pid}:{cmd}，把 cmd 抠出来
-    local function term_cmd(buf)
-      local cmd = vim.api.nvim_buf_get_name(buf):match("term://.-//%d+:(.*)$")
-      if not cmd then
-        return nil
-      end
-      return vim.fn.fnamemodify(cmd:match("^(%S+)") or cmd, ":t")
-    end
-
-    -- 终端里【真正在跑】的程序名。
-    --
-    -- ★ 为什么不用别的两个更省事的信号：
-    --   · buffer 名 —— 记的是启动命令。先开 shell 再敲 claude 时永远是 /usr/bin/zsh。
-    --   · b:term_title —— Claude Code 只在【新会话】时是「✳ Claude Code」，
-    --     一开始对话就变成会话话题（实测三个实例分别是「✳ Claude Code」
-    --     「✳ 院感模块的…」「◑ LazyVim 中 tab 重命名」），拿它匹配 claude 三中一。
-    --   所以只能问内核：shell 进程的子进程是谁。这个与对话状态无关，稳定。
-    --
-    -- 顺带把 lazygit/btop 这类也认出来了，不再一律显示 zsh。
-    local prog_cache = {}
-    local function term_prog(buf)
-      local pid = vim.b[buf].terminal_job_pid
-      if not pid then
-        return nil
-      end
-      -- tabline 重绘很频繁（终端有输出就重绘），缓存 1 秒，别每次都读 /proc
-      local now = vim.uv.now()
-      local c = prog_cache[buf]
-      if c and now - c.t < 1000 then
-        return c.prog
-      end
-      local function comm_of(p)
-        local cf = io.open(("/proc/%s/comm"):format(p), "r")
-        if not cf then
-          return nil
-        end
-        local s = (cf:read("*l") or ""):gsub("%s+$", "")
-        cf:close()
-        return s ~= "" and s or nil
-      end
-
-      local prog = nil
-      -- 先看子进程：交互 shell 里敲 claude 属于这种（最常见）
-      local f = io.open(("/proc/%d/task/%d/children"):format(pid, pid), "r")
-      if f then
-        local line = f:read("*l") or ""
-        f:close()
-        for cpid in line:gmatch("%d+") do
-          prog = comm_of(cpid)
-          if prog then
-            break
-          end
-        end
-      end
-      -- 没有子进程就看 job 进程自己：终端直接以某程序启动（不经过 shell）属于这种，
-      -- 此时那个程序【就是】job 进程。闲着的交互 shell 也走这条，得到 "zsh"，正确。
-      prog = prog or comm_of(pid)
-      prog_cache[buf] = { t = now, prog = prog }
-      return prog
-    end
-    vim.api.nvim_create_autocmd("BufWipeout", {
-      callback = function(a)
-        prog_cache[a.buf] = nil
-      end,
-    })
-
-    -- 终端 tab 显示什么名字：正在跑的程序 > 启动命令 > 兜底
-    local function term_label(buf)
-      return term_prog(buf) or term_cmd(buf) or "term"
+    -- ★ term_cmd / term_prog / term_label 已搬到 lua/util/term.lua，这里改成 require。
+    --   搬家理由正是本插件当初踩过的那条：「名字和图标走同一个 term_label()。最早是
+    --   两条独立代码路径，出现过『魔杖图标 + zsh 名字』这种同一个 tab 两个信息源打架
+    --   的情况」。现在 <leader>fb 的终端条目也要显示同一个值，再抄一份 /proc 解析
+    --   就是把那个教训在更大范围里重演一次 —— 所以收敛成一份，两边都 require 它。
+    --   /proc 读取、1 秒缓存、BufWipeout 清理全在那边，逻辑逐字保留。
+    local term_label = function(buf)
+      return require("util.term").term_label(buf)
     end
 
     local function tab_icon(tabid)

@@ -25,3 +25,8 @@ vim.api.nvim_create_autocmd("TermOpen", {
     -- vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { buffer = true })
   end,
 })
+
+-- 终端体验补丁：自动命名、让 picker 认得终端窗口、清理 toggleterm 陈旧窗口引用。
+-- 放这里而不是 toggleterm 的 config：原生 :terminal 也要覆盖，而 toggleterm 是
+-- VeryLazy 懒加载的，在它加载之前开的终端就漏掉了。
+require("util.term").setup()

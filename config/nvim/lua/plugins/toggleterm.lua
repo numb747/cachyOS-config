@@ -47,6 +47,8 @@ return {
   },
   config = function(_, opts)
     require("toggleterm").setup(opts)
+    local term_ux = require("util.term")
+
     -- 快速生成4个终端的函数
     local function create_four_terminals()
       local Terminal = require("toggleterm.terminal").Terminal
@@ -57,8 +59,9 @@ return {
         local term = Terminal:new({
           id = random_id,
           direction = "float",
-          -- display_name = "终端 #" .. i,
-          display_name = "",
+          -- 不设 display_name：留空让 util.term 自动命名。
+          -- 原先设成 ""，而 toggleterm 的 _display_name() 是 `self.display_name or ...`，
+          -- 空串在 Lua 里是真值 —— 于是浮窗标题恒为空，也盖掉了自动名。
         })
         term:open()
         -- 添加延迟，避免终端重叠
@@ -67,43 +70,10 @@ return {
 
       vim.notify("已创建4个终端", vim.log.levels.INFO)
     end
-    -- 命名终端函数
-    local function name_terminal()
-      local terms = require("toggleterm.terminal").get_all()
-      if #terms == 0 then
-        vim.notify("没有打开的终端", vim.log.levels.WARN)
-        return
-      end
-
-      -- 查找当前缓冲区对应的终端
-      local current_term = nil
-      local current_buf = vim.api.nvim_get_current_buf()
-      for _, term in ipairs(terms) do
-        if term.bufnr == current_buf then
-          current_term = term
-          break
-        end
-      end
-
-      -- 如果当前不在终端缓冲区，使用最后一个终端
-      if not current_term then
-        current_term = terms[#terms]
-      end
-
-      vim.ui.input({
-        prompt = "终端名称: ",
-        default = current_term.display_name or "",
-      }, function(name)
-        if name and name ~= "" then
-          current_term.display_name = name
-          vim.notify("终端已重命名为: " .. name, vim.log.levels.INFO)
-        end
-      end)
-    end
 
     -- 列出并切换终端函数
     local function list_terminals()
-      local terms = require("toggleterm.terminal").get_all()
+      local terms = require("toggleterm.terminal").get_all(true)
       if #terms == 0 then
         vim.notify("没有打开的终端", vim.log.levels.WARN)
         return
@@ -111,7 +81,15 @@ return {
 
       local items = {}
       for _, term in ipairs(terms) do
-        local name = term.display_name or ("终端 #" .. term.id)
+        -- 和 <leader>fb、顶栏显示同一个值：自定义名优先，没起过名就动态算
+        -- （util.term.term_label 读 /proc 拿正在跑的程序，跑 claude 就显示 claude）
+        local name
+        if term.bufnr and vim.api.nvim_buf_is_valid(term.bufnr) then
+          local label = vim.b[term.bufnr].term_ux_label
+          name = (label and label ~= "") and label or term_ux.term_label(term.bufnr)
+        else
+          name = term.display_name or ("终端 #" .. term.id)
+        end
         table.insert(items, {
           id = term.id,
           name = name,
@@ -126,7 +104,10 @@ return {
         end,
       }, function(choice)
         if choice then
-          local term = require("toggleterm.terminal").get(choice.id)
+          -- get() 的签名是 get(id, include_hidden)，不传第二个参数时 hidden 的终端
+          -- 一律返回 nil。上面用 get_all(true) 把 hidden 的也列出来了，这里不传就会
+          -- 选中后毫无反应还不报错 —— 两边必须一致。
+          local term = require("toggleterm.terminal").get(choice.id, true)
           if term then
             term:toggle()
           end
@@ -135,7 +116,7 @@ return {
     end
 
     -- Normal 模式快捷键
-    vim.keymap.set("n", "<leader>tn", name_terminal, { desc = "命名终端" })
+    vim.keymap.set("n", "<leader>tn", term_ux.rename, { desc = "命名终端" })
     vim.keymap.set("n", "<leader>tl", list_terminals, { desc = "列出终端" })
     vim.keymap.set("n", "<leader>tt", create_four_terminals, { desc = "创建4个终端" })
     -- 设置快捷键
@@ -143,16 +124,14 @@ return {
       local opts = { buffer = 0, silent = true }
       -- 双击 Esc 退出终端模式
       vim.keymap.set("t", "<esc><esc>", [[<C-\><C-n>]], opts)
-      -- Ctrl+r 命名终端
-      vim.keymap.set({ "t", "n" }, "<C-r>", function()
-        vim.cmd("stopinsert")
-        vim.schedule(name_terminal)
-      end, opts)
-      -- Ctrl+f 列出终端
+      -- Ctrl+f 列出终端（只列 toggleterm 的终端，所以留在这里）
+      -- ⚠ 终端模式下会盖掉 shell 的 Ctrl+F。想要回来就把 mode 里的 "t" 去掉。
       vim.keymap.set({ "t", "n" }, "<C-f>", function()
         vim.cmd("stopinsert")
         vim.schedule(list_terminals)
       end, opts)
+      -- Ctrl+r 重命名不在这里绑：它对原生 :terminal 也要生效，
+      -- 已统一挪到 util/term.lua 的 TermOpen(pattern="*") 里。
     end
 
     -- 使用 autocmd 自动设置终端快捷键
