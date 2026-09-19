@@ -106,7 +106,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  11 篇说明，见上表
+├── docs/                  12 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
