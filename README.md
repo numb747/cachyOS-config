@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 12 documents under
-> `docs/` — roughly 227 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 234 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -62,7 +62,7 @@ Installing only part of it:
 
 | Module | Contents | Docs (zh) |
 |---|---|---|
-| **hypr** | Hyprland keymap (37 custom binds → 124 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
+| **hypr** | Hyprland keymap (38 custom binds → 124 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
 | **term** | kitty (drops straight into nvim), alacritty, zsh, powerlevel10k | [03](docs/03-terminal.md) |
 | **nvim** | LazyVim customization: mini.files, toggleterm, lualine, transparent tokyonight | [04](docs/04-neovim.md) |
 | **ui** | noctalia bar wired to the theme engine, GTK/Qt/btop colors, fonts, cursor, input method, default applications | [05](docs/05-theme-ui.md) |

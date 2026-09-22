@@ -21,6 +21,12 @@ config/hypr/config/misc.lua               ~/.config/hypr/config/misc.lua
 # ★ mod_hypr 是硬编码 put 的、不走 put_module（见 install.sh 那句「这三个单独列」注释），
 #   所以这行只被 sync.sh 读到；install.sh 里必须另有一行 put 它，否则装不出去。
 bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
+# 剪贴板面板的包装脚本，配合 mykeys.lua 第 18 节的 SUPER+V。
+# 用快捷键开的 noctalia 面板会在【某种没查清的状态下】约 1 秒自己关掉，而那个状态里
+# 「指针在不在面板矩形内」是决定性变量。这个脚本开完面板把指针挪进去钉住、关掉后还原，
+# 不判断当前是不是坏状态（坏状态下是解药，好状态下只是多挪一次指针）。见 docs/07 坑 10。
+# ★ 同 hypr-screenrec：mod_hypr 硬编码 put，install.sh 里必须另有一行，否则装不出去。
+bin/noct-panel                            ~/.local/bin/noct-panel
 
 #@module term
 config/kitty/kitty.conf                   ~/.config/kitty/kitty.conf

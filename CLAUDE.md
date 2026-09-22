@@ -24,7 +24,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     12 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、winapp wine 沙箱、ocr-* 屏幕取字）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
 ├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
@@ -57,7 +57,8 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ```
 
 > **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
-> ASCII 成品张数、`docs/` 总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数。
+> ASCII 成品张数、`docs/` 总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数
+> 和「现状」段那行键位数。
 > 表在 `sync.sh` 的「文档数字对账」段，新增一条加一行 `docnum` 即可。
 > ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
 > 于是 `--pull` 跑完那一刻，被改写的 4 份文档在 MANIFEST 里已是陈旧哈希，
@@ -273,17 +274,20 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **124** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **124** 条（自定义 38 条）；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
   （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
   2026-09-12 实测为 124，中间那 3 条是什么当时没记 —— 这正是下面这条机制的由来）
-  ★ **两份 README 里的键位数由 `sync.sh --pull` 自动重写**，不要手改（详见开头
-  「改配置的正确姿势」下那段）。2026-09-12 顺带对账查出另外 4 处同类过期：
+  ★ **键位数由 `sync.sh --pull` 自动重写**（两份 README 加本文件这一行），不要手改
+  （详见开头「改配置的正确姿势」下那段）。2026-09-12 顺带对账查出另外 4 处同类过期：
   ASCII 成品 4→8、壁纸库 167→348 MB、`claude/` 9→10 个文件、docs 230→203 KB
   （后者连 203 也是错的，用 `du -sh` 累加人类可读值算出来的，`wc -c` 才是 198）。
-  ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 48 处含 `hl.bind` 的行有 11 处
-  在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 48。
+  ⚠ 2026-09-23 又踩了同一形状一次：本文件这一行**当时不在对账表里**，第 18 节
+  （`SUPER+V` → `bin/noct-panel`）把自定义数顶到 38 之后它还写着 37。掩护它的正是
+  「总数 124 没变」—— `unbind` + `bind` 净增 0。已补进 `sync.sh` 的 `docnum` 表。
+  ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 49 处含 `hl.bind` 的行有 11 处
+  在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 49。
 - 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
   `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。

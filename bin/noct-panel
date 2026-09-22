@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# noct-panel — 打开 noctalia 面板，并把鼠标指针挪进面板里；面板关掉后把指针放回原处
+#
+#   noct-panel clipboard    等价于 noctalia msg panel-toggle clipboard，但面板不会自关
+#   noct-panel launcher     同理
+#
+# 为什么需要这一层：noctalia 的面板**在某种状态下**会在指针不在其上时约 1 秒自动关闭，
+# 哪怕键盘焦点是好的、字也打得进搜索框。那个状态什么时候进入、什么时候退出都没查清
+# （2026-09-22 实测：16:47 稳定复现 6/6，同一个 noctalia 进程到 17:20 之后就再也复现
+# 不了，15/15 全都活过 6 秒，中间没重启过任何东西），所以这里不做判断、无条件把指针
+# 挪进面板——坏状态下它是解药，好状态下只是多挪一次指针。
+# 完整的实测记录和排除掉的方向见 docs/07-troubleshooting.md 坑 10。
+#
+# 指针位置不是猜的：从 hyprctl layers 读**面板实际几何**，所以 placement 改成
+# attach/float、换分辨率、多显示器都自动跟上，不依赖任何硬编码坐标。
+set -uo pipefail
+
+id="${1:?用法: $(basename "$0") <panel-id>   例如 clipboard / launcher}"
+
+# noctalia 的浮动面板和贴条面板是两个 namespace，control-center 两种都可能用
+NS='^noctalia-(attached-)?panel$'
+
+# 每行 "<address> <x> <y> <w> <h>"，顺序由 hyprctl 给定
+panels() {
+    hyprctl layers -j 2>/dev/null |
+        jq -r --arg ns "$NS" \
+            '.. | objects | select(.namespace? // "" | test($ns)) |
+             "\(.address) \(.x) \(.y) \(.w) \(.h)"' 2>/dev/null
+}
+
+before="$(panels)"
+
+noctalia msg panel-toggle "$id" >/dev/null || exit 1
+
+# ── 判断这一下到底是「开」还是「关」──────────────────────────────────────────
+# ★ 不能用 address 认「新开的那一个」：2026-09-23 实测，noctalia **所有面板复用同一个
+#   layer surface**。control-center 开着时按 SUPER+V，剪贴板确实开出来了
+#   （日志有 opened "clipboard"），但 layer 的 address 一个字都没变——按 address 做
+#   前后差集会得到空集，正好漏掉本脚本唯一要解决的场景。
+# 所以改成看「toggle 尘埃落定之后还有没有面板」。时序实测（同上）：
+#   开：layer ~43ms 出现      关：有关闭动画，layer ~236ms 才撤下
+# 关闭动画这 0.24 秒是这里唯一的坑——期间「面板还在」，不等它就会把指针挪进一个
+# 正在消失的面板。所以 before 非空时必须等，before 为空时可以一见到面板就走。
+for _ in $(seq 1 25); do        # 上限 0.5s，留够自关宽限（~0.8s）的余量
+    sleep 0.02
+    now="$(panels)"
+    if [ -z "$before" ]; then
+        [ -n "$now" ] && break          # 空 → 有：开出来了。常见路径，~43ms 就走
+        continue
+    fi
+    [ -z "$now" ] && exit 0             # 有 → 空：这一下是把它关掉了，指针不用动
+    [ "$now" != "$before" ] && break    # 面板还在但内容/几何变了：是换了一个面板
+done
+# 超时兜底：before 非空且几何恰好一模一样（换了个同尺寸面板）也走到这。
+# 此刻仍有面板 = 开着，按开处理。
+now="$(panels)"
+[ -z "$now" ] && exit 0
+
+# 优先挑「新出现的那一个」（真有多个 layer 并存时），否则就是复用的那一个
+addr="$(comm -13 <(printf '%s\n' "$before" | cut -d' ' -f1 | sort) \
+                 <(printf '%s\n' "$now"    | cut -d' ' -f1 | sort) | head -1)"
+if [ -n "$addr" ]; then
+    read -r _ x y w h <<<"$(printf '%s\n' "$now" | grep -m1 "^$addr ")"
+else
+    read -r _ x y w h <<<"$(printf '%s\n' "$now" | tail -1)"
+fi
+[ -z "${h:-}" ] && exit 0
+target_addr="${addr:-$(printf '%s\n' "$now" | tail -1 | cut -d' ' -f1)}"
+
+cx=$((x + w / 2)); cy=$((y + h / 2))
+orig="$(hyprctl cursorpos)"          # 形如 "653, 1077"
+hyprctl dispatch "hl.dsp.cursor.move({x = $cx, y = $cy})" >/dev/null
+
+# 面板关掉后把指针放回原处。
+# ★ 这一步不是礼貌，是必须的：mykeys.lua 第 6b 节说明了本配置依赖
+#   「指针底下永远是焦点窗口」这个不变量来防止焦点被杂散鼠标抖动抢走
+#   （follow_mouse = 1 + no_warps = false 那一对）。warp 本身不会立刻改焦点
+#   （Hyprland 只在**真实**指针移动时累积 m_mousePosDelta），但它让指针和焦点
+#   分处两处——此后任何一次真实鼠标微动都会把焦点 refocus 到指针底下那个窗口。
+#   症状会是「从剪贴板选了条目，Ctrl+V 却粘进了另一个应用」。
+# 用户在面板开着时自己动过鼠标就不还原，免得打断他。
+(
+    for _ in $(seq 1 2000); do       # 最多守 5 分钟
+        sleep 0.15
+        panels | cut -d' ' -f1 | grep -qx "$target_addr" || break
+    done
+    if [ "$(hyprctl cursorpos)" = "$cx, $cy" ]; then
+        hyprctl dispatch "hl.dsp.cursor.move({x = ${orig%%,*}, y = ${orig##*, }})" >/dev/null
+    fi
+) >/dev/null 2>&1 &

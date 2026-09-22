@@ -119,8 +119,8 @@ docnum() {   # docnum <包内文件> <ERE 正则> <替换式>
     [ -f "$SRC/$1" ] && sed -i -E "s#$2#$3#g" "$SRC/$1"
 }
 
-# 自定义键位数只认**行首**的 hl.bind( —— mykeys.lua 里 48 处含 hl.bind 的行有
-# 11 处在注释里（文件开头那段原理备忘），裸 grep -c 会数成 48 而不是 37。
+# 自定义键位数只认**行首**的 hl.bind( —— mykeys.lua 里 49 处含 hl.bind 的行有
+# 11 处在注释里（文件开头那段原理备忘），裸 grep -c 会数成 49 而不是 38。
 MINE=$(grep -cE '^[[:space:]]*hl\.bind\(' "$SRC/config/hypr/mykeys.lua" 2>/dev/null || echo 0)
 TOTAL=""
 command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 \
@@ -133,6 +133,11 @@ WALL_MB=$(du -sm "$HOME/Pictures/Wallpapers" 2>/dev/null | cut -f1)
 if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
     docnum README.md       "[0-9]+ custom binds → [0-9]+ total" "$MINE custom binds → $TOTAL total"
     docnum README.zh-CN.md "[0-9]+ 条自定义绑定 → 共 [0-9]+ 条" "$MINE 条自定义绑定 → 共 $TOTAL 条"
+    # ★ 2026-09-23 加。CLAUDE.md「现状」段也记着这两个数，却一直不在对账表里，
+    #   于是第 18 节把自定义数加到 38 之后它还写着 37（总数 124 没变 —— SUPER+V 是
+    #   unbind + bind，净增 0，正好让「总数对得上」掩护了自定义数的过期）。
+    docnum CLAUDE.md "Hyprland 绑定 \*\*[0-9]+\*\* 条（自定义 [0-9]+ 条）" \
+                     "Hyprland 绑定 **$TOTAL** 条（自定义 $MINE 条）"
 else
     warn "hyprctl binds 读不到，键位数这次没同步（不在 Hyprland 会话里？）"
     TOTAL="skip"

@@ -347,6 +347,103 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 
 ---
 
+## 坑 10 — noctalia 面板（剪贴板/启动器）打开不到 1 秒自己消失
+
+**现象**
+
+按 `SUPER+V`，剪贴板面板弹出来，还没看清就没了。反复按、面板反复闪。
+**键盘焦点其实是好的**——按完立刻敲字母，字确实进了搜索框，然后连面板带字一起消失。
+
+**⚠️ 根因没查清。** 下面全是实测记录，不是结论。读这条的时候请带着这个前提。
+
+**先做的事：把指针挪进面板矩形，看还关不关**
+
+```bash
+# hl.dsp.cursor.move 只收 table，写成 (x, y) 会报 expected a table { x, y }
+hyprctl dispatch 'hl.dsp.cursor.move({x = 1280, y = 720})'
+```
+
+犯病时这一下就能让面板常驻，是最快的验证入口，也正是 `bin/noct-panel` 的全部内容。
+
+**实测记录（2026-09-22，同一个 noctalia 进程 PID 290934，全程没重启）**
+
+| 时段 | 指针在面板矩形外 | 指针在矩形内 |
+|---|---|---|
+| 16:47 | **0.78~0.98 秒自关，6/6** | **常驻，6/6** |
+| 17:21–17:29 日志回看 | 1.4~49 秒，无规律 | — |
+| 17:40 后专门跑的 15 组矩阵（内/外 × 指针动/不动） | **全部活过 6 秒，15/15** | 同 |
+
+用户手工复核过 16:47 那一组：鼠标放屏幕正中按 `SUPER+V` → 面板常驻、搜索可用；
+甩到角落再按 → 约 1 秒消失；敲字进得去 → 键盘焦点没问题。
+
+**所以能说的只有这些**
+
+- 犯病时，「指针在不在面板矩形内」是决定性变量，这一条复现得很干净。
+- 但它**只在某个状态下成立**。那个状态什么时候进、什么时候出，都不知道；
+  这次它在没有任何人为动作的情况下自己消失了（中间唯一可疑的操作是装第 18 节
+  键位时跑过一次 `hyprctl reload`，Hyprland 日志太短没留住时间戳，没能证实）。
+- 因此**不能**说「这不是故障、是上游的既有行为」。上游
+  `noctalia-dev/noctalia#2204` 确实在讨论面板自关，但那条不足以解释
+  「同一进程前后两小时行为相反」。`settings.schema.*` 里确实没有关掉它的开关。
+
+**曾经写在这里的两条错误结论**（都是拿时间相关性当因果，留着当反面教材）
+
+- ~~「launcher 历史中位就是 1.0 秒，说明它一直这样」~~ —— 过度解读。
+  「打开就敲字回车」本来也就 1 秒，同一份数据两种解释都成立，不构成证据。
+- ~~「重启 noctalia 不能修，别白折腾」~~ —— 没有证据。当时「重启没修好」的那几次，
+  指针恰好在矩形外；后来不犯病的那两小时也**没有**重启过。重启修不修得好，未知。
+
+**解法**：`bin/noct-panel` + `mykeys.lua` 第 18 节，`SUPER+V` 改调它。
+它不判断当前是不是坏状态——**坏状态下是解药，好状态下只是多挪一次指针**，无条件挪。
+
+脚本三件事：开面板 → 从 `hyprctl layers` 读**面板实际几何**把指针移到中心 →
+面板关掉后把指针**放回原处**（用户中途自己动过鼠标就不还原）。
+几何是读出来的不是算出来的，所以 placement 改 attach/float、换分辨率、多显示器
+都自动跟上。还原那一步不是礼貌，是维持第 6b 节那个「指针底下永远是焦点窗口」的
+不变量——不还原的话，下一次真实鼠标微动会把焦点拽到面板原来所在的窗口上，
+症状是「从剪贴板选了条目，`Ctrl+V` 却粘进了别的应用」。
+
+**写这个脚本时量到的两个 noctalia 行为**（2026-09-23，都不是文档里写着的）
+
+- **所有面板复用同一个 layer surface**。control-center 开着时按 `SUPER+V`，
+  日志明明有 `opened "clipboard"`，`hyprctl layers` 里那个 `noctalia-panel` 的
+  **address 一个字都没变**。所以「按 address 做前后差集找新面板」不成立——
+  差集是空的，正好漏掉这个场景。判据要用「toggle 尘埃落定后还有没有面板」。
+- **关闭有约 236ms 的动画**，期间 layer 还在（开只要约 43ms）。不等它就会把指针
+  挪进一个正在消失的面板。
+
+**⚠ 排除掉的方向**（2026-09-22 全部做过前后对照。注意这些是「不是**唯一**原因」，
+在犯病状态下没有一个能单独解释症状，但不等于整条线索作废）
+
+| 怀疑过的 | 实测结论 |
+|---|---|
+| 跑过 OCR 打坏的 | 不是。前后两次测试之间指针位置变了，把时间巧合当成了因果 |
+| `config-reload` / 装包触发的 icon theme change → bar/dock reload | 不是。把 `system icon theme changed → [bar] reloading config → [dock] reloading config` 整条日志序列复现了一遍，面板照常 |
+| 顶栏显示/隐藏态 | 不是。两种状态各测 5 次，都是 ~0.91 秒 |
+| 键盘/快捷键路径、slurp 独占键盘 | 不是。绕开键盘直接 `noctalia msg panel-open clipboard` 同样复现 |
+| 焦点被别的窗口抢走 | 不是。Hyprland 事件流（`.socket2.sock`）在 `openlayer` → `closelayer` 之间没有任何焦点/窗口事件 |
+
+**诊断入口**：`~/.cache/noctalia/noctalia.log` 有 `[panel] panel manager: opened/closing "<id>"`，
+两者时间差就是面板存活时长。⚠ 日志**不记录关闭原因**，只能靠对照实验定位。
+做对照实验时**把指针位置当成一等变量记录下来**——它会在你没注意时被改（比如你正
+在跟人说话），当噪音处理会让所有前后对照全部失效，本次就是这么错了两轮。
+
+**⚠ 顺带三个重启 noctalia 时才会踩到的坑**（本次排查中实际踩了）：
+
+- 从 **Hyprland 进程**的 `environ` 抄环境去启动 noctalia 会得到
+  `fatal: failed to connect to Wayland display`——Hyprland 自己就是合成器，
+  它的环境里**没有** `WAYLAND_DISPLAY`。正确做法是 CLAUDE.md 坑 8 那条：
+  `hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`，由 Hyprland 拉起，环境天然正确。
+- 手动拉起的实例**顶栏不会自动隐藏**——隐藏逻辑是 `mykeys.lua` 第 9 节的
+  `hl.on("hyprland.start")` 发 `bar-hide`，手动启动不触发该事件，要补一条
+  `noctalia msg bar-hide`。
+- 偶尔会起出「半残」实例：壁纸和顶栏画得出来、DBus 名字也注册了，但主循环卡在
+  网络等待（`WCHAN=skb_wait_for_more_packets`，启动阶段要访问 `api.noctalia.dev` 等），
+  症状是 `noctalia msg` 返回空、`notify-send` 超时。判据是**日志停止增长**，
+  `kill -9` 重来即可。
+
+---
+
 ## 常见症状 → 去哪查
 
 | 症状 | 排查方向 |
@@ -360,6 +457,7 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 | 部分键无反应 | 被应用抢了？不可能——Wayland 下是合成器优先。检查是不是自己写的键和官方叠加了（`hl.bind` 是叠加不是覆盖，要先 `hl.unbind`） |
 | `ALT+9` / `ALT+Space` 无效 | noctalia 没跑。`pgrep noctalia`；`noctalia msg --help` 能否连上 |
 | 顶栏不见了 | 是 `auto_hide = true`，鼠标移到屏幕顶边。或按 `ALT+9` |
+| `SUPER+V` 的面板一闪就没（启动器同理） | 已由 `bin/noct-panel` 兜住（接在 `SUPER+V` 上）。手工验证：把指针挪进面板矩形，犯病时面板立刻常驻。⚠ 根因**没查清**，别信「这是上游既有行为、重启没用」那套旧说法，见坑 10 |
 | `SUPER+V` 的剪贴板历史一重启就空 | 看日志有没有 `[secret-store] ... provider-unavailable`：没有 Secret Service 时它拒绝落盘、只留内存。解法是 `[storage]` 文件密钥，见 [05](05-theme-ui.md#剪贴板supervsuper-的历史靠-storage-文件密钥才能活过重启)。⚠ 改完**必须重启 noctalia 进程**，`config-reload` 不重新初始化存储 |
 | 换壁纸/换主题每次都要输密码 | `greeter_sync` 在推给登录界面。noctalia 默认用 `run0` 提权，绕开了自带的 polkit policy——**看 journalctl 里真正被拒的 action id**（是 `systemd1.manage-units` 不是 `apply-appearance`）。要 `privilege_command = "pkexec"` + `/etc/polkit-1/rules.d/` 规则两步，见 [05](05-theme-ui.md#greeter-同步换壁纸主题为什么每次都要输密码) |
 | 提示符全是豆腐块 | 缺 `ttf-meslo-nerd` |

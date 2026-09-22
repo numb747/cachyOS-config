@@ -51,7 +51,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 | 模块 | 内容 | 文档 |
 |---|---|---|
-| **hypr** | Hyprland 键位方案（37 条自定义绑定 → 共 124 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
+| **hypr** | Hyprland 键位方案（38 条自定义绑定 → 共 124 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
 | **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k | [03](docs/03-terminal.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |

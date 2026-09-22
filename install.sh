@@ -131,6 +131,10 @@ mod_hypr() {
     command -v wl-screenrec >/dev/null 2>&1 \
         || inf "未装 wl-screenrec（录屏键位依赖它）。装：yay -S wl-screenrec"
 
+    # 剪贴板面板包装脚本。mykeys.lua 第 18 节的 Super+V 直接调它，少了它那个键位会哑。
+    # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
+    put bin/noct-panel "$HOME/.local/bin/noct-panel"
+
     if command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
         if [ $DRY -eq 1 ]; then
             printf '  [dry] 执行: hyprctl reload\n'
@@ -138,7 +142,7 @@ mod_hypr() {
             hyprctl reload >/dev/null && ok "已重载 Hyprland"
         fi
         if [ $DRY -eq 0 ] && command -v jq >/dev/null 2>&1; then
-            inf "当前绑定总数：$(hyprctl binds -j | jq length)（预期 116；95 = mykeys 没挂上，差的 21 条就是它）"
+            inf "当前绑定总数：$(hyprctl binds -j | jq length)（2026-09-23 实测 124，以 CLAUDE.md「现状」段为准；95 = mykeys 没挂上）"
         fi
     else
         inf "Hyprland 未在当前会话运行 —— 登录桌面后执行 hyprctl reload"
