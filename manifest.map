@@ -101,6 +101,8 @@ config/btop/themes/noctalia.theme         ~/.config/btop/themes/noctalia.theme
 config/mimeapps.list                      ~/.config/mimeapps.list
 config/mpv/mpv.conf                       ~/.config/mpv/mpv.conf
 share/applications/imv-viewer.desktop     ~/.local/share/applications/imv-viewer.desktop
+# 启动器里的「Waydroid 重启」：Android 没网时点它（停会话再重开），见 docs/12 第 7 节。
+share/applications/waydroid-restart.desktop  ~/.local/share/applications/waydroid-restart.desktop
 config/fcitx5/profile                     ~/.config/fcitx5/profile
 config/fcitx5/config                      ~/.config/fcitx5/config
 config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf

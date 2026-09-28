@@ -128,6 +128,7 @@ command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 \
 ASCII_N=$(ls "$SRC/wallpaper/ascii" 2>/dev/null | wc -l)
 CLAUDE_N=$(ls "$SRC/claude" 2>/dev/null | wc -l)
 DOCS_KB=$(cat "$SRC"/docs/*.md 2>/dev/null | wc -c | awk '{printf "%.0f", $1/1024}')
+DOCS_N=$(ls "$SRC"/docs/*.md 2>/dev/null | wc -l)
 WALL_MB=$(du -sm "$HOME/Pictures/Wallpapers" 2>/dev/null | cut -f1)
 
 if [ -n "$TOTAL" ] && [ "$TOTAL" -gt 0 ] 2>/dev/null; then
@@ -151,13 +152,20 @@ fi
     docnum CLAUDE.md "[0-9]+ 个文件在 \`claude/\`" "$CLAUDE_N 个文件在 \`claude/\`"
 [ -n "$DOCS_KB" ] && \
     docnum README.md "roughly [0-9]+ KB explaining" "roughly $DOCS_KB KB explaining"
+# ★ 2026-09-28 加。docs/ 篇数写在四处，加 docs/12-waydroid.md 时发现不在对账表里。
+if [ "$DOCS_N" -gt 0 ] 2>/dev/null; then
+    docnum README.md       "The [0-9]+ documents under"   "The $DOCS_N documents under"
+    docnum README.md       "[0-9]+ documents, see the"    "$DOCS_N documents, see the"
+    docnum README.zh-CN.md "[0-9]+ 篇说明，见上表"        "$DOCS_N 篇说明，见上表"
+    docnum CLAUDE.md       "[0-9]+ 篇，见下表"            "$DOCS_N 篇，见下表"
+fi
 # 壁纸全库在包外、随机器而异；取不到就跳过，不写入错数
 if [ -n "$WALL_MB" ]; then
     docnum README.md       "library \([0-9]+ MB\)" "library ($WALL_MB MB)"
     docnum README.zh-CN.md "全库（[0-9]+ MB）"      "全库（$WALL_MB MB）"
     docnum INSTALL.md      "[0-9]+ MB。本包"        "$WALL_MB MB。本包"
 fi
-ok "文档数字已对账（键位 $MINE/$TOTAL · ASCII $ASCII_N · claude/ $CLAUDE_N · docs ${DOCS_KB}KB · 壁纸库 ${WALL_MB:-?}MB）"
+ok "文档数字已对账（键位 $MINE/$TOTAL · ASCII $ASCII_N · claude/ $CLAUDE_N · docs ${DOCS_N} 篇 ${DOCS_KB}KB · 壁纸库 ${WALL_MB:-?}MB）"
 
 
 

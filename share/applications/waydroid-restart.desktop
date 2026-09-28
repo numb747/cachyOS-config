@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Waydroid 重启
+GenericName=Restart Waydroid session
+Comment=Android 没网时点这个：停止会话再重新打开（等同 waydroid session stop 后重开）
+Exec=sh -c "waydroid session stop; sleep 2; exec waydroid"
+Icon=waydroid
+Categories=Utility;
+Keywords=waydroid;android;restart;network;重启;没网;安卓;

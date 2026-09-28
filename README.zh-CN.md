@@ -106,7 +106,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  12 篇说明，见上表
+├── docs/                  13 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
@@ -162,7 +162,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 | 东西 | 为什么不带 |
 |---|---|
 | `~/.ssh/`、`~/.gnupg/`、`~/.claude/settings.json` | 含密钥，见上 |
-| `~/Pictures/Wallpapers/` 全库（348 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
+| `~/Pictures/Wallpapers/` 全库（426 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
 | `~/.zsh_history` | 个人痕迹，无复用价值 |
 | `~/.bashrc`、wezterm、fish 片段 | 已弃用，登录 shell 是 zsh |
 | `qt5ct/`、`xsettingsd/` | 配置文件在，但这两个程序本机没装，纯 skel 残留，是死配置 |

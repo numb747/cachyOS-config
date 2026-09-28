@@ -970,3 +970,29 @@ hl.bind("SUPER + SHIFT + I",
 hl.unbind("SUPER + V")
 hl.bind("SUPER + V",
     hl.dsp.exec_cmd("$HOME/.local/bin/noct-panel clipboard"))
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 19. Waydroid：整屏界面独占 name:android 桌面，真全屏
+--
+--      Waydroid 的 Android 显示分辨率在窗口【创建那一刻】就定死了，之后窗口
+--      怎么缩放它都不跟 —— 平铺开出来是 1265x705，就一直是 1265x705。
+--      所以不去追「自适应」，而是让窗口一出生就是整屏：
+--        · 这条规则：送到独立桌面 + 真全屏（实测 fullscreen 模式 2 = 盖住顶栏）
+--        · Android 侧：persist.waydroid.width/height = 2560/1440（见 docs/12）
+--      两边对上，Android 按原生分辨率渲染，不拉伸。
+--
+--      name:android 是命名工作区，id 固定为 -1337。对各导航键的影响（2026-09-28 实测）：
+--        · ALT+[ ] / CTRL+2/3（m±1）：按 id 排序 + 到头回绕，android 排最左，
+--          体感上夹在「最后一个」和「第一个」工作桌面之间 —— 两头都能一步够到
+--        · CTRL+1/4、ALT+T：只认 w.id > 0，看不见 android，工作桌面编号不受干扰
+--        · 抽屉架：android 不是 special，两个平面照旧互不相干
+--      只配整屏界面（class = Waydroid）。多窗口模式（persist.waydroid.multi_windows）
+--      下每个应用的 class 是 waydroid.<包名>，不归这条管 —— 本机没开那个模式。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.window_rule({
+    name       = "waydroid-fullscreen",
+    match      = { class = "^(Waydroid)$" },
+    workspace  = "name:android",
+    fullscreen = true,
+})

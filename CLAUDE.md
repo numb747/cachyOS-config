@@ -22,7 +22,7 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     12 篇，见下表（配图在 docs/img/）
+├── docs/                     13 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
@@ -57,7 +57,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ```
 
 > **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
-> ASCII 成品张数、`docs/` 总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数
+> ASCII 成品张数、`docs/` 篇数与总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数
 > 和「现状」段那行键位数。
 > 表在 `sync.sh` 的「文档数字对账」段，新增一条加一行 `docnum` 即可。
 > ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
@@ -105,6 +105,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 在 wine 里跑 Windows 程序 / 企业微信 / 沙箱边界 | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
+| 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 
 ---
 
@@ -388,6 +389,13 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
   ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
   非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
+- **Waydroid**（2026-09-28 新增，**不是** install.sh 模块）：Android 13 容器，整屏界面独占
+  `name:android` 桌面（`mykeys.lua` 第 19 节，包里唯一纳管的部分），网络自动走 TUN、
+  libndk 转译、fcitx5-android + Rime 输入法。其余全是 root 手动步骤，照 `docs/12` 第 2 节做。
+  ⚠ 两条反直觉的：**① 挡网络的是 docker 的 FORWARD DROP，不是 TUN** —— Waydroid 自己的
+  accept 写在它的 `inet lxc` 表里，挡不住别的表的 drop，要 `/etc` 下一个 systemd drop-in
+  （不在本包管辖）；**② 本机没有主机防火墙**（ufw `ENABLED=no`、nftables disabled），
+  `/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如
