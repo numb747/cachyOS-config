@@ -28,7 +28,7 @@
 
 | 文件 | 笔记本（正确） | 包里（源机） | 为什么不能同步 |
 |---|---|---|---|
-| `~/.config/kitty/kitty.conf` | `font_size 10.0` | `12.5` | 笔记本 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
+| `~/.config/kitty/kitty.conf` | `font_size 10.0` | `13.5` | 笔记本 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
 | `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
 | `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
