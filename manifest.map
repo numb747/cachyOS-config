@@ -70,6 +70,7 @@ config/nvim/lua/plugins/mini.lua          ~/.config/nvim/lua/plugins/mini.lua
 # :UpdateRemotePlugins 再重启 nvim，否则 :Molten* 全是 E492。见 docs/04-neovim.md。
 config/nvim/lua/plugins/molten.lua        ~/.config/nvim/lua/plugins/molten.lua
 config/nvim/lua/plugins/no-neck-pain.lua  ~/.config/nvim/lua/plugins/no-neck-pain.lua
+config/nvim/lua/plugins/render-markdown.lua ~/.config/nvim/lua/plugins/render-markdown.lua
 config/nvim/lua/plugins/snacks.lua        ~/.config/nvim/lua/plugins/snacks.lua
 # tabby：给 tab 起名 + 重画顶栏。三个 tab 里两个是终端，原生 tabline 全显示成
 # term://…:zsh 分不清。配色只写高亮组名（跟 tokyonight transparent 走），

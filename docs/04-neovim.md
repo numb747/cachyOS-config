@@ -39,6 +39,7 @@ lua/plugins/
 ├── mini.lua                mini.files 文件管理器（替代 snacks explorer）
 ├── molten.lua              .py 里跑 Jupyter kernel，输出内联
 ├── no-neck-pain.lua        居中阅读模式
+├── render-markdown.lua     markdown 标题图标恢复插件默认（LazyVim 关掉了）
 ├── snacks.lua              关掉与 mini.files 冲突的部分，以及和 image.nvim 抢图片的 snacks.image
 └── toggleterm.lua          浮动终端（本目录最大的一个定制）
 ```
@@ -640,6 +641,24 @@ tabby 画的是 tabpage。
 > 顺带一个事实：**toggleterm 的终端 `buflisted = false`，压根不出现在 `<leader>fb` 里**
 > （snacks 的 buffers 源默认 `hidden = false`，只收 buflisted 的）。出现在那里的是
 > 原生 `:terminal` 开的。toggleterm 的终端走 `<leader>tl` 或顶栏找。
+
+### render-markdown —— 标题图标恢复插件官方默认（2026-09-29 新增）
+
+LazyVim 的 `lang.markdown` extra 给 render-markdown.nvim 传了 `heading = { sign = false,
+icons = {} }`，于是标题只剩颜色、`#` 原样保留。`render-markdown.lua` 只把这两项改回
+插件自己的默认值（`󰲡 󰲣 󰲥 …` 盖住 `#` + sign 列 `󰫎`），其余不动 —— 这就是插件 README
+截图用的配置：它的 `demo/minit.lua` 里只有一句 `setup({})`。
+
+- **图标小得看不清，是字体问题不是配置问题**：kitty 的 `symbol_map` 原来指向
+  `MesloLGS Nerd Font Mono`，Mono 把图标压进一格。换普通版后借两格显示，见
+  [03-terminal.md](03-terminal.md#字体adwaita-mono--meslo-补图标)。
+  官方截图还是 JetBrainsMono Nerd Font（普通版）14 号录的，截图显大有这层原因。
+- **试过、放弃了的方案**（留作记录，别再绕一圈）：`icons` 写成函数、用
+  `ctx.sections` 渲染成 `1` / `1.2` / `1.2.1` 章节编号（比 `#` 宽时插件自动从
+  overlay 退回 inline，不会盖字）；`indent` 按标题层级缩进正文；`border` 上下边框。
+  实际看下来都不如官方默认顺眼。
+- 光标所在行、插入模式下显示源码是 anti-conceal，不是没渲染。`<leader>um` 开关渲染；
+  要看真正的排版用 `<leader>cp`（markdown-preview.nvim，浏览器实时预览）。
 
 ### 其他小项
 

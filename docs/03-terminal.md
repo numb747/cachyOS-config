@@ -10,7 +10,7 @@
 font_family                 Adwaita Mono
 font_size                   12.5
 modify_font                 cell_height 108%
-symbol_map U+E0A0-U+E0A3,U+E700-U+E8EF,…  MesloLGS Nerd Font Mono
+symbol_map U+E0A0-U+E0A3,U+E700-U+E8EF,…  MesloLGS Nerd Font
 
 background_opacity          0.6
 cursor_trail                1
@@ -27,7 +27,14 @@ include themes/noctalia.conf
 Noto Sans Mono 那种等宽「办公体」清秀，配 tokyonight 的低对比配色更耐看。
 
 代价是**它不带 Nerd Font 图标**，所以要用 `symbol_map` 把私用区码位单独映射给
-`MesloLGS Nerd Font Mono`——不然 shell 里 nvim 那个图标全是豆腐块。两个字体包都得装。
+`MesloLGS Nerd Font`——不然 shell 里 nvim 那个图标全是豆腐块。两个字体包都得装。
+
+**用普通版，不用 Mono 版**（2026-09-29 改）。两者正文字形完全一样，只差图标尺寸：
+Mono 版把每个图标强制缩进一格宽，`󰲡` 这类「方框套数字」缩完里面的数字基本看不清；
+普通版图标本身约 1.5～2 格宽，kitty 遇到「图标后面跟空格」会借用那一格画成两格宽
+（kitty 文档 `narrow_symbols` 一节）。lualine、文件树、render-markdown 的图标都是
+「图标 + 空格」写法，正好吃到这条规则；图标后紧跟文字时 kitty 退回一格，不会重叠。
+`symbol_map` 只接管私用区码位，所以这个改动对正文零影响，只是全局图标变大。
 
 字号 12.5 不是随手取的：默认 11pt 偏小，因为 noctalia 的 `ui_scale = 1.20` **只放大了
 桌面 UI，kitty 没跟上**（108 DPI，2560×1440 / 27"，scale 1）。按比例该到 13.2，但那样

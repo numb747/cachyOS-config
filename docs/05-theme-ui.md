@@ -554,7 +554,7 @@ journalctl 里应只剩 `pkexec: Executing command`，没有 polkitd 的 `FAILED
 | 兜底 | `noto-fonts`、`ttf-dejavu`、`ttf-liberation`、`ttf-bitstream-vera` |
 
 **kitty 是两个字体拼的**：正文 Adwaita Mono，Nerd Font 私用区码位用 `symbol_map`
-单独映射给 MesloLGS Nerd Font Mono。少装任何一个都会出问题——缺 adwaita 就回退到
+单独映射给 MesloLGS Nerd Font（普通版，不是 Mono）。少装任何一个都会出问题——缺 adwaita 就回退到
 fontconfig 的 `monospace`，缺 meslo 则图标变豆腐块。理由见
 [03-terminal.md](03-terminal.md#字体adwaita-mono--meslo-补图标)。
 
