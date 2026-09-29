@@ -395,7 +395,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 两条反直觉的：**① 挡网络的是 docker 的 FORWARD DROP，不是 TUN** —— Waydroid 自己的
   accept 写在它的 `inet lxc` 表里，挡不住别的表的 drop，要 `/etc` 下一个 systemd drop-in
   （不在本包管辖）；**② 本机没有主机防火墙**（ufw `ENABLED=no`、nftables disabled），
-  `/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）
+  `/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）；
+  **③ 企业微信/微信「用一阵卡死、之后永远卡在启动页」**是 app fork 出的子进程在 libndk 下没 exec 就挂死、
+  占着 binder 让 AMS 以为旧进程没死（logcat `refused to die`）—— 由宿主机常驻服务
+  `waydroid-fork-reaper` 自动清理（`/etc` + `/usr/local/bin`，不在本包管辖，全文在 `docs/12` 第 8 节）
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如

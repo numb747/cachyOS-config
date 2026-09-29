@@ -5,7 +5,7 @@
 > 2026-09-28 新增。
 >
 > ⚠ **这不是 `install.sh` 的模块。** 需要 root 的系统级步骤（装包、`/etc` 下的 drop-in、
-> 镜像初始化、往容器 overlay 里装 libndk）都不在本包管辖，换机器照第 2 节手动做。
+> 第 8 节的清理服务、镜像初始化、往容器 overlay 里装 libndk）都不在本包管辖，换机器照第 2 节手动做。
 > 包里只纳管了一处：`mykeys.lua` 第 19 节的窗口规则。
 
 ---
@@ -31,6 +31,11 @@ sudo waydroid init -s VANILLA                # ~2.4 GB（system 1.8 + vendor 0.5
 # docker 的 FORWARD DROP 放行（第 3 节）—— 内容见下方
 sudo install -Dm644 forward.conf /etc/systemd/system/waydroid-container.service.d/forward.conf
 sudo systemctl daemon-reload && sudo systemctl start waydroid-container
+
+# 清理卡死的 fork 子进程（第 8 节）—— 脚本与 unit 全文见第 8 节，先存成这两个文件
+sudo install -Dm755 waydroid-fork-reaper /usr/local/bin/waydroid-fork-reaper
+sudo install -Dm644 waydroid-fork-reaper.service /etc/systemd/system/waydroid-fork-reaper.service
+sudo systemctl daemon-reload && sudo systemctl enable --now waydroid-fork-reaper.service
 
 waydroid session start &                     # 等出现 "Android with user 0 is ready"
 
@@ -298,3 +303,138 @@ waydroid app install weixin_8.0.78_arm64.apk   # 包名 com.tencent.mm
   （32+64 位都要）放进 `overlay/vendor/lib{,64}/`，嫌麻烦没做。上游合并后 `waydroid upgrade` 再试。
   抓日志：`sudo waydroid shell -- logcat -d`（`waydroid logcat` 不认 `-d`）。
   视频通话用宿主机 wine 版企业微信（`docs/09`）。
+
+---
+
+## 8. 企业微信/微信用一阵就卡死，之后永远卡在启动页
+
+**症状**（2026-09-29）：开机后企业微信正常，过一段时间（这次 18 分钟）界面无响应，
+之后再点图标永远停在 WeCom 启动页，怎么点都进不去。微信的推送进程同病，只是没界面、不显眼
+（开机 2 分钟就中招，表现是收不到消息）。
+
+### 根因：fork 出来没 exec 的子进程，在 libndk 下挂死
+
+```
+app 里某个线程 popen / vfork（mars::4011、qm-thread-2、DefaultDispatch …）
+  → 子进程在 libndk_translation 下还没 exec 就挂住，comm 保持发起线程的名字
+  → 父线程 vfork 等待，D 态（ANR trace 里是 state=D + "Thread has not responded to signal"）
+  → 主线程被拖住 → ANR → 点「关闭应用」，AMS 杀掉主进程
+  → 但子进程继承了 /dev/binder 的 fd，binder 不释放，AMS 收不到死亡通知
+  → 之后每次启动：「<pid> refused to die while trying to launch ... cancelling the process start」
+```
+
+真机上 AMS 用 `killProcessGroup` 连子进程一起杀，这里杀不到 —— **容器里 `/sys/fs/cgroup`
+是只读的 cgroup2**，libprocessgroup 建不了 per-app 进程组（logcat：
+`Failed to make and chown /sys/fs/cgroup/uid_10127: Read-only file system`），
+所以 app fork 的东西 AMS 管不着。
+
+**判据**（宿主机，不用 sudo）：
+- `adb logcat -d | grep 'refused to die'`（adb 免 sudo：`adb connect <waydroid status 里的 IP>:5555`；`adb root` 不可用）
+- 某个 app 进程的线程处在 D 态、且它有个子进程顶着那个线程的名字
+
+2026-09-29 当场抓到的：企业微信 `mars::4011`（活了 3 小时，占 900 MB）、微信推送的 `mars::2548/2570`；
+清掉后重开企业微信，一分钟内又冒出 `qm-thread-2`、`DefaultDispatch` 两个 —— 发起线程不固定，
+**所以清理规则不按名字认**。01:09 那次企业微信 ANR 里也有 `mars::3691` 处在 D 态，是同一个病，不是偶发。
+
+### 解法：宿主机常驻清理服务 `waydroid-fork-reaper`
+
+每 15 秒扫一遍容器 cgroup，同时满足四条就 `SIGKILL`：
+
+1. `/proc/<pid>/stat` 的 flags 带 **`PF_FORKNOEXEC`**（0x40）—— fork 后从没 exec 过。正常的 popen 子进程几毫秒内就 exec 成 `sh` 了。
+2. 父进程**不是 zygote** —— 正常 app 进程全是 zygote 生的（它们也带 PF_FORKNOEXEC，靠这条排除）。
+3. **comm ≠ cmdline 末 15 字符** —— 放过 system_server 崩溃重启后遗留的旧 app 进程
+   （本机实测有 permissioncontroller、launcher3 两个，父进程也已是 init，但名字对得上）。
+4. 活过 30 秒。会话被冻结（关窗 `freeze`）时整轮跳过，因为冻结期间存活时长照涨但并没卡。
+
+在卡死阶段就杀掉子进程，父线程的 vfork 等待随即返回，**app 本身不用重启**，通常连 ANR 都走不到。
+实测：装上后当场清掉 5 个，企业微信、微信推送随即恢复；微信推送重启后又连冒 3 轮，都被清掉后稳定。
+
+做成常驻循环而不是 timer：timer 每 15 秒会往 journal 写一遍 Starting/Finished。
+`PartOf` + `WantedBy=waydroid-container.service`，跟容器服务同起同停。
+只要 `CAP_KILL`；读的 `/proc/<pid>/{stat,cmdline}` 都是全员可读，**不用 sudo 就能 dry-run**：
+
+```bash
+DRY_RUN=1 MIN_AGE=0 /usr/local/bin/waydroid-fork-reaper --once   # 看现在有哪些候选
+journalctl -u waydroid-fork-reaper                                 # 看杀过谁
+```
+
+⚠ 别往「换 libhoudini 就好了」上赌：没有证据表明 houdini 的 vfork 更靠谱，没试过。
+这个服务治的是后果（僵死子进程占 binder），不管转译层换成什么都兜得住。
+
+`/usr/local/bin/waydroid-fork-reaper`：
+
+```bash
+#!/bin/bash
+# 杀掉 Waydroid 里 fork 出来却卡死、没能 exec 的 app 子进程（企业微信/微信「卡在启动页再也进不去」）。
+# app 线程 popen/vfork 出的子进程在 libndk 转译下没 exec 就挂住，父线程随之 D 态等它 → ANR；
+# 父进程被杀后它又占着继承来的 binder fd，AMS 收不到死亡通知 →「refused to die」，app 再也起不来。
+# 一开始只见到 mars:: 线程发起的，后来又见到 qm-thread-2、DefaultDispatch，所以不按名字认，按下面四条：
+#   1. 内核标志 PF_FORKNOEXEC：fork 之后从没 exec 过
+#   2. 父进程不是 zygote：正常的 app 进程都是 zygote 生的，这里只剩 app 自己 fork 的（或已成孤儿的）
+#   3. comm 不等于 cmdline 的末 15 字符：它顶着发起线程的名字（mars::4011），不是 app 名 ——
+#      这条放过 system_server 崩溃重启后留下的旧 app 进程（父进程也是 init，但名字对得上）
+#   4. 活过 MIN_AGE 秒：正常 vfork 子进程几毫秒内就 exec 了
+# 原理与排查过程见 ~/cachyOS-config/docs/12-waydroid.md 第 8 节。
+set -u
+cg=/sys/fs/cgroup/lxc.payload.waydroid
+interval=${INTERVAL:-15}
+min_age=${MIN_AGE:-30}
+PF_FORKNOEXEC=0x40
+
+reap() {
+    [[ -d $cg ]] || return 0
+    # 关窗后会话被冻结（suspend_action=freeze），存活时长照涨但并没卡，跳过
+    grep -qx 'frozen 1' "$cg/cgroup.events" 2>/dev/null && return 0
+    local clk now pid stat comm rest f ppid flags start age name name15 pname
+    clk=$(getconf CLK_TCK)
+    read -r now _ < /proc/uptime
+    for pid in $(find "$cg" -name cgroup.procs -exec cat {} + 2>/dev/null); do
+        stat=$(cat "/proc/$pid/stat" 2>/dev/null) || continue
+        comm=${stat#*(}; comm=${comm%)*}
+        rest=${stat##*) }
+        read -r -a f <<< "$rest"                      # f[0]=state，即 stat 第 3 列
+        ppid=${f[1]} flags=${f[6]} start=${f[19]}
+        (( flags & PF_FORKNOEXEC )) || continue
+        pname=$(tr '\0' ' ' < "/proc/$ppid/cmdline" 2>/dev/null)
+        [[ $pname == *zygote* ]] && continue
+        name=$(tr '\0' '\n' < "/proc/$pid/cmdline" 2>/dev/null | head -1)
+        (( ${#name} > 15 )) && name15=${name: -15} || name15=$name   # 短于 15 时 ${name: -15} 是空串
+        [[ -n $name && $comm != "$name15" ]] || continue
+        age=$(( ${now%.*} - start / clk ))
+        (( age >= min_age )) || continue
+        if [[ ${DRY_RUN:-} ]]; then
+            echo "would kill pid=$pid comm=$comm app=$name age=${age}s"
+        elif kill -KILL "$pid" 2>/dev/null; then
+            echo "killed pid=$pid comm=$comm app=$name age=${age}s"
+        fi
+    done
+}
+
+[[ ${1:-} == --once ]] && { reap; exit 0; }
+while :; do reap; sleep "$interval"; done
+```
+
+`/etc/systemd/system/waydroid-fork-reaper.service`：
+
+```ini
+# 跟 waydroid-container 同生命周期：容器起它就起，容器停它就停。
+# 做成常驻循环而不是 timer：timer 每 15 秒会往 journal 写一遍 Starting/Finished。
+[Unit]
+Description=Kill stuck never-exec forks of Waydroid apps (WeCom/WeChat hang)
+Documentation=file:///home/david/cachyOS-config/docs/12-waydroid.md
+After=waydroid-container.service
+PartOf=waydroid-container.service
+
+[Service]
+ExecStart=/usr/local/bin/waydroid-fork-reaper
+Restart=on-failure
+CapabilityBoundingSet=CAP_KILL
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+
+[Install]
+WantedBy=waydroid-container.service
+```
