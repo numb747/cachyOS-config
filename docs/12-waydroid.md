@@ -267,6 +267,21 @@ waydroid app install weixin_8.0.78_arm64.apk   # 包名 com.tencent.mm
   实体键盘按 **F4**（或 ``Ctrl+` ``）弹方案菜单 → 选「朙月拼音·简化字」，Rime 会记住，只需做一次。
   临时切简繁是 `Ctrl+Shift+4`。
 - 宿主机的词频（`~/.local/share/fcitx5/rime/luna_pinyin.userdb`）**未同步**进 Android，待办。
+- **虚拟键盘时弹时不弹、一按实体键又消失、那时退格失灵**（2026-09-30 修好）。
+  两处都要改，缺一不可：
+  1. Fcitx5 app → 候选窗口 → **显示候选窗口 = 系统默认**（出厂是「根据输入设备而定」）；
+  2. Android 设置 → 系统 → 键盘 → 实体键盘 → **关掉「使用虚拟键盘」**
+     （即 `settings put secure show_ime_with_hard_keyboard 0`，adb 直连就能改，不需 root）。
+
+  根因在 fcitx5-android 0.1.3 的 `InputDeviceManager.kt`：「根据输入设备而定」模式下，
+  点**尚未聚焦**的输入框沿用上次模式（上次用实体键盘就不弹），点**已聚焦**的输入框
+  （`onViewClicked`）**无条件切成虚拟键盘**，再按实体字母键又切回悬浮候选条——所以「时弹时不弹」
+  其实取决于点的时候光标在不在那个框里。企业微信的 `EmojiconEditText` 每次点击都调
+  `showSoftInput`（logcat 可见），放大了这个问题。
+  ⚠ 只关 Android 那个开关**没用**：fcitx5 重写了 `onEvaluateInputViewShown() = true`，
+  只有「系统默认」模式才会去问系统设置。改完后有实体键盘时永远是悬浮候选条、虚拟键盘不再出现。
+  退格为何只在虚拟键盘那个状态下失灵**没查实**（代码上两种状态走同一条转发路径），
+  改完进不去那个状态，没再深究。
 
 ---
 
