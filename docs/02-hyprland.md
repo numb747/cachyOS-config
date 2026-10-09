@@ -582,6 +582,7 @@ Wayland 下这些键**应用完全收不到**：
 | `ALT+Space` | Windows / 传统 GTK 应用的窗口菜单（Wine 里会感觉到） |
 | `ALT+W` | 带菜单栏应用的「Window」菜单助记键（影响很小） |
 | `ALT+E` | 带菜单栏应用的「Edit」菜单助记键（影响很小） |
+| `ALT+Z` | VS Code 的「切换自动换行」 |
 
 **如果这台机器上要用 IDEA / PyCharm / CLion，前两个基本等于废掉。**
 规避：把 `mykeys.lua` 里的 `CONTROL + ALT` 批量换成 `SUPER + ALT`（目前只占了一个 `C` 键）。
@@ -613,6 +614,42 @@ ALT 这一组才是完整的。
 
 代价是 `ALT+E` 会吃掉带菜单栏应用的「Edit」菜单助记键，同 `ALT+W` / `ALT+Space`
 一个性质，见上一节。
+
+### Dolphin 目录跳转 `ALT+Z`：文件管理器里的 `zi`（第 20 节，2026-10-09）
+
+需求是「在 Dolphin 里也能像终端 `zi xxx` 那样一下跳到常去的目录」。按 `ALT+Z` 弹出一个
+浮动居中的 kitty（class `dolphin-jump`，同节的窗口规则管尺寸），里面跑的就是 `zi`
+背后那条 `zoxide query -i`，同一套 fzf 界面和预览；选中后 `bin/dolphin-jump`
+把目录交给 Dolphin，并 `zoxide add` 记一次访问（终端里靠 cd 钩子记，这里没有 cd，
+不手动记的话排序学不到 Dolphin 里的使用习惯）。
+
+**落到哪个窗口**：按键时焦点在 Dolphin 上就是它；否则是 `focusHistoryID` 最小
+（最近用过）的那个 Dolphin，先聚焦再开；一个都没有就新开窗口。所以这个键在任何地方都能用。
+
+**排除掉的方案：Dolphin 的 F4 终端面板。** 它确实会跟着面板里的 `cd` 走（`zi` 在里面
+原生可用），但面板是 konsole 的 KPart，本机没装 konsole；而且每次要先开面板、占掉窗口
+底部一块。不值得为它装一整个用不上的终端。
+
+几条实测出来的约束（Dolphin 26.08）：
+
+- **不能直接 `dolphin <目录>`**：`OpenExternallyCalledFolderInNewTab` 默认 `false`，
+  那样每次都新开窗口。改走 D-Bus，直接调窗口对象
+  `org.kde.dolphin-<pid> /dolphin/Dolphin_N` 的
+  `org.kde.dolphin.MainWindow.openDirectories(as, b)`，不受这个设置影响；
+  目录已在某个标签页开着时它会切过去，不会重复开。
+- **只能开新标签页，没法让当前标签页跳转**：`MainWindow` 接口只有 `openDirectories` /
+  `openFiles` / `activateWindow` / `isUrlOpen` 这些，`changeUrl` 因为参数是 `QUrl`
+  根本没导出（日志 `Skipped method "changeUrl" : Type not registered with QtDBus`）。
+  走 `replace_location` 动作再模拟键入路径理论上可行，但要装 wtype，而且模拟键入会被
+  fcitx5 中文模式截走，不做。
+- **必须传 `file://` URL**：传裸路径会开出一个「Malformed URL」的空标签页。
+  中文和空格 QUrl 能容错，`%` `#` `?` 要先转义（脚本里有）。
+- **用 `busctl call`，别用 `busctl introspect`**：Dolphin 的内省数据里 `openDirectories`
+  有重载，`busctl introspect` 直接报 `duplicate method` 拒绝解析；
+  要看接口用 `gdbus introspect`。
+- **D-Bus 对象和 Hyprland 窗口没有直接对应**：实测 Dolphin 每新开一个窗口通常是新进程
+  （服务名带 pid，可以按窗口的 pid 找），但同一进程多窗口时有 `Dolphin_1`、`_2`……
+  脚本的做法是先把目标窗口聚焦，再问哪个对象 `isActiveWindow` 为真。
 
 ## 兼容性前提
 

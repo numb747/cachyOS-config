@@ -20,6 +20,8 @@ zsh
 cachyos-zsh-config
 zsh-theme-powerlevel10k
 zoxide
+# fzf：zi 的交互选择 + bin/dolphin-jump（ALT+Z）都靠它
+fzf
 
 # ── 编辑器与其工具链 ────────────────────────────────────────
 neovim

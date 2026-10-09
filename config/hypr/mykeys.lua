@@ -996,3 +996,33 @@ hl.window_rule({
     workspace  = "name:android",
     fullscreen = true,
 })
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 20. Dolphin 目录跳转：ALT + Z（文件管理器里的 zi）
+--
+--      弹一个浮动 kitty，里面就是终端 zi 那套 zoxide + fzf 模糊搜索，
+--      选中的目录在 Dolphin 里以新标签页打开（已开着就切过去）。
+--      落到哪个窗口：焦点在 Dolphin 上就是它，否则是最近用过的那个，
+--      一个都没开就新开 —— 所以在任何地方按都能用，不限于 Dolphin 里。
+--
+--      为什么不用 Dolphin 自带的 F4 终端面板（它确实会跟着 cd 走）：
+--      那个面板要 konsole 的 KPart，本机没装 konsole；而且每次要先开面板。
+--      ⚠ 只能「新标签页」不能「当前标签页跳转」：Dolphin 的 D-Bus 接口没有
+--        改当前视图 URL 的方法。来龙去脉在 bin/dolphin-jump 开头。
+--
+--      键位：ALT 是本文件的「动作类」修饰键（第 14 节清单），Z 取自 zoxide/zi；
+--      ALT + Z 在所有绑定里都没被占用（官方只有 SUPER + Z = noctalia 设置），
+--      纯新增，不需要 hl.unbind。
+--      ★ 绝对路径，理由同第 16/17 节（Hyprland 的 exec 环境 PATH 不含 ~/.local/bin）。
+--      不加 launchPrefix，理由同第 15 节：几秒就结束的短命进程，直接继承会话环境。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.bind("ALT + Z", hl.dsp.exec_cmd("$HOME/.local/bin/dolphin-jump"))
+
+hl.window_rule({
+    name   = "dolphin-jump-picker",
+    match  = { class = "^(dolphin-jump)$" },
+    float  = true,
+    center = true,
+    size   = { "monitor_w*0.45", "monitor_h*0.50" },
+})

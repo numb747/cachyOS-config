@@ -137,6 +137,10 @@ mod_hypr() {
     # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
     put bin/noct-panel "$HOME/.local/bin/noct-panel"
 
+    # Dolphin 目录跳转。mykeys.lua 第 20 节的 ALT+Z 直接调它，少了它那个键位会哑。
+    # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
+    put bin/dolphin-jump "$HOME/.local/bin/dolphin-jump"
+
     if command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
         if [ $DRY -eq 1 ]; then
             printf '  [dry] 执行: hyprctl reload\n'

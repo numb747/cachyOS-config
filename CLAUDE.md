@@ -24,7 +24,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     13 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
@@ -275,7 +275,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **124** 条（自定义 38 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **125** 条（自定义 39 条）；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
   （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。

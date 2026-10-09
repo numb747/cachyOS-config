@@ -97,6 +97,7 @@
 | ★ `Alt+Space` | 应用启动器（也搜已开窗口，选中直接跳过去；副标题是小写单词的那行才是窗口） |
 | ★ `Alt+9` | 显示/隐藏 noctalia 顶栏 |
 | ★ `Alt+E` | 文件管理器（dolphin） |
+| ★ `Alt+Z` | Dolphin 里的 `zi`：弹 zoxide 模糊搜索，选中的目录在 Dolphin 开新标签页（已开着就切过去；任何地方按都行） |
 | `Super+Return` | 终端（kitty） |
 | `Super+W` | 浏览器（firefox） |
 | `Super+T` | 文本编辑器 |
@@ -226,6 +227,7 @@ Wayland 下全局 bind 直接截获，应用一点收不到：
 | `Alt+Space` | Wine / 传统 GTK 应用的窗口菜单 |
 | `Alt+W` | 带菜单栏应用的「Window」菜单助记键 |
 | `Alt+E` | 带菜单栏应用的「Edit」菜单助记键 |
+| `Alt+Z` | VS Code 的「切换自动换行」 |
 
 用 JetBrains 系 IDE 的话，把 `mykeys.lua` 里的 `CONTROL + ALT` 批量换成
 `SUPER + ALT`（目前只占了一个 `C` 键）。
