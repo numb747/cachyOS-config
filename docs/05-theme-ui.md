@@ -687,7 +687,17 @@ Excalidraw 是纯前端应用：官方镜像 `excalidraw/excalidraw` 里只有 n
   命令立刻返回，脚本就不知道窗口什么时候关
 - **画布数据位置固定**，不跟日常浏览器混在一起，清浏览器数据也不会误删
 
-### 三个坑
+### 四个坑
+
+**0. `Exec=` 必须写绝对路径。** noctalia 启动器经 `systemd-run --user` 拉起程序，
+而它的 PATH 里**没有 `~/.local/bin`**。写成 `Exec=excalidraw` 时，终端里跑一切正常，
+在启动器里点了却毫无反应。只有 `~/.cache/noctalia/noctalia.log` 里留了一行
+`Failed to find executable excalidraw`（2026-10-09 首版就踩了）。
+所以和 `wecom.desktop` 一样写 `/home/david/...`，由 `install.sh` 的 `rewrite_home` 在换用户名时改写。
+自测时要模拟启动器的环境：`systemd-run --user -E PATH=<noctalia 进程的 PATH> …`，在终端里直接跑不算数。
+
+端口说明：宿主机上**只监听 `127.0.0.1:18766`**。`docker ps` 里看到的 `->80/tcp` 是
+**容器内部** nginx 的端口，不占宿主机的 80 端口，`ss -tln` 里查不到 80。
 
 **1. 端口别改。** localStorage 按「协议 + 主机 + 端口」隔离，换了端口旧图看起来就「没了」。
 其实数据还在 profile 里，只是挂在旧 origin 下。重要的图另外导出成 `.excalidraw` 文件。

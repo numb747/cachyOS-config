@@ -32,6 +32,8 @@ head_() { printf '\n%s── %s %s\n' "$DIM" "$*" "$RST"; }
 #   ~/.config/noctalia/config.toml      [storage] key_file
 #   ~/.local/state/noctalia/settings.toml   [wallpaper.*] path
 #   ~/.local/share/applications/wecom.desktop   Exec=
+#   ~/.local/share/applications/excalidraw.desktop   Exec=
+#     （.desktop 的 Exec 不能写裸命令名靠 PATH：noctalia 启动器的 PATH 里没有 ~/.local/bin）
 # 装到别的用户名下必须改写，否则**全是静默失效**，且症状都不指向路径：
 #   密钥读不到 → 剪贴板历史又不持久化了（会以为是坑 12 没修好）
 #   壁纸路径不存在 → 退回默认壁纸
@@ -226,6 +228,7 @@ mod_ui() {
 
     # Excalidraw 启动器：图标装进了 ~/.local/share/icons/hicolor，那里已有 icon-theme.cache，
     # 不刷新的话缓存里没有它，启动器显示空白图标。
+    rewrite_home "$HOME/.local/share/applications/excalidraw.desktop"
     [ $DRY -eq 0 ] && gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1
     { command -v docker >/dev/null 2>&1 && command -v google-chrome-stable >/dev/null 2>&1; } \
         || inf "Excalidraw 启动器要 docker + google-chrome-stable，缺一个点了没反应。镜像首次启动时自动拉"
