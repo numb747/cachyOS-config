@@ -19,10 +19,10 @@
 
 ---
 
-## 笔记本：6 个永远「不一致」的文件（2026-09-16 复核）
+## 笔记本：8 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个）
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
-> 拉取远程后默认**全量对齐**，只有下面这 6 个文件例外——它们要么绑死在本机硬件上、
+> 拉取远程后默认**全量对齐**，只有下面这 8 个文件例外——它们要么绑死在本机硬件上、
 > 要么绑死在 `/home/monkey` 这个用户路径上，照搬远程会真的变坏。
 > `./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
 
@@ -34,6 +34,8 @@
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
 | `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / 几个 .desktop），只能手工改；顺手按 `CLAUDE.md` 自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
 | `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，两台机器都会报不一致 |
+| `~/.config/walker/themes/noctalia/layout.xml` | `margin-top 110` · 宽 `680` / 内容 `648` · 列表高 `400` | `260` · `1000` / `960` · `580` | 笔记本逻辑分辨率只有 1280×720（scale 1.5），源机那套 260 + 输入框 + 580 的总高超过 720，**下半截直接出屏**。宽也从占屏 78% 收到 53% |
+| `~/.config/walker/themes/noctalia/style.css` | 输入框 16px · 列表 14px · 副标题 11px · 大图标 28px，内边距同比收 | 21 · 17 · 13 · 38 | 跟 layout 配套；比例和 kitty 那条同理（笔记本视距近，物理字号该比源机小一点）。改完 `systemctl --user restart walker`（layout 只在启动时读） |
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
 > `background_color` 要取当前壁纸的主色，而两台机器壁纸不同。现在笔记本壁纸也跟远程换成了
@@ -47,8 +49,8 @@
    要往包里回收改动，只能挑**单个文件**手工来。
 2. **不要跑不带参数的 `./install.sh`。** `mod_term` 会 put `kitty.conf` 和 `.zshrc`、
    `mod_nvim` 是**整目录 mv 走再替换**、`mod_ui` 的 `put_module ui` 含 `settings.toml`
-   —— 三个模块各自会把上表对应项打回源机的值（有 `.bak-*` 备份，但等你发现字变大了
-   才想起来就晚了）。**安全的是 `./install.sh hypr cc ocr wall`**；`term` / `nvim` / `ui`
+   —— 三个模块各自会把上表对应项打回源机的值；**`launcher` 也一样**（`put_module launcher` 会把 Walker 那两个主题文件打回源机尺寸）（有 `.bak-*` 备份，但等你发现字变大了
+   才想起来就晚了）。**安全的是 `./install.sh hypr cc ocr wall`**；`term` / `nvim` / `ui` / `launcher`
    要装就先看 `./sync.sh --diff`，手工只搬新增的段。
 
 > ★ **「`mod_nvim` 整目录 mv」这条对源机器同样成立**，只是后果不同：它会把

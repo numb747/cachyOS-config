@@ -5,7 +5,7 @@
 
 > ⚠ **先确认你在哪台机器上。** 这个仓库有两份检出：
 > **源机器** `/home/david/cachyOS-config`（包从这里打出来，下面写的都按它来），
-> 和**笔记本** `/home/monkey/cachyOS-config`（6 个文件永远显示「不一致」，
+> 和**笔记本** `/home/monkey/cachyOS-config`（8 个文件永远显示「不一致」，
 > 且 `sync.sh --pull`、裸 `install.sh` 是**禁止操作**）。
 > 在笔记本上先读 `docs/11-multi-machine.md`，本文其余部分再照那篇的例外表打折扣。
 
