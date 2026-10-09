@@ -687,7 +687,18 @@ Excalidraw 是纯前端应用：官方镜像 `excalidraw/excalidraw` 里只有 n
   命令立刻返回，脚本就不知道窗口什么时候关
 - **画布数据位置固定**，不跟日常浏览器混在一起，清浏览器数据也不会误删
 
-### 四个坑
+### 五个坑
+
+**00. 必须带 `--password-store=basic`，否则每次开机后第一次打开都弹钥匙环密码。**
+Chrome 每个 profile 都会向 Secret Service 要一把「Chrome Safe Storage」密钥，用来加密 cookie 和密码。
+本机 gnome-keyring（2026-09-15 装上）登录时**不会自动解锁**，于是弹出
+「An application wants access to the keyring "Default Keyring", but it is locked」。
+输一次密码后，本次开机内都不再弹，所以表现为「有时候弹」。
+Excalidraw 用不到 cookie 和密码，画布在 localStorage 里，Chrome 本来就不加密它。
+所以直接不碰钥匙环，不损失任何东西。
+验证方法（2026-10-09）：用 `dbus-monitor` 盯 `destination='org.freedesktop.secrets'`，
+分别用新 profile 各启动一次。不加 flag 时有 `Unlock`×2、`GetSecrets`、`SearchItems`；加了以后**全为 0**。
+⚠ 钥匙环已解锁时看弹窗没有意义：弹窗只在锁着时出现，得看 D-Bus 调用。
 
 **0. `Exec=` 必须写绝对路径。** noctalia 启动器经 `systemd-run --user` 拉起程序，
 而它的 PATH 里**没有 `~/.local/bin`**。写成 `Exec=excalidraw` 时，终端里跑一切正常，
