@@ -12,7 +12,8 @@ config/hypr/config/binds.lua              ~/.config/hypr/config/binds.lua
 config/hypr/config/variables.lua          ~/.config/hypr/config/variables.lua
 config/hypr/config/workspaces.lua         ~/.config/hypr/config/workspaces.lua
 # windowrules 也是被改过的 CachyOS 官方文件（同 binds/variables/workspaces）。
-# 加它是为了企业微信的幽灵窗规则，见 docs/09-wine-apps.md。
+# 当初加它是为了企业微信（wine）的幽灵窗规则；wine 已于 2026-10-09 整套卸载、
+# 那两条规则已删，现在只剩浮动窗居中等零星改动，见 config/hypr/patches/windowrules.lua.patch。
 config/hypr/config/windowrules.lua        ~/.config/hypr/config/windowrules.lua
 # misc 同上（第 5 个被改过的官方文件）。加它是为了关掉 Hyprland 内置壁纸，
 # 消除开机时 wall*.png 一闪而过的那 1.5 秒，见 docs/02-hyprland.md。
@@ -172,16 +173,6 @@ wallpaper/tokyonight/_picks.json          ~/Pictures/Wallpapers/tokyonight/_pick
 wallpaper/tokyonight/_picks2.json         ~/Pictures/Wallpapers/tokyonight/_picks2.json
 wallpaper/tokyonight/index.html           ~/Pictures/Wallpapers/tokyonight/index.html
 
-#@module wine
-# 在 wine 里跑 Windows 程序的工具链。每个应用一套独立 prefix + bubblewrap 沙箱。
-# 目前只有企业微信一个实例（公有云版没有 Linux 客户端，只能 wine，见 docs/09）。
-bin/winapp                                ~/.local/bin/winapp
-config/winapp/wecom.conf                  ~/.config/winapp/wecom.conf
-share/applications/wecom.desktop          ~/.local/share/applications/wecom.desktop
-# 图标是 wine 装完从 exe 里提取的（原名 AF03_WXWork.0.png，名字会随重装变）。
-# 存一份稳定名称的进包，省得新机器还要去翻 wine 生成的随机名。
-share/icons/wecom.png                     ~/.local/share/icons/hicolor/256x256/apps/wecom.png
-
 #@module ocr
 # 屏幕取字。RapidOCR（PP-OCRv6 + onnxruntime）替代 normcap —— 后者底层是 Tesseract，
 # 对屏幕小号中文粘连、漏字。模型加载（约 0.8s）抽进常驻服务，按键路径上只剩推理。
@@ -217,9 +208,6 @@ config/systemd/user/elephant.service      ~/.config/systemd/user/elephant.servic
 config/systemd/user/walker.service        ~/.config/systemd/user/walker.service
 
 # ── 不在同步范围内（有意）────────────────────────────────────────────────
-# ~/.local/share/wineprefixes/wecom/       wine prefix，2GB+，含聊天记录与登录态。
-#                                          新机器用 winapp create/install 重建。
-# ~/.cache/wecom-setup/*.exe               企业微信安装包，600MB，官网可重新下。
 # wallpaper/ascii/*.png                    _ascii.py 的产出，确定性生成，不会自己变。
 #                                          由 install.sh 的 wall 模块直接铺开。
 # state/noctalia/community-palettes/*      安装时才拷，路径含 URL 编码

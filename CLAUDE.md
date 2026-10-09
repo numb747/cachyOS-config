@@ -24,7 +24,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     14 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr、elephant-clipboard
@@ -102,7 +102,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
 | 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 | `docs/08-claude-code.md` |
-| 在 wine 里跑 Windows 程序 / 企业微信 / 沙箱边界 | `docs/09-wine-apps.md` |
+| wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
@@ -124,7 +124,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
    否则两套并存。`hl.config` 则是逐项合并，只写自己关心的项是安全的。
 
 4. **hypr 有 5 个 CachyOS 官方文件被改过**（`config/` 下的 `binds` / `variables` /
-   `workspaces` 为纯动态工作区，`windowrules` 为企业微信幽灵窗，`misc` 为关掉内置壁纸）。
+   `workspaces` 为纯动态工作区，`windowrules` 为浮动窗居中与 satty（原有的企业微信幽灵窗规则已随 wine 卸载删掉），`misc` 为关掉内置壁纸）。
    `pacman -Syu` 可能覆盖回去，用 `config/hypr/patches/*.patch` 重打，
    基准是 `/etc/skel/.config/hypr/config/`。（此前文档记的「3 个」是漏了后两个。）
    **别急着加第 6 个**：只有「要撤销官方已定义的东西」才必须动原版，纯覆盖值一律写进
@@ -219,7 +219,8 @@ cd ~/cachyOS-config && ./sync.sh --pull
     不过坑 9 是**按配置段**而非全局：`[osd.kinds]` 实测吃 `config-reload`（2026-08-27
     换歌验证过），已知必须重启的只有 `[shell.launcher.providers.*]` 和 `[storage]`。
 
-14. **wine 窗口规则要用 `initial_title`，不是 `title`**（2026-08-27，详见 `docs/09-wine-apps.md`）。
+14. **wine 窗口规则要用 `initial_title`，不是 `title`**（2026-08-27）。
+    ⚠ wine 已于 2026-10-09 整套卸载，本条留作通用经验；原文在 git 历史里，取法见 `docs/09-wine-apps.md`。
     窗口规则在**创建时**求值，那一刻**所有**窗口的 `title` 都是空的——拿 `title = "^$"`
     去抓国产软件那些空白幽灵窗，会把主窗口一起误伤（当初表现为「整个企业微信点不动、
     鼠标点击全部落空」，往 CEF/GPU/Windows 版本方向查了很久）。`initial_title` 记录
@@ -232,7 +233,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
       排查期间还误杀过 noctalia 导致顶栏和壁纸一起消失。按 `/proc/<pid>/cmdline` 精确匹配。
     ⚠ 还有一条反直觉的：日志里成片的 GPU 报错（`vulkan` 枚举失败、`amdgpu_get_auth failed`、
     `egl dri2 screen` 创建失败）**是噪音**，强制软件渲染并不能解决任何问题。
-    `docs/09` 第 6 节专门列了排除掉的错误方向，别再往那查。
+    原 `docs/09` 第 6 节专门列了排除掉的错误方向，别再往那查。
 
 15. **noctalia 不是「设置」壁纸，是在 background 层「盖」壁纸**（2026-08-27，
     详见 `docs/02-hyprland.md`「开机时先闪一张陌生壁纸」）。系统里**没有任何壁纸守护进程**
@@ -260,10 +261,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 `~/.local/share/fcitx5/rime/`（个人词库）· 壁纸全库（源机 348 MB / 115 张，笔记本只拉了
 一部分，见 `docs/11`；包里只带**两张**成品：`11-w55gjr.png` 参考图 +
 `wallhaven-kxwp96.jpg` 备选图，其余靠 `wallpaper/tokyonight/_fetch.py` 重新拉）·
-`~/.zsh_history` ·
-`~/.local/share/wineprefixes/`（wine prefix，企业微信那个 2 GB+，含聊天记录与登录态；
-新机器用 `winapp create/install` 重建，见 `docs/09`）·
-`~/.cache/wecom-setup/*.exe`（企业微信安装包 600 MB，官网可重新下）。
+`~/.zsh_history`。
 
 换机器时这些走安全渠道单独传。**往包里加文件前先确认不含凭据**：
 
@@ -352,15 +350,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   两者都**没有**装 keyring、**没有**改 PAM、**没有**动任何系统包。
   另关掉了换歌时的「正在播放」OSD（`[osd.kinds] media = false`，坑 13）——
   那是 OSD 不是通知，全局生效，media widget 不受影响
-- **wine 模块**（2026-08-27 新增，第 7 个）：`bin/winapp` —— 每个 Windows 程序一套
-  独立 wine prefix + bubblewrap 沙箱的工具链。目前只有企业微信一个实例
-  （**公有云版没有 Linux 客户端**：官网 `platform=linux` 返回的就是 Windows exe，
-  `/server` 页那个 Linux 包是私有部署版 `weworklocal_*`，公有云账号登不上；
-  也不存在员工聊天网页版）。跑在 **wine-staging 11.16 + 官方最新 5.0.10.6015** 上——
-  和社区经验相反，不需要 deepin-wine 那套补丁。
-  沙箱白名单只放行 XDG 文档目录，`~/hacktools`、`~/myTestAndSecurity`、`~/Projects`、
-  `~/.ssh` 等一律不可见，用 **`winapp check wecom`** 实测边界（它用完全相同的 bwrap
-  参数跑 `ls`，不靠口头保证）。坑见坑 14 与 `docs/09-wine-apps.md`
+- ~~**wine 模块**（2026-08-27 新增，第 7 个）~~ **2026-10-09 整套卸载**：企业微信只用 Waydroid 安卓版，
+  wine 版连同 `winapp`、wine 系统包、`~/.wine` 一起删了。代价是**本机企业微信不能视频通话**
+  （Waydroid 摄像头不可用，`docs/12` 第 7 节）。拆了什么、怎么装回来见 `docs/09`
 - **ocr 模块**（2026-08-31 新增，第 8 个）：屏幕取字 `Super+Shift/Alt+O`，
   **替代 normcap** —— 后者底层是 Tesseract，对屏幕小号中文粘连、漏字，且本机
   tessdata 连 `eng` 都没装、每次按键还要重新加载模型。现在是 RapidOCR（PP-OCRv6
@@ -409,7 +401,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 三条：**① elephant 本体和插件必须同一次构建**（Go plugin ABI），别装 `elephant-bin`；
   **② websearch 前缀要带尾随空格**（`"g "`，源码是裸 HasPrefix）；
   **③ Hyprland 的 layer 毛玻璃对它不生效**（原因未查），框改成了不透明。
-  企业微信的无标题幽灵窗会出现在窗口列表里，靠「空查询只列应用」绕开。
+  「空查询只列应用」当初是为了绕开 wine 版企业微信的无标题幽灵窗，wine 卸载后保持原样没改。
   **`SUPER+V` 剪贴板也换成了 Walker（elephant-clipboard）**：回车 = 复制 + 自动粘贴（`bin/clip-paste`，
   终端用 Ctrl+Shift+V），按键走 Hyprland 的 `send_shortcut`——**wtype 在 kitty 里粘不进去，别换回去**。
   ⚠ **剪贴板插件是本地补丁版**（`aur/elephant-clipboard/`，子串匹配替代上游「越靠后越搜不到」的模糊匹配），
@@ -417,6 +409,4 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
-  切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
-  企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如
-  「文档」「审批」，主程序收发消息不受影响，`win81` 已缓解）
+  切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）

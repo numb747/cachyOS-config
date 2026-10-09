@@ -712,7 +712,7 @@ Excalidraw 用不到 cookie 和密码，画布在 localStorage 里，Chrome 本�
 而它的 PATH 里**没有 `~/.local/bin`**。写成 `Exec=excalidraw` 时，终端里跑一切正常，
 在启动器里点了却毫无反应。只有 `~/.cache/noctalia/noctalia.log` 里留了一行
 `Failed to find executable excalidraw`（2026-10-09 首版就踩了）。
-所以和 `wecom.desktop` 一样写 `/home/david/...`，由 `install.sh` 的 `rewrite_home` 在换用户名时改写。
+所以写 `/home/david/...`，由 `install.sh` 的 `rewrite_home` 在换用户名时改写。
 自测时要模拟启动器的环境：`systemd-run --user -E PATH=<noctalia 进程的 PATH> …`，在终端里直接跑不算数。
 
 端口说明：宿主机上**只监听 `127.0.0.1:18766`**。`docker ps` 里看到的 `->80/tcp` 是

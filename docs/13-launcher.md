@@ -254,8 +254,11 @@ elephant generate doc <provider>      # 某插件全部配置项（和默认值�
 
 ### 坑 1：企业微信的幽灵窗口会在窗口列表里显示成空白行
 
+> 2026-10-09 wine 版企业微信已卸载（[09](09-wine-apps.md)），这个坑的来源没了。
+> `empty = ["desktopapplications"]` 暂保持原样，以后别的程序冒出无标题窗口还是同一套绕法。
+
 企业微信（wine）有几个**无标题**的幽灵窗口，Hyprland 里被规则停放在
-`special:wine_ghosts`（见 [09](09-wine-apps.md)）。Elephant 的 windows 插件走的是
+`special:wine_ghosts`。Elephant 的 windows 插件走的是
 `wlr-foreign-toplevel` 协议，**看不到工作区**，也**没有任何过滤选项**（只有 `delay` /
 `show_workspaces` / `show_empty_workspaces`），于是原样列出来：图标是个通用图标，标题空白，
 副标题 `wxwork.exe`。
@@ -281,7 +284,7 @@ elephant generate doc <provider>      # 某插件全部配置项（和默认值�
 
 本机 `LANG=en_US.UTF-8`，所以 .desktop 取的是 `Name=` 而不是 `Name[zh_CN]=`。
 中文名的应用照样能搜到，因为
-elephant 也匹配 Comment / Keywords：搜「企业」能出 WeCom（Comment 是「企业通讯」）。
+elephant 也匹配 Comment / Keywords（当初 wine 版企业微信的 Comment 写了「企业通讯」，搜「企业」就能出来）。
 想全切中文：`~/.config/elephant/desktopapplications.toml` 写 `locale = "zh_CN"`。
 ⚠ 拼音搜中文名**不支持**（noctalia 那边也不支持，换启动器不涉及这条）。
 

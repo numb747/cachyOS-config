@@ -32,7 +32,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ```
 
 装到**别的用户名**下不用改任何东西：包里几处写死的绝对路径
-（noctalia 的 `key_file`、壁纸 path、`wecom.desktop` 的 `Exec`）
+（noctalia 的 `key_file`、壁纸 path、`excalidraw.desktop` 的 `Exec`）
 由 `install.sh` 的 `rewrite_home` 自动改写到当前 `$HOME`。
 
 装完注销重进 Hyprland。逐项确认见 [INSTALL.md](INSTALL.md) 的验收清单。
@@ -57,7 +57,6 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题） | [08](docs/08-claude-code.md) |
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
-| **wine** | `winapp`：每个 Windows 程序一套独立 wine prefix + bubblewrap 沙箱；实例是企业微信 | [09](docs/09-wine-apps.md) |
 | **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
 | **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |
 
@@ -111,7 +110,6 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
-│   ├── winapp             wine 应用的独立 prefix + bubblewrap 沙箱工具链
 │   ├── ocr-server         屏幕取字的常驻识别服务（RapidOCR，systemd socket 激活）
 │   └── ocr-grab           取字客户端：截图 → 识别 → 剪贴板，Super+Shift/Alt+O 调它
 ├── aur/                   改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME）
@@ -148,7 +146,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 
 **2. 有五个 CachyOS 官方文件被改过。**
 `~/.config/hypr/config/` 下的 `binds.lua` / `variables.lua` / `workspaces.lua`（纯动态
-工作区）、`windowrules.lua`（企业微信幽灵窗）、`misc.lua`（关掉 Hyprland 内置壁纸，
+工作区）、`windowrules.lua`（浮动窗居中、satty）、`misc.lua`（关掉 Hyprland 内置壁纸，
 消除开机时的壁纸闪烁）。`pacman -Syu` 升级 `cachyos-hypr-noctalia` 可能覆盖它们，
 所以 `config/hypr/patches/` 里存了五个 patch，随时能重新打上。细节见 [docs/02](docs/02-hyprland.md#关于官方文件被改动)。
 

@@ -43,7 +43,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 Installing under a **different username** requires no edits. The few absolute paths
 baked into the package (noctalia's `key_file`, wallpaper paths, the `Exec` line in
-`wecom.desktop`) are rewritten to the current `$HOME` by `install.sh`'s `rewrite_home`.
+`excalidraw.desktop`) are rewritten to the current `$HOME` by `install.sh`'s `rewrite_home`.
 
 Log out and back into Hyprland when it finishes. [INSTALL.md](INSTALL.md) has a
 point-by-point acceptance checklist.
@@ -68,7 +68,6 @@ Installing only part of it:
 | **ui** | noctalia bar wired to the theme engine, GTK/Qt/btop colors, fonts, cursor, input method, default applications | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code: context-usage statusline, multi-session dashboard (`ccw`/`ccs`), pet TUI (`ccp`, which can answer a prompt sitting in another terminal) | [08](docs/08-claude-code.md) |
 | **wall** | Tokyo Night wallpapers and palette, plus the script that generates the library | [05](docs/05-theme-ui.md#壁纸) |
-| **wine** | `winapp`: a separate wine prefix + bubblewrap sandbox per Windows program; the working instance is WeCom | [09](docs/09-wine-apps.md) |
 | **ocr** | Screen text grab on `Super+Shift/Alt+O`: a resident RapidOCR service replacing normcap, 0.33 s from selection to clipboard | [10](docs/10-ocr.md) |
 | **launcher** | App launcher on `Alt+Space`: Walker + Elephant replacing noctalia's built-in launcher; apps and open windows in one search, `g␣` Google / `b␣` Baidu prefixes, colors follow the wallpaper | [13](docs/13-launcher.md) |
 
@@ -128,7 +127,6 @@ cachyOS-config/            repo root = the package itself (no intermediate dir)
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     screen recording toggle (wl-screenrec), bound to Super+Shift/Alt+R
-│   ├── winapp             per-app wine prefix + bubblewrap sandbox toolchain
 │   ├── ocr-server         resident OCR service (RapidOCR, systemd socket activation)
 │   └── ocr-grab           OCR client: screenshot → recognize → clipboard, Super+Shift/Alt+O
 ├── aur/                   AUR packages that needed patching (PKGBUILD archive, not installed to $HOME)
@@ -166,7 +164,7 @@ the colors — which is why this package also ships `state/`. The test: only wha
 
 **2. Five upstream CachyOS files have been modified.**
 Under `~/.config/hypr/config/`: `binds.lua`, `variables.lua`, `workspaces.lua` (purely
-dynamic workspaces), `windowrules.lua` (WeCom's ghost windows) and `misc.lua` (disables
+dynamic workspaces), `windowrules.lua` (centered floating windows, satty) and `misc.lua` (disables
 Hyprland's built-in wallpaper, killing the flash at boot). A `pacman -Syu` that upgrades
 `cachyos-hypr-noctalia` may revert them, so `config/hypr/patches/` keeps five patches
 ready to reapply. Details in [docs/02](docs/02-hyprland.md#关于官方文件被改动).

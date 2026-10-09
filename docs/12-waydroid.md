@@ -232,7 +232,7 @@ waydroid app launch com.tencent.wework
 
 - 装完能启动、窗口持续存活（不是启动即崩），libndk 转译走通。登录与收发消息由用户自行验证。
 - APK 留在 `~/Downloads/waydroid-apks/`，sha256 `e83ca845…6039f`。
-- 桌面版企业微信另有 wine 方案（`docs/09`），两者互不影响。
+- 2026-10-09 起这是本机**唯一**的企业微信，桌面 wine 版已卸载（`docs/09`）。
 
 **实跑：微信**（2026-09-28）。官网 `weixin.qq.com` 页面里紧跟 iOS 链接的那个就是 Android 主包，同样只有 arm64：
 
@@ -317,7 +317,8 @@ waydroid app install weixin_8.0.78_arm64.apk   # 包名 com.tencent.mm
   改 gralloc（`gbm` 撞 #2339，`default` 丢 GPU 加速）。唯一修法是 NDK 独立编 `libgbm_mesa_wrapper.so`
   （32+64 位都要）放进 `overlay/vendor/lib{,64}/`，嫌麻烦没做。上游合并后 `waydroid upgrade` 再试。
   抓日志：`sudo waydroid shell -- logcat -d`（`waydroid logcat` 不认 `-d`）。
-  视频通话用宿主机 wine 版企业微信（`docs/09`）。
+  ⚠ 原来视频通话靠宿主机 wine 版企业微信兜底，2026-10-09 wine 版已卸载（`docs/09`），
+  现在**本机没有能视频通话的企业微信**。
 
 ---
 

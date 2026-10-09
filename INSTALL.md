@@ -278,32 +278,6 @@ pkcheck --action-id org.noctalia.greeter.apply-appearance --process $$   # → p
 ⚠ `ccw/ccs/ccp` 三个 alias 定义在 **term 模块**的 `.zshrc` 里。只装 term 不装 cc，
 alias 会指向不存在的文件。
 
-### 企业微信（wine 模块）
-
-`install.sh wine` 只铺 `winapp` 工具链和配置，**不装企业微信本体**——prefix 有 2 GB+、
-安装包 600 MB，都不入包。装法见 [docs/09](docs/09-wine-apps.md#4--新机器装企业微信)：
-
-```bash
-winapp create wecom
-winapp install wecom <官网下载的 WeCom_x.x.x.exe>   # 图形界面，点「立即安装」
-```
-
-- [ ] 启动器里**只有一个**「企业微信」条目
-      —— 多出来的是 wine 的 `winemenubuilder` 生成的裸条目，它**打不出中文**也不进沙箱，
-      按 [docs/09 坑 6](docs/09-wine-apps.md#坑-6-winemenubuilder-会污染启动器和文件关联) 清掉
-- [ ] 能扫码登录、收发消息
-- [ ] **能在聊天框打中文**（fcitx5 → XIM → wine，坑 7 那条链路）
-- [ ] 能发文件、收文件
-- [ ] 屏幕上**没有空白窗口遮挡**主界面（幽灵窗规则生效了）
-- [ ] 沙箱边界正确 —— 敏感目录必须全是「挡住」：
-
-```bash
-winapp check wecom     # 用完全相同的 bwrap 参数跑 ls，不靠口头保证
-```
-
-⚠ 从终端 `winapp run` 起的实例，命令一结束就会被 `--die-with-parent` 带走，
-**这不是崩溃**（坑 3）。调试用 `setsid --fork winapp run wecom`，日常用启动器。
-
 ---
 
 ## 换机器时的已知差异

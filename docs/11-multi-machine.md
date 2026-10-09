@@ -32,7 +32,7 @@
 | `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
 | `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
-| `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / wecom.desktop），只能手工改；顺手按 `CLAUDE.md` 自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
+| `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / 几个 .desktop），只能手工改；顺手按 `CLAUDE.md` 自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
 | `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，两台机器都会报不一致 |
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
@@ -77,10 +77,8 @@
   没有它 `privilege_command = "pkexec"` 只是换了个提权程序，换壁纸/主题**照样弹密码框**。
   内容见 `docs/05-theme-ui.md`；验收 `pkcheck --action-id
   org.noctalia.greeter.apply-appearance --process $$` 应从 `auth_admin` 变 `yes`。
-- `wine` 模块**有意未装**（笔记本没装 wine）：`winapp` / `wecom.conf` / `wecom.desktop` /
-  `wecom.png` 四个文件在 `./sync.sh` 里报「系统上不存在」，是预期。
-  `packages.txt` 里缺的也正好是这 4 个包（`wine-staging` / `wine-mono` / `wine-gecko` /
-  `winetricks`），其余全装了。
+- ~~`wine` 模块有意未装~~ —— 2026-10-09 源机器卸载了 wine，`wine` 模块和 `packages.txt` 里那 4 个
+  wine 包已从包里删掉。笔记本 `git pull` 后 `./sync.sh` 不会再报那 4 个文件「系统上不存在」。
 - ⚠ **待办**：`python-pynvim` + `python-ipykernel` 还没装（要 sudo，笔记本 sudo 需要密码）。
   这是 molten 的前置——配置文件 `plugins/molten.lua` 已经就位，但**不装这两个包
   `:MoltenInit` 起不来 kernel**。装法 `sudo pacman -S --needed python-pynvim python-ipykernel`，

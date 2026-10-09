@@ -98,7 +98,7 @@ fi
 #   「裸 find 导致 MANIFEST 生成完立刻过期」是同一个形状的 bug。
 cd "$SRC"
 # hypr 的四个官方文件改了的话，patch 也要跟着重生成
-# （windowrules 是 2026-08-27 加的，为了企业微信的幽灵窗规则，见 docs/09）
+# （windowrules 是 2026-08-27 为企业微信幽灵窗加的；2026-10-09 wine 卸载后规则已删，文件仍有零星改动）
 if [ -d /etc/skel/.config/hypr/config ]; then
     for f in binds variables workspaces windowrules misc; do
         s="/etc/skel/.config/hypr/config/$f.lua"

@@ -470,7 +470,7 @@ Waydroid 整屏界面被窗口规则送进命名工作区 `name:android`，它�
 | `config/workspaces.lua` | 删掉全部 `hl.workspace_rule(... persistent = true)` | persistent 会让空工作区赖着不走，等于退回写死 N 个桌面 |
 | `config/binds.lua` | 注释掉 `SUPER+ALT+数字`（绝对编号跳转）那个循环 | 按绝对编号跳会**凭空创建**该编号的工作区，与动态策略直接冲突 |
 | `config/variables.lua` | `NUM_WPM` 3 → 9 | 它不再决定「有几个桌面」，只决定生成多少个**按位置跳转**的键位。绑满 9 个没代价：位置不存在时按下即空操作 |
-| `config/windowrules.lua` | 加企业微信幽灵窗规则 | 见 `docs/09-wine-apps.md`（`initial_title` 而非 `title`，坑 14） |
+| `config/windowrules.lua` | 曾加企业微信幽灵窗规则（2026-10-09 随 wine 卸载已删） | 经验见 `docs/09-wine-apps.md` 第 3 节（`initial_title` 而非 `title`，坑 14） |
 | `config/misc.lua` | 关掉 Hyprland 内置壁纸与 logo，底色改成壁纸主色 | 见下节「开机时先闪一张陌生壁纸」 |
 
 **pacman 升级把它们覆盖回去了怎么办**：

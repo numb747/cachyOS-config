@@ -31,7 +31,6 @@ head_() { printf '\n%s── %s %s\n' "$DIM" "$*" "$RST"; }
 # 包里有几处**没法用 $HOME 表达**的绝对路径，因为它们所在的格式不做变量展开：
 #   ~/.config/noctalia/config.toml      [storage] key_file
 #   ~/.local/state/noctalia/settings.toml   [wallpaper.*] path
-#   ~/.local/share/applications/wecom.desktop   Exec=
 #   ~/.local/share/applications/excalidraw.desktop   Exec=
 #     （.desktop 的 Exec 不能写裸命令名靠 PATH：noctalia 启动器的 PATH 里没有 ~/.local/bin）
 # 装到别的用户名下必须改写，否则**全是静默失效**，且症状都不指向路径：
@@ -117,7 +116,7 @@ mod_hypr() {
         ok 'hyprland.lua 末尾已追加 require("mykeys")'
     fi
 
-    # 五个被改过的官方文件（纯动态工作区 + wine 幽灵窗规则 + 关内置壁纸）。见 docs/02、docs/10。
+    # 五个被改过的官方文件（纯动态工作区 + 窗口规则 + 关内置壁纸）。见 docs/02、docs/10。
     warn "接下来覆盖 5 个 CachyOS 官方文件（binds/variables/workspaces/windowrules/misc）"
     inf  "它们属于 cachyos-hypr-noctalia 包，pacman 升级可能覆盖回去"
     inf  "届时用 config/hypr/patches/*.patch 重新打上即可"
@@ -360,37 +359,6 @@ mod_wall() {
     fi
 }
 
-# ─── 参数解析 ───────────────────────────────────────────────────────────────
-
-mod_wine() {
-    head_ "wine —— winapp 工具链与企业微信"
-    put_module wine
-    [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/winapp" 2>/dev/null
-    # .desktop 的 Exec= 用绝对路径（桌面环境的 PATH 不保证含 ~/.local/bin），
-    # 所以换用户名必须改写，否则启动器里点了完全没反应。
-    rewrite_home "$HOME/.local/share/applications/wecom.desktop"
-
-    command -v wine >/dev/null 2>&1 \
-        || inf "未装 wine：sudo pacman -S wine-staging wine-mono wine-gecko winetricks"
-    command -v bwrap >/dev/null 2>&1 \
-        || inf "未装 bubblewrap（沙箱依赖）：sudo pacman -S bubblewrap"
-
-    # prefix 有 2GB+，含聊天记录与登录态，不入包 —— 新机器要重装一遍。
-    # 企业微信【公有云版没有 Linux 客户端】：官网 platform=linux 返回的就是
-    # Windows exe，/server 页那个 Linux 包是私有部署版，公有云账号登不上。
-    if [ ! -d "$HOME/.local/share/wineprefixes/wecom" ]; then
-        inf "企业微信尚未安装（prefix 不入包）。两步，下载链接见 docs/09-wine-apps.md："
-        inf "  winapp create wecom"
-        inf "  winapp install wecom <下载的 WeCom_x.x.x.exe>"
-    fi
-
-    if [ $DRY -eq 0 ]; then
-        update-desktop-database "$HOME/.local/share/applications" 2>/dev/null
-        gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null
-    fi
-    return 0
-}
-
 mod_ocr() {
     head_ "ocr —— 屏幕取字（RapidOCR 常驻服务）"
     put_module ocr
@@ -449,7 +417,9 @@ mod_launcher() {
     return 0
 }
 
-ALL=(hypr term nvim ui cc wall wine ocr launcher)
+# ─── 参数解析 ───────────────────────────────────────────────────────────────
+
+ALL=(hypr term nvim ui cc wall ocr launcher)
 declare -A DESC=(
     [hypr]="Hyprland 键位、鼠标行为、动态工作区"
     [term]="kitty / alacritty / zsh / powerlevel10k"
@@ -457,7 +427,6 @@ declare -A DESC=(
     [ui]="noctalia 顶栏、GTK/Qt/btop 主题、环境变量、输入法"
     [cc]="Claude Code 会话看板 / 宠物 TUI / 上下文状态栏"
     [wall]="壁纸与壁纸库脚本"
-    [wine]="winapp（wine 应用沙箱工具链）与企业微信"
     [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
     [launcher]="Walker + Elephant 应用启动器（Alt+Space，g␣ 谷歌搜索）"
 )

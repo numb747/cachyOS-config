@@ -144,16 +144,6 @@ librsvg
 # lua                     (可选) 只为 install.sh 的 luac -p 语法预检，不装则跳过该步
 # nvim 的 mason 工具链    见 docs/04-neovim.md「语言工具链」一节
 
-# ── wine 应用（wine 模块）────────────────────────────────────
-# 企业微信没有公有云版 Linux 客户端，只能跑 Windows 版，见 docs/09-wine-apps.md。
-# 用 wine-staging 而非 wine：腾讯系应用历来需要 staging 的额外补丁。
-wine-staging
-wine-mono
-wine-gecko
-winetricks
-# bubblewrap 是沙箱依赖。CachyOS 基础系统通常已带，列在这里是为了显式声明依赖。
-bubblewrap
-
 # ── Android 容器（Waydroid，非 install.sh 模块）─────────────────
 # waydroid                (可选) 装完还有 root 手动步骤（docker FORWARD 放行 drop-in、
 #                         镜像 init、libndk、输入法），全在 docs/12-waydroid.md 第 2 节。
