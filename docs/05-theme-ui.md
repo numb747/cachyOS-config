@@ -668,6 +668,44 @@ imv 上游写的 `multimedia-photo-viewer` 在本机 Adwaita 和 breeze 里**都
 不是 VAAPI——`auto-safe` 会按顺序试 vulkan → nvdec → vaapi，AMD 上 vulkan 先命中。
 两者都是硬解，日志里 `Using hardware decoding (vulkan)` 即为生效。
 
+## 本地 Excalidraw 白板（2026-10-09）
+
+启动器里搜「Excalidraw」/「白板」点开即用，关掉窗口就停，不用时**零占用**。
+
+Excalidraw 是纯前端应用：官方镜像 `excalidraw/excalidraw` 里只有 nginx 托管静态文件，
+画布存在浏览器 localStorage。只有多人实时协作才需要另跑 `excalidraw-room`，一个人用不需要。
+
+`bin/excalidraw` 做的事：
+
+1. 容器不存在就 `docker run`（`--restart no`，开机不自启；只绑 `127.0.0.1:18766`），存在就 `docker start`
+2. 等端口通了，用 `google-chrome-stable --app=… --user-data-dir=~/.local/share/excalidraw/chrome-profile` 开窗口
+3. chrome 进程**阻塞到窗口关闭**，返回后 `docker stop`
+
+用独立 profile 是这套设计的关键，一举两得：
+
+- **独立 profile 才会阻塞。** 用日常 Chrome 的 profile，新窗口会交给已在运行的实例，
+  命令立刻返回，脚本就不知道窗口什么时候关
+- **画布数据位置固定**，不跟日常浏览器混在一起，清浏览器数据也不会误删
+
+### 三个坑
+
+**1. 端口别改。** localStorage 按「协议 + 主机 + 端口」隔离，换了端口旧图看起来就「没了」。
+其实数据还在 profile 里，只是挂在旧 origin 下。重要的图另外导出成 `.excalidraw` 文件。
+
+**2. 重复点图标不能把容器停掉。** 第二次启动时，同一 profile 的 chrome 会把请求交给已开的那个实例后
+**立刻退出**。如果脚本照常往下走，就会把第一个窗口正在用的容器 `docker stop` 掉。
+所以用 `flock` 把锁挂在第一次启动的那个进程上：拿不到锁就说明已经有窗口开着，
+这时只开新窗口然后退出。容器由持锁的那个进程负责，它等到**所有**窗口都关了才停。
+（2026-10-09 实测：先后开两个窗口，关掉一个容器还在跑，两个都关了才 `Exited`。）
+
+**3. Wayland 下 `--class` 无效。** `--app` 窗口的 class 固定是 `chrome-127.0.0.1__-Default`，
+`.desktop` 里的 `StartupWMClass` 就写这个，任务栏才能把窗口和图标对上。
+图标是从镜像里抠出来的 `favicon.svg`，装进 `~/.local/share/icons/hicolor/` 之后要
+`gtk-update-icon-cache`，因为那里已经有缓存文件（`mod_ui` 已代劳）。
+
+升级镜像：`docker pull excalidraw/excalidraw && docker rm excalidraw`，下次点图标会用新镜像重建。
+画布数据在 chrome profile 里，不在容器里，删容器不丢图。
+
 ## 已删掉的死配置
 
 `~/.config/qt5ct/` 和 `~/.config/xsettingsd/` 在原机器上存在，但 `qt5ct` 和

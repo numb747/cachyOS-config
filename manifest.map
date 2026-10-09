@@ -104,6 +104,11 @@ config/mpv/mpv.conf                       ~/.config/mpv/mpv.conf
 share/applications/imv-viewer.desktop     ~/.local/share/applications/imv-viewer.desktop
 # 启动器里的「Waydroid 重启」：Android 没网时点它（停会话再重开），见 docs/12 第 7 节。
 share/applications/waydroid-restart.desktop  ~/.local/share/applications/waydroid-restart.desktop
+# 启动器里的「Excalidraw」：点开时起 docker 容器、关窗口自动停，不用时零占用。
+# 图标是从镜像里抠出来的 favicon.svg。见 docs/05-theme-ui.md「本地 Excalidraw 白板」。
+bin/excalidraw                            ~/.local/bin/excalidraw
+share/applications/excalidraw.desktop     ~/.local/share/applications/excalidraw.desktop
+share/icons/hicolor/scalable/apps/excalidraw.svg  ~/.local/share/icons/hicolor/scalable/apps/excalidraw.svg
 config/fcitx5/profile                     ~/.config/fcitx5/profile
 config/fcitx5/config                      ~/.config/fcitx5/config
 config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf

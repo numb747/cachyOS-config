@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Excalidraw
+GenericName=Whiteboard
+Comment=本地手绘白板：点开时起容器，关窗口自动停（~/.local/bin/excalidraw）
+Exec=excalidraw
+Icon=excalidraw
+Terminal=false
+Categories=Graphics;
+Keywords=excalidraw;whiteboard;draw;diagram;白板;画图;流程图;huatu;baiban;
+StartupWMClass=chrome-127.0.0.1__-Default

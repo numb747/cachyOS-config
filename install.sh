@@ -224,6 +224,12 @@ mod_ui() {
     command -v mpv >/dev/null 2>&1 \
         || inf "未装 mpv（音视频默认打开方式）。装：sudo pacman -S mpv；不装则双击视频无响应"
 
+    # Excalidraw 启动器：图标装进了 ~/.local/share/icons/hicolor，那里已有 icon-theme.cache，
+    # 不刷新的话缓存里没有它，启动器显示空白图标。
+    [ $DRY -eq 0 ] && gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" >/dev/null 2>&1
+    { command -v docker >/dev/null 2>&1 && command -v google-chrome-stable >/dev/null 2>&1; } \
+        || inf "Excalidraw 启动器要 docker + google-chrome-stable，缺一个点了没反应。镜像首次启动时自动拉"
+
     [ -d /usr/share/icons/Bibata-Modern-Ice ] \
         || inf "未装 Bibata 光标（gtk/uwsm 配置引用了它）。要一致就 yay -S bibata-cursor-theme；不装则回退 Adwaita，无报错"
 

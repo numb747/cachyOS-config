@@ -24,9 +24,9 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     13 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
-├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、imv 的 desktop 条目）
+├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）

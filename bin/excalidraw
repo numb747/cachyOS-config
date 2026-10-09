@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# excalidraw — 本地 Excalidraw 白板:开窗口时起容器,关窗口时停容器
+#
+#   excalidraw         启动(启动器「Excalidraw」就是调它)
+#   excalidraw stop    手动停容器(正常不需要,关窗口会自动停)
+#
+# Excalidraw 是纯前端,容器里只有 nginx 托管静态文件,画布存在浏览器 localStorage。
+# 用 Chrome 的 --app 窗口 + 独立 profile 打开,于是:
+#   - chrome 进程阻塞到窗口关闭为止,脚本借此在关窗后 docker stop,不用时零占用
+#   - 画布数据固定落在 $PROFILE 里,不跟日常浏览器混,也不会因换浏览器"丢图"
+# ⚠ localStorage 按 协议+主机+端口 隔离,PORT 一改旧图就"看不见"了(数据还在,
+#   只是挂在旧 origin 下)。别改端口,重要的图另外导出 .excalidraw 文件。
+set -uo pipefail
+
+NAME=excalidraw
+IMAGE=excalidraw/excalidraw:latest
+PORT=18766
+URL="http://127.0.0.1:$PORT/"
+DATA="$HOME/.local/share/excalidraw"
+PROFILE="$DATA/chrome-profile"
+
+notify() { notify-send -a "Excalidraw" -i excalidraw "$1" "${2:-}"; }
+
+if [[ "${1:-}" == stop ]]; then
+    docker stop "$NAME" >/dev/null 2>&1
+    exit 0
+fi
+
+mkdir -p "$DATA"
+
+open_window() {
+    google-chrome-stable --user-data-dir="$PROFILE" --app="$URL" \
+        --no-first-run --no-default-browser-check >/dev/null 2>&1
+}
+
+# 已经有一个窗口开着:同一 profile 的 chrome 会把请求交给那个实例后立刻退出。
+# 这时只管开窗,绝不能走到下面的 docker stop,否则会把正在用的那个窗口的容器停掉。
+exec 9>"$DATA/.lock"
+if ! flock -n 9; then
+    open_window
+    exit 0
+fi
+
+# 容器不存在就建,存在就 start。--restart no:开机不自启,只在点图标时跑。
+if ! docker container inspect "$NAME" >/dev/null 2>&1; then
+    docker image inspect "$IMAGE" >/dev/null 2>&1 \
+        || notify "首次启动" "正在拉取镜像(约 140 MB),好了会自动开窗口"
+    if ! docker run -d --name "$NAME" --restart no \
+            -p "127.0.0.1:$PORT:80" "$IMAGE" >/dev/null 2>&1; then
+        notify "启动失败" "docker run 出错,终端里跑 excalidraw 看详情"
+        exit 1
+    fi
+else
+    docker start "$NAME" >/dev/null 2>&1
+fi
+
+# nginx 起来通常 <1 秒,等端口通了再开窗,免得窗口先显示连接失败
+for _ in $(seq 50); do
+    curl -fs -o /dev/null "$URL" && break
+    sleep 0.1
+done
+
+open_window
+docker stop "$NAME" >/dev/null 2>&1
