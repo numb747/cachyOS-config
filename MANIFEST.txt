@@ -5,7 +5,7 @@
 # 只覆盖【入库的文件】。.git/ 自身、.snapshots/ 快照、__pycache__、*.key 不计。
 
 72c9a5e43ee5be5dd8789c82861f75a41a8eb689fb302e0d263b9b04354e2133  .gitattributes
-a05bb5f0519d8d9b18c9c3ad994289c304858524767f15dcbdc5c7619c310ea1  .gitignore
+a07529ce918d29d0597735afe6fcba545be9433af466618dbb2dfb42ca71624c  .gitignore
 4a2880dcaf95f9ea8cdda08bf9596c03d3002fb2b95e4f06b4f0c92ae7e70c81  CLAUDE.md
 09cf24af4dd761e13d15a93a3997fb3fde3946c241a2ff490198039f1a6be7b8  INSTALL.md
 385d041a395cda91a6d92e7d6203ca05715fae1121d4a647e4b5164cafe8b308  LICENSE

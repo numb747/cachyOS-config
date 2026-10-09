@@ -34,3 +34,5 @@ __pycache__/
 aur/*/src/
 aur/*/pkg/
 *.pkg.tar.zst
+# makepkg 按 source= 下载的模型（python-rapidocr 的 3 个 .onnx，约 31 MB），sha256 由 PKGBUILD 校验，构建时会重新拉
+aur/*/*.onnx
