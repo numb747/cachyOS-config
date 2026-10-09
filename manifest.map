@@ -200,6 +200,8 @@ config/walker/themes/noctalia/style.css   ~/.config/walker/themes/noctalia/style
 config/walker/themes/noctalia/layout.xml  ~/.config/walker/themes/noctalia/layout.xml
 config/elephant/websearch.toml            ~/.config/elephant/websearch.toml
 config/elephant/windows.toml              ~/.config/elephant/windows.toml
+# 同一个应用「有窗口→窗口排第一」：window_integration + 屏蔽 Waydroid 的同名副本，见 docs/13 坑 7。
+config/elephant/desktopapplications.toml  ~/.config/elephant/desktopapplications.toml
 # 剪贴板（SUPER+V，2026-10-09 起替代 noctalia 剪贴板面板）。clip-paste = 复制 + 自动粘贴，
 # 由 clipboard.toml 的 command 用 $HOME 绝对路径调用（elephant 是 systemd 服务，PATH 无 ~/.local/bin）。
 config/elephant/clipboard.toml            ~/.config/elephant/clipboard.toml

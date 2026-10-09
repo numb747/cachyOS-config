@@ -1,0 +1,20 @@
+# 同一个应用「有窗口→窗口排第一；没窗口→原生应用排第一」。
+#
+# window_integration：应用条目回车时，若已有窗口就聚焦它而不是开新实例
+#   （真要开新实例：Ctrl+Return）。更关键的是它是 score_open_windows 的前提——
+#   源码里 hasWindow 只在这个开关打开时才计算，关着时下面那条完全不生效。
+# score_open_windows（默认 true，这里写出来是为了说明）：有窗口的应用压分，
+#   让 windows provider 给出的那条窗口排到它前面。
+#   窗口条目没有历史加分，应用条目有，不压分的话常用应用永远压着自己的窗口。
+#   上游是减半，会让无关条目夹进中间；本机装的是补丁版插件，应用分 = 窗口分 − 1，
+#   紧贴在自己窗口下面（~/cachyOS-config/aur/elephant-desktopapplications）。
+window_integration = true
+score_open_windows = true
+
+# Waydroid 导出的安卓版 LocalSend 和原生的同名同图标，还带历史分，
+# 会顶到原生应用和窗口前面。安卓里要用就从 Waydroid 自己的桌面开。
+# 正则匹配的是去掉 .desktop 的文件名（子目录也只看文件名），不加锚点会误伤。
+# （曾经还屏蔽过 ~/.wine 里 Windows 版 Firefox 的快捷方式，wine 已于 2026-10-09 整套卸载。）
+blacklist = [
+  '^waydroid\.org\.localsend\.localsend_app$',
+]

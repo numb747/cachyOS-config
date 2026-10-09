@@ -62,8 +62,9 @@ noctalia 自带启动器 bug 多，而且修不动。最典型的就是 [07 坑 
 ```bash
 yay -S aur/walker elephant elephant-desktopapplications elephant-windows \
        elephant-websearch elephant-providerlist elephant-symbols elephant-clipboard
-# 然后用本地补丁版覆盖剪贴板插件（搜索规则不同，见下方「剪贴板」）：
+# 然后用本地补丁版覆盖两个插件（剪贴板搜索规则见下方「剪贴板」，应用排序见坑 7）：
 cd ~/cachyOS-config/aur/elephant-clipboard && makepkg -si
+cd ~/cachyOS-config/aur/elephant-desktopapplications && makepkg -si
 ```
 
 - **`aur/walker` 要写前缀**：CachyOS 仓库里也有 `walker`，版本落后（2026-10-09 时仓库 2.17.1，
@@ -88,6 +89,7 @@ cd ~/cachyOS-config/aur/elephant-clipboard && makepkg -si
 | `~/.config/walker/themes/noctalia/style.css` | 主题 CSS，`@import` noctalia 生成的 `~/.config/gtk-4.0/noctalia.css` |
 | `~/.config/walker/themes/noctalia/layout.xml` | 拷自默认布局：放大尺寸（框宽 1000，列表宽 960、最高 580）；**框贴上方、高度随结果伸缩**（输入框位置固定，没结果时缩成「输入框 + 一行提示」，不会留一个大空框） |
 | `~/.config/elephant/websearch.toml` | 搜索引擎和前缀 |
+| `~/.config/elephant/desktopapplications.toml` | 窗口优先：应用有窗口时回车聚焦它、排序让位给窗口；屏蔽 Waydroid 的同名副本（见坑 7） |
 | `~/.config/elephant/windows.toml` | `show_workspaces = false`（工作区条目混在结果里只是噪音） |
 | `~/.config/elephant/clipboard.toml` | 剪贴板：条数、不做 OCR、置顶排前、编辑器、选中后调 `clip-paste`（见下方「剪贴板」） |
 | `~/.local/bin/clip-paste` | 剪贴板选中后的「复制 + 自动粘贴」 |
@@ -119,8 +121,9 @@ default = ["desktopapplications", "windows", "websearch"]
 empty   = ["desktopapplications"]
 ```
 
-- 敲字后应用、窗口、网页搜索一起出。和 noctalia 不同，这里**窗口和应用按同一个分数排序**，
-  搜 `fire` 时已开的 Firefox 窗口能排到第一（noctalia 那边应用永远在窗口前面，#2470）。
+- 敲字后应用、窗口、网页搜索一起出。和 noctalia 不同，这里**窗口和应用按同一个分数排序**
+  （noctalia 那边应用永远在窗口前面，#2470）。但光靠这个，窗口其实常常排不过自己的应用，
+  得另外配，见坑 7。
 - 窗口条目副标题是窗口 class（`firefox`、`kitty`），应用条目副标题是 .desktop 的 Comment。
 - 刚打开还没打字时**只列应用**，原因见下面坑 1。
 
@@ -322,6 +325,72 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 
 ⚠ 测这个别用「kitty 里跑 `cat > 文件`、看文件内容」：终端行缓冲在收到回车前不交给 cat，
 而回车本身又可能被别的东西吃掉，文件为空不代表没粘上。**用截图判断。**
+
+### 坑 7：同一个应用，窗口开着却排在「启动新实例」后面
+
+2026-10-09 现象：LocalSend 开着，搜 `local` 出来三条同名 LocalSend，第一条是开新实例，窗口排第三。
+三条分别是：Waydroid 导出的**安卓版** LocalSend、原生 `localsend.desktop`、windows 插件给的窗口。
+名字一样，模糊匹配分完全相同（140），拉开差距的全是**历史分**：
+
+- desktopapplications 默认 `history = true`，启动过的应用加分（`localsend.desktop` +20，安卓版 +2）；
+- windows 插件**没有历史机制**，窗口永远只有裸匹配分。
+
+所以「用过的应用」必然压过「开着的窗口」。上游有现成的对策 `score_open_windows`
+（有窗口的应用分数减半，默认就是 true），但源码里 `hasWindow` 只在 `window_integration = true`
+时才计算——**不开 window_integration，score_open_windows 完全不生效**，文档里那句
+「Requires window_integration」就是这个意思。
+
+`desktopapplications.toml` 的做法：
+
+1. `window_integration = true`：「有窗口就压分」生效，窗口排到前面；顺带应用条目回车也是聚焦已有窗口。
+   **真要开新实例按 `Ctrl+Return`**（Walker 内置的 `new_instance` 动作）。
+2. `blacklist` 掉同名副本，否则它们没有窗口、不会减半，照样压着窗口：
+   Waydroid 安卓版 LocalSend。（当初还屏蔽了 `~/.wine` 里 Windows 版 Firefox 的两个开始菜单快捷方式，
+   和原生窗口同分 192=192、谁先随机；2026-10-09 wine 整套卸载，那条 blacklist 一并删了。）
+   blacklist 是正则，匹配**去掉 .desktop 的文件名**（子目录里的也只看文件名），要加 `^…$`。
+
+#### 减半太粗：无关条目夹进窗口和应用中间 → 本地补丁
+
+上面两步做完，窗口确实第一了，但搜 `local` 第二条变成了 **LibreOffice Calc**：
+
+| 条目 | 分 | |
+|---|---|---|
+| LocalSend 窗口 | 140 | |
+| LibreOffice Calc | 123 | 模糊匹配 **L**ibre**O**ffice **Cal**c，三处都在词首，加成很高 |
+| Hardware Locality lstopo | 122 | |
+| WeCom | 97 | 匹配的是 Exec 路径 `/home/david/.local/bin/…` |
+| LocalSend 应用 | 72 | 144 减半 |
+
+减半只保证「应用在自己窗口之下」，不管中间夹进多少别的。减半是上游写死的
+（`query.go` 里 `score / 2`），配置调不了。
+
+补丁（`aur/elephant-desktopapplications/`，fork 的 `desktopapps-window-first` 分支）：
+**有窗口的应用分数 = 它窗口的分数 − 1**，窗口分用和 windows 插件完全相同的算法
+（标题、app_id 取高者，`max(分 − 起始位置, 10)`），多个窗口取最高的。这样应用紧贴在自己窗口下面。
+窗口分不超过 `min_score`（30，窗口基本没匹配上）时不动应用的分。
+
+实测（隔离实例对比，2026-10-09）：
+
+| 搜 | 原版 第 2 条 | 补丁版 第 2 条 |
+|---|---|---|
+| `local` | LibreOffice Calc 123 | LocalSend 应用 139 |
+| `fire` | Firefox 58（与 LibreOffice Impress 56 只差 2） | Firefox 113 |
+| `excal` | LibreOffice Calc 75 | Excalidraw 139 |
+| `libre`（无窗口） | 不变 | 不变 |
+
+WeCom / Excalidraw 因 Exec 路径含 `.local` 被搜出来是另一回事：`only_search_title = true` 能去掉，
+但会连 Comment 一起不搜（搜「企业」就出不来 WeCom，见坑 3），没开。
+
+还剩的、有意没修的：
+
+- **Waydroid 应用的窗口识别不出来**。elephant 判断「这个应用有没有窗口」只拿窗口 app_id 去比
+  `StartupWMClass` / `Icon` / `Exec` 第一个词，而 Waydroid 窗口的 app_id 是
+  `waydroid.<包名>`，恰好等于 .desktop 文件名——上游没比这一项。要修得改
+  `internal/providers/desktopapplications/activate.go` 的 `appHasWindow`，又多一个要维护的补丁，
+  用户决定先不做。影响：搜 `wecom` 时安卓 WeCom 的窗口排在 WeCom 应用条目后面。
+- **补丁版被升级冲掉时会退回「减半」**：窗口仍第一，只是无关条目又会夹进来。到时候按
+  `aur/README.md` 重打。（打补丁前还有一个「历史分累加到能翻盘」的理论风险，
+  补丁版直接用窗口分覆盖应用分，这条不存在了。）
 
 ## 回退到 noctalia 启动器
 

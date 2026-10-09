@@ -1,0 +1,38 @@
+# 本地改版：搜索时有窗口的应用排在「自己的窗口」正下方，而不是分数减半（减半会让无关条目夹进中间）。
+# 原因与升级注意事项见 ~/cachyOS-config/aur/README.md「elephant-desktopapplications」一节。
+# 补丁的源头：github.com/numb747/elephant 的 desktopapps-window-first 分支（本地克隆 ~/Projects/elephant）。
+# pkgrel 1.1 = 上游 2.22.1-1 + 本地补丁；上游出新版时 yay 会用未打补丁的版本覆盖，要回来重打。
+# Maintainer: Andrej Benz <hello[at]benz[dot]dev>
+
+pkgname=elephant-desktopapplications
+pkgver=2.22.1
+pkgrel=1.1
+pkgdesc='desktopapplications provider for elephant'
+url='https://github.com/abenz1267/elephant'
+arch=('x86_64' 'aarch64')
+license=('GPL')
+makedepends=('go')
+conflicts=('elephant-desktopapplications')
+provides=('elephant-desktopapplications')
+source=("${url}/archive/refs/tags/v${pkgver}.tar.gz"
+        'desktopapps-window-first.patch')
+sha256sums=('3d1d0d4c55ae531fa3f06406b96504b5165a0d7b53523d1f8351d9d93e457f44'
+            '088af5b4def6349880f3df8a6bcb47995231a48ff24f1ccd75a25260e6a9d480')
+
+prepare() {
+    cd elephant-${pkgver}
+    patch -Np1 -i "${srcdir}/desktopapps-window-first.patch"
+}
+
+build() {
+    cd elephant-${pkgver}/internal/providers/desktopapplications
+    go build -ldflags="-s -w" -buildvcs=false -buildmode=plugin -trimpath
+}
+
+package() {
+    cd elephant-${pkgver}/internal/providers/desktopapplications
+    install -Dm 755 desktopapplications.so -t "${pkgdir}/usr/lib/elephant"
+
+    cd ../../../
+    install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}

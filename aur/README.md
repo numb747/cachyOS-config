@@ -3,7 +3,7 @@
 这里放的**不是**要装到 `$HOME` 的配置文件，所以不走 `manifest.map`，`install.sh`
 也不碰它。它是「重装这台机器时，为了让某个 AUR 包装得上，必须留在手边的东西」。
 
-目前有两个：`python-rapidocr`（装不上）和 `elephant-clipboard`（行为要改）。
+目前有三个：`python-rapidocr`（装不上）、`elephant-clipboard` 和 `elephant-desktopapplications`（行为要改）。
 
 ---
 
@@ -152,3 +152,49 @@ elephant query --json "clipboard;a;300;false" | jq -s '[.[]|select(.item)]|lengt
 
 **没有锁 IgnorePkg**：锁住它而 elephant 本体照常升级，插件就会因 ABI 不一致加载失败，剪贴板直接没了。
 宁可退化，不要坏掉。
+
+---
+
+## elephant-desktopapplications —— 启动器里「应用紧贴自己的窗口」的排序补丁
+
+### 为什么要改
+
+开了 `window_integration` 后，有窗口的应用上游是**分数减半**，只保证排在自己的窗口之下，
+中间会夹进无关条目（搜 `local`：LocalSend 窗口 140 → LibreOffice Calc 123 → … → LocalSend 应用 72）。
+补丁（`desktopapps-window-first.patch`，只动 `internal/providers/desktopapplications/` 的
+`query.go` 一处 + `activate.go` 抽出判定函数、加一个算窗口分的函数）：**应用分 = 它窗口的分 − 1**，
+窗口分的算法照抄 windows 插件。详细对比表在 `docs/13-launcher.md` 坑 7。
+
+### 装法
+
+```bash
+cd ~/cachyOS-config/aur/elephant-desktopapplications && makepkg -si
+systemctl --user restart elephant
+```
+
+同 elephant-clipboard：**`pkgver` 必须和 `pacman -Q elephant` 一致**（Go plugin ABI）。
+
+### 补丁的源头
+
+fork 的 **`desktopapps-window-first`** 分支（基于 `v2.22.1`，和剪贴板补丁是两个独立分支，没给上游开 PR）。
+上游发新版时：
+
+```bash
+cd ~/Projects/elephant && git fetch upstream --tags
+git rebase --onto vX.Y.Z v2.22.1 desktopapps-window-first
+git diff vX.Y.Z desktopapps-window-first -- internal/providers/desktopapplications \
+  > ~/cachyOS-config/aur/elephant-desktopapplications/desktopapps-window-first.patch
+# 改 PKGBUILD 的 pkgver、两个 sha256，makepkg -si
+```
+
+### 升级时会发生什么
+
+和 elephant-clipboard 完全一样：同版本 `pkgrel=1.1` 压过上游 `-1`；上游一发新版就被**未打补丁**的版本替换，
+**不会坏，只是退回减半**（窗口仍第一，无关条目又会夹进来）。同样**没锁 IgnorePkg**，理由同上。
+
+自检（窗口开着时，补丁在 → 应用分恰好比窗口少 1；原版 → 约一半）：
+
+```bash
+elephant query --json "desktopapplications,windows;localsend;4;false" | jq -c 'select(.item)|.item|[.score,.provider]'
+```
+

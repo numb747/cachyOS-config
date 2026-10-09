@@ -27,7 +27,7 @@
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
-├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr、elephant-clipboard
+├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr、elephant-clipboard、elephant-desktopapplications
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
@@ -406,6 +406,8 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   终端用 Ctrl+Shift+V），按键走 Hyprland 的 `send_shortcut`——**wtype 在 kitty 里粘不进去，别换回去**。
   ⚠ **剪贴板插件是本地补丁版**（`aur/elephant-clipboard/`，子串匹配替代上游「越靠后越搜不到」的模糊匹配），
   elephant 升级后会被上游版静默替换，要回来重打，见 `aur/README.md`。
+  ⚠ **应用插件也是本地补丁版**（`aur/elephant-desktopapplications/`）：有窗口的应用排在自己窗口正下方
+  （上游是分数减半，无关条目会夹进中间），同样升级会被冲掉，见 `docs/13-launcher.md` 坑 7。
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
