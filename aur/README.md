@@ -116,14 +116,22 @@ pytorch 模块数为 **0** —— 是执行不到的死代码，且与上游 whe
   `origin` 是 `ssh://aur@aur.archlinux.org/<包名>.git`。里面只入库 `PKGBUILD`、`.SRCINFO`、`.patch`。
   补丁的 fork 本地克隆是 `~/Projects/elephant`（`origin` = fork，`upstream` = abenz1267/elephant；笔记本上没有这份克隆）。
 
-### ⚠ elephant 升级时会发生什么（和本地版不一样了）
+### ⚠ elephant 升级时会发生什么：被版本依赖卡住，而不是悄悄坏掉
 
 本地版是**同名** `pkgrel=1.1`，上游一升级就被未打补丁的版本替换——退化但不坏。
-换成新包名后**反过来了**：上游所有 `elephant-*` 一起升到新版时，这两个包**不会**被替换，
-留在旧版本上，而 Go plugin 要求和本体同一次构建，于是**加载失败**——剪贴板、应用搜索直接没了。
-`journalctl --user -u elephant` 里看对应 provider 有没有 `providers loaded=`。
+换成新包名后，上游所有 `elephant-*` 一起升到新版时，这两个包**不会**被替换，留在旧版本上；
+而 Go plugin 要求和本体同一次构建，放任不管就是**加载失败**——剪贴板、应用搜索直接没了。
 
-所以 elephant 每次升级，**先更新这两个 AUR 包再升级**（或升级后立刻 `yay -S` 重编这两个）。
+所以两个 PKGBUILD 都写死了 **`depends=("elephant=${pkgver}")`**（2026-10-09，`2.22.1-2` 起）。
+效果：上游发新版时 `yay -Syu` 会报 `installing elephant (X.Y.Z) breaks dependency 'elephant=2.22.1'`
+**拒绝升级 elephant**，直到这两个包更新到同版本。宁可卡住，也不要静默坏掉。
+⚠ 代价：卡住期间整次 `-Syu` 会报错（可以先 `--ignore elephant` 把别的升了）；
+装了这两个包的其他 AUR 用户也一样被卡，所以上游发版后要尽快跟。
+`=2.22.1` 不带 pkgrel，上游只 bump pkgrel 重编时不会卡（`pacman -T 'elephant=2.22.1'` 验证过）——
+但那种情况本体是重新编的，插件理论上也该跟着重编：`yay -S` 这两个即可。
+
+排查加载失败：`journalctl --user -u elephant` 里看对应 provider 有没有 `providers loaded=`。
+
 维护流程（在有 fork 克隆的那台机器上）：
 
 ```bash

@@ -77,8 +77,9 @@ yay -S aur/walker elephant elephant-windows elephant-websearch elephant-provider
   `go build -buildmode=plugin` 产出的 `.so`，Go plugin 要求与宿主二进制的工具链和依赖版本
   **完全一致**，否则加载失败。所以：**别装 `elephant-bin`**（预编译本体 + 本地编译插件 = 必挂），
   **也别单独升级某一个插件**。以后升级让 yay 一次把 elephant 全家重编。
-  ⚠ 两个补丁版是**独立包名**，上游升级时 yay **不会**顺带重编它们 —— 它们留在旧版本上就会加载失败。
-  elephant 升级前先把这两个 AUR 包更新到同版本，见 [aur/README.md](../aur/README.md)。
+  ⚠ 两个补丁版是**独立包名**，上游升级时 yay **不会**顺带重编它们。所以它们写死了
+  `depends=elephant=<同版本>`：上游发新版时 `-Syu` 会被卡住、拒绝升级 elephant，
+  直到这两个 AUR 包更新到同版本（宁可卡住也不加载失败），见 [aur/README.md](../aur/README.md)。
 - Walker 和 Elephant 的版本号各走各的（walker 2.17.x 配 elephant 2.22.x 是对的），不用对齐数字。
 - 首次安装时本机缺 `gtk4-layer-shell`（运行时）和 `gobject-introspection`（仅编译时，
   装成了 `--asdeps`，`pacman -Qdtq` 能清）。
@@ -207,7 +208,7 @@ emoji 选中后是**复制到剪贴板**（elephant-symbols 默认 `command = "w
 **搜索规则（本地补丁）**：不分大小写的子串匹配，空格分隔多个词表示都要包含，结果按时间从新到旧。
 上游原版是模糊匹配且「位置越靠后扣分越多」，长段落中间的词根本搜不到（搜 `苦杏仁` 0 条）。
 补丁版发布在 AUR：`elephant-clipboard-substring`，说明与维护流程见 [aur/README.md](../aur/README.md)。
-⚠ elephant 每次升级前要先把它更新到同版本，否则插件加载失败、剪贴板直接没了。
+⚠ 它写死了依赖同版本 elephant，上游发新版时 `-Syu` 会被卡住，要先把它更新到同版本。
 
 配置 `~/.config/elephant/clipboard.toml`：`max_items = 300`（和原 noctalia 设置对齐）、
 `ocr = false`（它的 OCR 是 tesseract，中文差，用户明确不要；屏幕取字另有 RapidOCR，见 [10](10-ocr.md)）、

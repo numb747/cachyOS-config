@@ -407,8 +407,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ **剪贴板和应用两个插件是自己发布到 AUR 的补丁版**（2026-10-09）：`elephant-clipboard-substring`
   （子串匹配替代上游「越靠后越搜不到」的模糊匹配）、`elephant-desktopapplications-windowfirst`
   （有窗口的应用排在自己窗口正下方，上游是分数减半，见 `docs/13-launcher.md` 坑 7）。
-  ⚠ 独立包名，**elephant 升级时 yay 不会顺带重编它们**，留在旧版本上就加载失败（Go plugin ABI）——
-  升级 elephant 前先更新这两个 AUR 包，流程见 `aur/README.md`。
+  ⚠ 独立包名，**elephant 升级时 yay 不会顺带重编它们**，留在旧版本上就加载失败（Go plugin ABI）。
+  所以写死了 `depends=elephant=<同版本>`：上游发新版时 `-Syu` 会**报依赖冲突、拒绝升级 elephant**
+  ——这是有意的，不是坏了。先更新这两个 AUR 包，流程见 `aur/README.md`。
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；

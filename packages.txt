@@ -121,7 +121,7 @@ python-onnxruntime-cpu
 # elephant-symbols             (AUR)       elephant-providerlist elephant-symbols \
 # elephant-clipboard-substring (AUR)       elephant-clipboard-substring elephant-desktopapplications-windowfirst
 # ★ 带 -substring / -windowfirst 的两个是自己发布的补丁版（替代原名插件），
-#   elephant 升级前要先更新它们，否则加载失败。见 aur/README.md。
+#   它们写死依赖同版本 elephant：上游发版时 -Syu 会卡住，先更新它们。见 aur/README.md。
 # （不装 elephant-calc：用户不要计算器，2026-10-09 装过又卸了。）
 # 运行依赖 gtk4-layer-shell、fd(windows)、wl-clipboard + imagemagick(clipboard) 由 PKGBUILD 自动拉；
 # 自动粘贴走 Hyprland 的 send_shortcut，【不需要】wtype（试过，在 kitty 里粘不进去）。
