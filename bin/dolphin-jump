@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# dolphin-jump — 给 Dolphin 补上终端里 zi 的手感:弹 zoxide 模糊搜索 → 选中的目录在 Dolphin 打开
+#
+#   dolphin-jump        (ALT+Z,见 mykeys.lua 第 20 节)
+#
+# 落到哪个 Dolphin 窗口:
+#   · 按键时焦点就在 Dolphin 上 → 就是那个窗口
+#   · 焦点在别处               → 最近用过的那个 Dolphin 窗口(先把它拉到前台)
+#   · 一个 Dolphin 窗口都没开   → 新开一个
+# 目录以【新标签页】打开;该目录已在某个标签页里开着时只切过去,不重复开。
+#
+# 为什么走 D-Bus 而不是直接 `dolphin <目录>`:Dolphin 默认设置
+# (OpenExternallyCalledFolderInNewTab = false)下那样会每次新开一个窗口。
+# 直接调窗口的 org.kde.dolphin.MainWindow.openDirectories 不看这个设置。
+# ⚠ Dolphin 的 D-Bus 接口没有「让当前标签页跳转」的方法,新标签页是能做到的上限。
+set -uo pipefail
+
+CLASS="org.kde.dolphin"
+PICKER_CLASS="dolphin-jump"     # mykeys.lua 第 20 节的窗口规则按这个 class 让弹窗浮动居中
+
+# ── 1. 先记下目标窗口 ──────────────────────────────────────────────────────────
+# 必须在弹窗出现之前读:弹窗一开焦点就到它身上了。
+target="$(hyprctl activewindow -j 2>/dev/null | jq -c --arg c "$CLASS" 'select(.class == $c)')"
+if [[ -z $target ]]; then
+    # focusHistoryID 越小越近,0 是当前焦点
+    target="$(hyprctl clients -j | jq -c --arg c "$CLASS" \
+        '[.[] | select(.class == $c)] | min_by(.focusHistoryID) // empty')"
+fi
+
+# ── 2. 弹窗选目录 ─────────────────────────────────────────────────────────────
+# zoxide query -i 就是 zi 背后的那条命令(同一套 fzf 参数和预览)。
+# fzf 画在 /dev/tty 上,stdout 只有选中的那一行,所以能直接重定向进文件。
+# cd / 是因为 query 默认排除「当前目录」,从 $HOME 起跑会把家目录本身排除掉。
+pick="$(mktemp -t dolphin-jump-XXXXXX)"
+trap 'rm -f "$pick"' EXIT
+
+kitty --class "$PICKER_CLASS" --title "zoxide → Dolphin" \
+    sh -c 'cd / && zoxide query -i > "$1"' _ "$pick"
+
+dir="$(cat "$pick")"
+[[ -d $dir ]] || exit 0          # Esc / Ctrl-C 取消 → 静默退出
+
+# 终端里 zi 靠 cd 钩子累计访问权重;这里没有 cd,手动记一笔,排序才会跟着学
+zoxide add "$dir"
+
+# ── 3. 打开 ───────────────────────────────────────────────────────────────────
+if [[ -z $target ]]; then
+    setsid -f uwsm app -- dolphin "$dir" >/dev/null 2>&1
+    exit 0
+fi
+
+addr="$(jq -r .address <<<"$target")"
+pid="$(jq -r .pid <<<"$target")"
+svc="org.kde.dolphin-$pid"
+
+hyprctl dispatch "hl.dsp.focus({ window = \"address:$addr\" })" >/dev/null
+
+# 同一个 Dolphin 进程可能有多个窗口(/dolphin/Dolphin_1、_2 …),D-Bus 对象和
+# Hyprland 窗口之间没有直接对应关系 —— 刚把目标窗口聚焦,问哪个对象是 active 即可。
+objs=($(busctl --user tree --list "$svc" 2>/dev/null | grep -E '^/dolphin/Dolphin_[0-9]+$'))
+obj="${objs[0]:-}"
+if (( ${#objs[@]} > 1 )); then
+    for _ in 1 2 3 4 5 6 7 8 9 10; do          # 等焦点真正落过去,最多 0.5 秒
+        for o in "${objs[@]}"; do
+            if [[ $(busctl --user call "$svc" "$o" org.kde.dolphin.MainWindow isActiveWindow) == "b true" ]]; then
+                obj="$o"; break 2
+            fi
+        done
+        sleep 0.05
+    done
+fi
+
+# 必须传 file:// URL:传裸路径 Dolphin 会开出一个「Malformed URL」的空标签页。
+# 中文、空格 QUrl 自己能容错;只有 % # ? 会被当成 URL 语法,得先转义(% 必须第一个转)。
+url="${dir//%/%25}"; url="${url//#/%23}"; url="${url//\?/%3F}"
+if [[ -z $obj ]] || ! busctl --user call "$svc" "$obj" org.kde.dolphin.MainWindow \
+        openDirectories asb 1 "file://$url" false >/dev/null 2>&1; then
+    # 窗口在两步之间被关掉之类的竞态 → 退回新开窗口
+    setsid -f uwsm app -- dolphin "$dir" >/dev/null 2>&1
+fi
