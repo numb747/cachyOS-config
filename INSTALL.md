@@ -199,7 +199,9 @@ mpv --vo=gpu --no-audio --frames=90 --msg-level=vd=v <某个视频> 2>&1 | grep 
 
 - [ ] 鼠标移到屏幕顶边，noctalia 顶栏浮出（默认自动隐藏）
 - [ ] `Alt+9` 手动开合顶栏
-- [ ] `Alt+Space` 打开应用启动器
+- [ ] `Alt+Space` 打开应用启动器（Walker），配色和顶栏同一套；**指针放在框外**也不会自己关（见 [docs/13](docs/13-launcher.md)）
+- [ ] 启动器里敲 `g 天气` 只出一条 Google，回车开浏览器；敲 `fire` 时已开的 Firefox 窗口在列表里
+- [ ] `Super+.` 打开 emoji，选中后 `Ctrl+V` 能粘出来
 - [ ] 终端 / btop / dolphin 的配色是同一套 Tokyo Night 冷蓝紫调
 
 ```bash
@@ -217,7 +219,7 @@ ls -la ~/.local/state/noctalia/clipboard/          # index.enc + entries/*.enc�
 grep 'loaded encrypted clipboard history' ~/.cache/noctalia/noctalia.log
 ```
 
-- [ ] `SUPER+V` 面板里能看到历史，且重启后还在
+- [ ] `SUPER+V`（Walker 剪贴板）能看到历史，回车直接粘进当前窗口，重启后还在
 
 换壁纸不再要密码（步骤 7 的 ②，仅装了 noctalia-greeter 时）：
 

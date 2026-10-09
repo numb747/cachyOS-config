@@ -133,7 +133,7 @@ mod_hypr() {
     command -v wl-screenrec >/dev/null 2>&1 \
         || inf "未装 wl-screenrec（录屏键位依赖它）。装：yay -S wl-screenrec"
 
-    # 剪贴板面板包装脚本。mykeys.lua 第 18 节的 Super+V 直接调它，少了它那个键位会哑。
+    # 剪贴板面板包装脚本。2026-10-09 起 Super+V 改走 Walker，它只为回退留着（见 manifest.map 注释）。
     # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
     put bin/noct-panel "$HOME/.local/bin/noct-panel"
 
@@ -398,7 +398,7 @@ mod_ocr() {
         chmod +x "$HOME/.local/bin/ocr-server" "$HOME/.local/bin/ocr-grab" 2>/dev/null
     fi
 
-    # ★ 本仓库唯一需要「激活」而不只是「拷文件」的模块。put 把 .socket/.service 放到
+    # ★ 需要「激活」而不只是「拷文件」的模块（另一个是 mod_launcher）。put 把 .socket/.service 放到
     #   ~/.config/systemd/user/ 就完事了，不 daemon-reload systemd 根本不知道它们存在，
     #   不 enable 则按键时没人在 8265 端口上接。装完却没反应，十有八九是漏了这两步。
     #   都是 --user 级别，写的仍然只有 $HOME，不需要 sudo（符合本脚本的「不碰系统」）。
@@ -422,7 +422,34 @@ mod_ocr() {
     return 0
 }
 
-ALL=(hypr term nvim ui cc wall wine ocr)
+mod_launcher() {
+    head_ "launcher —— Walker + Elephant 应用启动器"
+    put_module launcher
+
+    # 同 mod_ocr：单元文件拷过去不 daemon-reload systemd 不认识，不 enable 不会跟着图形会话起。
+    # walker.service 带 Wants=elephant.service，但两个都 enable，谁先起都不怕。
+    [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/clip-paste" 2>/dev/null
+
+    run systemctl --user daemon-reload
+    run systemctl --user enable --now elephant.service walker.service
+    # 装完新插件必须重启 walker：它启动时按「当时已装的插件」建条目模板，
+    # 之后才装的插件一打开就 panic「failed to get item layout」（docs/13 坑 4）。
+    run systemctl --user restart elephant.service walker.service
+
+    # 全是 AUR 源码包。elephant 和插件必须同一次构建（Go plugin ABI），一条 yay 命令装齐即可。
+    local miss=()
+    for p in walker elephant elephant-desktopapplications elephant-windows \
+             elephant-websearch elephant-providerlist elephant-symbols elephant-clipboard; do
+        pacman -Q "$p" >/dev/null 2>&1 || miss+=("$p")
+    done
+    if [ ${#miss[@]} -gt 0 ]; then
+        warn "缺：${miss[*]} —— ALT+Space 会没反应或列表为空"
+        inf "  yay -S ${miss[*]}    （别用 elephant-bin，理由见 docs/13-launcher.md）"
+    fi
+    return 0
+}
+
+ALL=(hypr term nvim ui cc wall wine ocr launcher)
 declare -A DESC=(
     [hypr]="Hyprland 键位、鼠标行为、动态工作区"
     [term]="kitty / alacritty / zsh / powerlevel10k"
@@ -432,6 +459,7 @@ declare -A DESC=(
     [wall]="壁纸与壁纸库脚本"
     [wine]="winapp（wine 应用沙箱工具链）与企业微信"
     [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
+    [launcher]="Walker + Elephant 应用启动器（Alt+Space，g␣ 谷歌搜索）"
 )
 
 SELECTED=()
@@ -439,7 +467,7 @@ for a in "$@"; do
     case "$a" in
         --list)
             echo "可用模块："
-            for m in "${ALL[@]}"; do printf '  %-6s %s\n' "$m" "${DESC[$m]}"; done
+            for m in "${ALL[@]}"; do printf '  %-8s %s\n' "$m" "${DESC[$m]}"; done
             exit 0 ;;
         --dry-run|-n) DRY=1 ;;
         -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;

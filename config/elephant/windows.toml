@@ -1,0 +1,3 @@
+# 只列窗口，不列工作区——工作区条目（"Workspace 3"）混在应用结果里只是噪音，
+# 切工作区有 SUPER+数字。
+show_workspaces = false

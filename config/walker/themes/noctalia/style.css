@@ -1,0 +1,158 @@
+/*
+ * Walker 主题：配色直接取 noctalia 按壁纸生成的 GTK4 色板。
+ *
+ * Walker 每次弹出都会 load_from_file 重新读本文件（main.rs setup_css），
+ * @import 也随之重新解析 —— 换壁纸后下一次打开就是新配色，不用重启服务。
+ *
+ * 只覆盖 style.css；layout.xml / item.xml 缺省时 Walker 回落到内置默认布局。
+ */
+/* 相对路径（以本文件所在目录为基准）→ ~/.config/gtk-4.0/noctalia.css。
+   别写成 file:///home/<用户名>/…：笔记本那份检出用户名不同，写死就断。 */
+@import url("../../../gtk-4.0/noctalia.css");
+
+/* 默认主题里用的是 theme_fg_color，这里把它接到 noctalia 的前景色上 */
+@define-color theme_fg_color @window_fg_color;
+
+* {
+  all: unset;
+}
+
+popover {
+  background: @popover_bg_color;
+  border: 1px solid alpha(@accent_color, 0.3);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.normal-icons {
+  -gtk-icon-size: 16px;
+}
+
+.large-icons {
+  -gtk-icon-size: 38px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.box-wrapper {
+  /* 不透明：Hyprland 的 layer 毛玻璃对 Walker 没生效（见 mykeys.lua 第 12 节），
+     没有模糊的半透明会让底下的终端文字透上来——0.98 都还看得见残影 */
+  background: @window_bg_color;
+  border: 1px solid alpha(@accent_color, 0.35);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.preview-box,
+.elephant-hint,
+.placeholder {
+  color: alpha(@window_fg_color, 0.5);
+}
+
+.input {
+  background: @card_bg_color;
+  color: @window_fg_color;
+  caret-color: @accent_color;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 21px;
+}
+
+.input placeholder {
+  color: alpha(@window_fg_color, 0.35);
+}
+
+.input selection {
+  background: alpha(@accent_color, 0.35);
+}
+
+.list {
+  color: @window_fg_color;
+  font-size: 17px;
+}
+
+.item-box {
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: alpha(@accent_color, 0.18);
+}
+
+child:selected .item-text,
+row:selected .item-text {
+  color: @accent_color;
+}
+
+.item-subtext {
+  font-size: 13px;
+  opacity: 0.5;
+}
+
+.providerlist .item-subtext {
+  font-size: unset;
+  opacity: 0.75;
+}
+
+.item-quick-activation {
+  background: alpha(@accent_color, 0.15);
+  color: @accent_color;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.item-image-text {
+  font-size: 28px;
+}
+
+.preview {
+  border: 1px solid alpha(@accent_color, 0.2);
+  border-radius: 10px;
+  color: @window_fg_color;
+}
+
+.calc .item-text {
+  font-size: 22px;
+}
+
+.keybinds {
+  padding-top: 10px;
+  border-top: 1px solid alpha(@window_fg_color, 0.08);
+  font-size: 12px;
+  color: alpha(@window_fg_color, 0.6);
+}
+
+.keybind-button {
+  opacity: 0.6;
+}
+
+.keybind-button:hover {
+  opacity: 0.9;
+}
+
+.keybind-bind {
+  text-transform: lowercase;
+  opacity: 0.45;
+}
+
+.keybind-label {
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid alpha(@window_fg_color, 0.25);
+}
+
+.error {
+  padding: 10px;
+  border-radius: 8px;
+  background: @error_bg_color;
+  color: @error_fg_color;
+}
+
+:not(.calc).current {
+  font-style: italic;
+}

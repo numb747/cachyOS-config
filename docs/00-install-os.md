@@ -199,7 +199,7 @@ sudo pacman -S pipewire pipewire-pulse wireplumber wl-clipboard grim slurp
 sudo pacman -S hyprpaper swww mpvpaper
 ```
 
-**启动器选型**（同样不适用于本配置，noctalia 自带启动器）：
+**启动器选型**（本配置 2026-10-09 起用 Walker + Elephant 取代了 noctalia 自带启动器，选型理由见 [13](13-launcher.md)）：
 
 | 启动器 | 轻重 | 说明 |
 |---|---|---|

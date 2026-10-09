@@ -94,7 +94,7 @@
 
 | 键 | 动作 |
 |---|---|
-| ★ `Alt+Space` | 应用启动器（也搜已开窗口，选中直接跳过去；副标题是小写单词的那行才是窗口） |
+| ★ `Alt+Space` | 应用启动器 Walker（应用 + 已开窗口一起搜，选中窗口直接跳过去；`g␣词` 谷歌 · `b␣词` 百度 · `gh␣` GitHub · `aw␣` Arch Wiki；带数字的式子直接出结果；再按一次关闭。见 [13](13-launcher.md)） |
 | ★ `Alt+9` | 显示/隐藏 noctalia 顶栏 |
 | ★ `Alt+E` | 文件管理器（dolphin） |
 | ★ `Alt+Z` | Dolphin 里的 `zi`：弹 zoxide 模糊搜索，选中的目录在 Dolphin 开新标签页（已开着就切过去；任何地方按都行） |
@@ -105,9 +105,9 @@
 | `Ctrl+Shift+Escape` | 在终端里开 btop |
 | `Super+X` | 控制中心 |
 | `Super+A` | 通知面板 |
-| `Super+V` | 剪贴板历史 |
+| `Super+V` | 剪贴板历史（Walker，右侧预览；**回车 = 粘贴进当前窗口**，终端自动用 Ctrl+Shift+V；`Ctrl+P` 置顶 · `Ctrl+O` 编辑 · `Ctrl+I` 只看图/文 · `Ctrl+Shift+P` 暂停记录） |
 | `Super+Z` | noctalia 设置 |
-| `Super+.` | Emoji 选择器 |
+| `Super+.` | Emoji / 符号选择器（Walker，选中即复制，`Ctrl+V` 粘贴；英文关键词搜） |
 | `Super+Shift+W` | 壁纸面板 |
 | `Super+L` | 锁屏 |
 | `Super+Alt+C` | 电源菜单（`1`锁 `2`注销 `3`挂起 `4`重启 `5`关机） |
@@ -158,6 +158,7 @@
 ## 被摘掉的官方键位
 
 `Super+←/→/↑/↓`（方向切焦点）· `Super+S` / `Super+Shift+S`（抽屉）· `Super+Space`（启动器）。
+`Super+.` 没摘键位，只是从 noctalia 的 `launcher /emo` 换成了 Walker（unbind + 重新 bind）。
 想留作备用就注释掉 `mykeys.lua` 第 1 节对应的 `hl.unbind`——但注意
 `hl.bind` 是**叠加**不是覆盖，不 unbind 就是两套并存，不是二选一。
 

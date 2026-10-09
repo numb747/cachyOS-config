@@ -356,6 +356,11 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 
 **⚠️ 根因没查清。** 下面全是实测记录，不是结论。读这条的时候请带着这个前提。
 
+> 2026-10-09：启动器和剪贴板都已**绕开**——`ALT+Space` 和 `SUPER+V` 都改用 Walker
+> （独立进程、独立 layer surface、铺满整屏，结构上不存在「指针在面板外」），这正是换掉
+> noctalia 启动器和剪贴板面板的主要原因，见 [13](13-launcher.md)。`bin/noct-panel` 目前
+> 没有键位在用，留着只为回退。下面的记录对 noctalia 其他面板（控制中心等）仍然适用。
+
 **先做的事：把指针挪进面板矩形，看还关不关**
 
 ```bash
@@ -455,9 +460,10 @@ hyprctl dispatch 'hl.dsp.cursor.move({x = 1280, y = 720})'
 | 窗口丢进抽屉架就找不着了 | `hyprctl clients -j \| jq -r '.[]\|select(.workspace.name\|test("special:rack"))\|"\(.workspace.name) \(.class)"'` 看它在哪一格；`Alt+S` 进去后用 `Alt+]` 翻格 |
 | 从终端启动 GUI，终端窗口消失了 | 是 window swallowing，不是进程问题。`nohup`/`&`/`disown` 全都挡不住（判据是进程祖先链）。用 `setsid -f CMD`。见坑 9 |
 | 部分键无反应 | 被应用抢了？不可能——Wayland 下是合成器优先。检查是不是自己写的键和官方叠加了（`hl.bind` 是叠加不是覆盖，要先 `hl.unbind`） |
-| `ALT+9` / `ALT+Space` 无效 | noctalia 没跑。`pgrep noctalia`；`noctalia msg --help` 能否连上 |
+| `ALT+9` 无效 | noctalia 没跑。`pgrep noctalia`；`noctalia msg --help` 能否连上 |
+| `ALT+Space` 无效 / 弹出来是空的 | Walker 走的是两个用户服务：`systemctl --user status walker elephant`。空列表多半是 elephant 没起或插件加载失败（`journalctl --user -u elephant`，Go plugin 版本不一致会在这里报），见 [13](13-launcher.md) |
 | 顶栏不见了 | 是 `auto_hide = true`，鼠标移到屏幕顶边。或按 `ALT+9` |
-| `SUPER+V` 的面板一闪就没（启动器同理） | 已由 `bin/noct-panel` 兜住（接在 `SUPER+V` 上）。手工验证：把指针挪进面板矩形，犯病时面板立刻常驻。⚠ 根因**没查清**，别信「这是上游既有行为、重启没用」那套旧说法，见坑 10 |
+| noctalia 面板（控制中心等）一闪就没 | 2026-10-09 起 `SUPER+V` 已改走 Walker，不再经过 noctalia 面板。其他面板仍可能撞上，可套 `bin/noct-panel <面板名>`。手工验证：把指针挪进面板矩形，犯病时面板立刻常驻。⚠ 根因**没查清**，别信「这是上游既有行为、重启没用」那套旧说法，见坑 10 |
 | `SUPER+V` 的剪贴板历史一重启就空 | 看日志有没有 `[secret-store] ... provider-unavailable`：没有 Secret Service 时它拒绝落盘、只留内存。解法是 `[storage]` 文件密钥，见 [05](05-theme-ui.md#剪贴板supervsuper-的历史靠-storage-文件密钥才能活过重启)。⚠ 改完**必须重启 noctalia 进程**，`config-reload` 不重新初始化存储 |
 | 换壁纸/换主题每次都要输密码 | `greeter_sync` 在推给登录界面。noctalia 默认用 `run0` 提权，绕开了自带的 polkit policy——**看 journalctl 里真正被拒的 action id**（是 `systemd1.manage-units` 不是 `apply-appearance`）。要 `privilege_command = "pkexec"` + `/etc/polkit-1/rules.d/` 规则两步，见 [05](05-theme-ui.md#greeter-同步换壁纸主题为什么每次都要输密码) |
 | 提示符全是豆腐块 | 缺 `ttf-meslo-nerd` |

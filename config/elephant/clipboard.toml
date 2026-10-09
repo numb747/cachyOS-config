@@ -1,0 +1,17 @@
+# 剪贴板历史（Walker 里 SUPER+V 打开，或 ALT+Space 后敲 `:`）。
+# 2026-10-09 替代 noctalia 的剪贴板面板（那个面板有「一闪就关」的老毛病，见 docs/07 坑 10）。
+
+# 与原 noctalia 设置对齐
+max_items = 300
+
+# 不要图片转文字：它用的是 tesseract，中文识别差（屏幕取字已换 RapidOCR，见 docs/10）
+ocr = false
+
+pinned_on_top = true
+
+# Ctrl+O「编辑」：图片进 satty 标注（与截图同一个工具），文本走 text/plain 默认程序
+image_editor_cmd = "satty -f %FILE%"
+
+# 选中 = 复制 + 自动粘贴进当前窗口（终端自动用 Ctrl+Shift+V）。
+# 用 $HOME 绝对路径：elephant 是 systemd 用户服务，PATH 里没有 ~/.local/bin。
+command = "$HOME/.local/bin/clip-paste"

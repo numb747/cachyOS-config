@@ -109,6 +109,22 @@ python-onnxruntime-cpu
 #               ⚠ IgnorePkg 写在 /etc 下，【不在本包管辖范围】，换机器要手动加。
 # tesseract / tesseract-data-*  ← 上一代方案的残留，RapidOCR 落地后可以删
 
+# ── 应用启动器（launcher 模块，Alt+Space / Super+.）──────────
+# Walker（GTK4 前端）+ Elephant（数据后端），2026-10-09 替换 noctalia 自带启动器。
+# 全在 AUR，维护者就是上游作者 benz，PKGBUILD 是源码构建（cargo / go）。
+# walker        (AUR) ⚠ CachyOS 仓库里也有 walker，但版本落后，要 yay -S aur/walker
+# elephant      (AUR) ⚠ 本体和下面的插件必须【同一次构建】：插件是 Go plugin（.so），
+# elephant-desktopapplications (AUR)   与本体的 Go 工具链 / 依赖版本对不上就加载失败。
+# elephant-windows             (AUR)   所以别装 elephant-bin，也别单独升级某一个插件。
+# elephant-websearch           (AUR)   一条命令装齐：
+# elephant-providerlist        (AUR)     yay -S aur/walker elephant elephant-desktopapplications \
+# elephant-symbols             (AUR)       elephant-windows elephant-websearch \
+# elephant-clipboard           (AUR)       elephant-providerlist elephant-symbols elephant-clipboard
+# （不装 elephant-calc：用户不要计算器，2026-10-09 装过又卸了。）
+# 运行依赖 gtk4-layer-shell、fd(windows)、wl-clipboard + imagemagick(clipboard) 由 PKGBUILD 自动拉；
+# 自动粘贴走 Hyprland 的 send_shortcut，【不需要】wtype（试过，在 kitty 里粘不进去）。
+# 编译依赖 cargo / go / protobuf / gobject-introspection。见 docs/13-launcher.md。
+
 # ── 壁纸工具链 ──────────────────────────────────────────────
 # wallpaper/tokyonight/_ascii.py 用：magick 做裁切/降采样/边缘图，
 # rsvg-convert 把生成的 SVG 光栅化成 4K PNG。不做 ASCII 壁纸可以不装。

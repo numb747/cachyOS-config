@@ -1,0 +1,24 @@
+# 只写与内置默认（/etc/xdg/walker/config.toml）不同的项，Walker 会把本文件合并上去。
+
+theme = "noctalia"
+
+# 独占键盘。noctalia 自带启动器换掉的原因之一就是面板焦点/自关的问题
+# （cachyOS-config docs/07 坑 10），这里不给合成器任何把焦点挪走的余地。
+force_keyboard_focus = true
+
+selection_wrap = true
+
+[placeholders]
+"default" = { input = "应用 · 窗口　　g␣谷歌  b␣百度  gh␣GitHub  aw␣ArchWiki", list = "没有结果" }
+"clipboard" = { input = "搜索剪贴板历史（空格分隔多个词）　　回车 = 粘贴", list = "没有匹配的内容" }
+"symbols" = { input = "emoji / 符号（英文搜，如 smile）　　回车 = 复制", list = "没有结果" }
+
+[providers]
+# 无前缀时同时查：应用、已打开的窗口、网页搜索（default 引擎兜底在末尾）。
+# 不要计算器（2026-10-09 用户明确不需要），elephant-calc 插件也已卸载。
+default = ["desktopapplications", "windows", "websearch"]
+# 刚打开、还没打字时只列应用；窗口在敲字后才参与匹配。
+# 当初不把 windows 放进来，是因为 wine 版企业微信有几个无标题的幽灵窗口，
+# Elephant 的 windows provider 走 wlr-foreign-toplevel、没有过滤选项，空查询时会把
+# 它们列成空白行。wine 版已于 2026-10-09 卸载，这个理由不复存在，行为暂且保持不变。
+empty = ["desktopapplications"]

@@ -589,12 +589,13 @@ Wayland 下这些键**应用完全收不到**：
 
 ## 被摘掉的官方键位
 
-`mykeys.lua` 第 1 节的八个 `hl.unbind`：
+`mykeys.lua` 第 1 节的九个 `hl.unbind`：
 
 - `SUPER+←/→/↑/↓` —— 原方向切焦点，已由 `CTRL+ALT+HJKL` 接管
 - `SUPER+S` / `SUPER+SHIFT+S` —— 抽屉，已换成 `ALT+S` / `ALT+SHIFT+S`（抽屉架，见上文。
   官方那两个键指向无名的 `special:special`，本配置已完全不用这个名字）
-- `SUPER+Space` —— 启动器，已换成 `ALT+Space`
+- `SUPER+Space` —— 启动器，已换成 `ALT+Space`（2026-10-09 起拉起的是 Walker，见 [13](13-launcher.md)）
+- `SUPER+.` —— 键位**没变**，只是把 noctalia 的 `launcher /emo` 换成 `walker -m symbols`（2026-10-09）
 - `SUPER+E` —— 文件管理器，已换成 `ALT+E`（2026-08-29，见下）
 
 想留着当备用就把对应 `hl.unbind` 注释掉——但记住 `hl.bind` 是**叠加**不是覆盖，
@@ -656,7 +657,8 @@ ALT 这一组才是完整的。
 - **Hyprland ≥ 0.56 且用 Lua 配置。** `hl.bind` / `hl.dsp.*` 是 0.56+ 的新 API。
   若目标机是传统 `hyprland.conf`（`bind = SUPER, F, fullscreen, 0` 那种），本文件
   一行都跑不了，需整体翻译。`install.sh` 会检查并中止。
-- **noctalia**：`ALT+9`（顶栏开合）和 `ALT+Space`（启动器）走 `noctalia msg` IPC。
+- **noctalia**：`ALT+9`（顶栏开合）走 `noctalia msg` IPC。
+- **Walker + Elephant**：`ALT+Space` / `SUPER+.` 调 `walker`，没装或两个用户服务没起就没反应（launcher 模块，见 [13](13-launcher.md)）。
 - **UWSM**：分屏终端用 `uwsm app -- ` 前缀（与官方 `binds.lua` 一致）。
 
 ## 不要带到虚拟机之外的东西

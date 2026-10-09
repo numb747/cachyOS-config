@@ -1,0 +1,29 @@
+# 网页搜索：前缀 + 关键词 + 回车。
+#
+# prefix 是纯字符串前缀匹配（strings.HasPrefix），**必须带上尾随空格**——
+# 写成 "g" 的话，搜 "gimp" 也会被当成 Google 搜索。激活时前缀会被整段切掉，
+# 只把后面的关键词交给搜索引擎。
+#
+# default = true 的引擎在「没敲任何前缀」时也会挂在结果列表末尾兜底，
+# 应用/窗口都没匹配上时直接回车就是谷歌搜索。
+
+[[entries]]
+name = "Google"
+prefix = "g "
+default = true
+url = "https://www.google.com/search?q=%TERM%"
+
+[[entries]]
+name = "百度"
+prefix = "b "
+url = "https://www.baidu.com/s?wd=%TERM%"
+
+[[entries]]
+name = "GitHub"
+prefix = "gh "
+url = "https://github.com/search?q=%TERM%&type=repositories"
+
+[[entries]]
+name = "Arch Wiki"
+prefix = "aw "
+url = "https://wiki.archlinux.org/index.php?search=%TERM%"

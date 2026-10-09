@@ -144,6 +144,11 @@ format = "{:%H:%M %A %m/%d/%y}"
 [widget.launcher]
 color = "secondary"
 
+# 顶栏最左的启动器按钮：图标留着，左键改为打开 Walker（替代 noctalia 自带启动器，
+# 原因见 cachyOS-config docs/07 坑 10）。键盘入口 ALT+Space 在 mykeys.lua 第 12 节。
+[widget.launcher.actions]
+left = "exec walker"
+
 [widget.media]
 hide_when_no_media = true
 title_scroll = "on_hover"

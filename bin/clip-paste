@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# clip-paste —— Walker 剪贴板（elephant-clipboard）选中一条后：复制 + 自动粘贴进当前窗口。
+#
+# 由 ~/.config/elephant/clipboard.toml 的 command 调用。elephant 的约定：
+#   · 内容从 stdin 进来（文本 / 图片字节 / uri-list）
+#   · 复制文件列表时会在命令后追加 `-t 'text/uri-list'` —— 所以这里必须把 "$@" 原样交给 wl-copy
+#
+# 替代的是 noctalia 剪贴板的 clipboard_auto_paste = "auto"：终端用 Ctrl+Shift+V，其余用 Ctrl+V。
+#
+# ★ 按键用 Hyprland 的 send_shortcut，不用 wtype。2026-10-09 实测：wtype 的
+#   `-M ctrl -M shift v` 在 kitty 里什么都粘不进去（虚拟键盘那条路径对带 Shift 的组合键
+#   不灵），而 send_shortcut 由合成器直接投递给窗口，kitty 正常粘贴、之后打字也不受影响。
+set -u
+
+wl-copy "$@" || exit 1
+
+# 等 Walker 关掉、焦点回到原窗口再按键；太短会把 Ctrl+V 按进 Walker 自己
+sleep 0.15
+
+class=$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // empty')
+[ -n "$class" ] || exit 0    # 空桌面，没人可粘
+
+# 终端类名单与 config/windowrules.lua 的 terminals 保持一致
+case "$class" in
+    kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce*-terminal|foot|org.wezfurlong.wezterm)
+        mods="CTRL SHIFT" ;;
+    *)
+        mods="CTRL" ;;
+esac
+hyprctl dispatch "hl.dsp.send_shortcut({ mods = \"$mods\", key = \"V\" })" >/dev/null

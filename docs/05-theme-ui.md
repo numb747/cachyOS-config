@@ -318,7 +318,11 @@ GUI 在 `noctalia msg settings-open notifications` → Filters → Add。
 
 ---
 
-## 启动器：provider 模型
+## 启动器：provider 模型（已被 Walker 取代）
+
+> ⚠ **2026-10-09 起 `ALT+Space` / `SUPER+.` / 顶栏启动器按钮都改走 Walker**，
+> 见 [13-launcher.md](13-launcher.md)。本节是 noctalia 自带启动器的记录，
+> `[shell.launcher]` 配置也还留在 `config.toml` 里，留着是为了要回退时有据可查。
 
 `ALT+Space` 拉起的启动器不是单一列表，是若干 **provider** 的聚合。合法 id 只有六个：
 
@@ -390,6 +394,10 @@ Hyprland 会自动把视图切到该窗口所在工作区，跨显示器还会�
 ---
 
 ## 剪贴板：`SUPER+V` 的历史靠 `[storage]` 文件密钥才能活过重启
+
+> ⚠ **2026-10-09 起 `SUPER+V` 打开的是 Walker 的剪贴板（elephant-clipboard）**，见
+> [13-launcher.md](13-launcher.md#剪贴板)。noctalia 的剪贴板服务**仍在后台运行**，
+> 只为保留「源程序关掉后内容还能粘贴」（`keep_from_closed_apps`），本节的加密存储配置也还在生效。
 
 先认清是谁在干活：**这个剪贴板是 noctalia 自己的 `ClipboardService`**，走 Wayland 的
 `ext_data_control_manager_v1` 协议。既不是 Hyprland 的（合成器根本没有剪贴板历史这个功能），

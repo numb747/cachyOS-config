@@ -3,7 +3,7 @@
 这里放的**不是**要装到 `$HOME` 的配置文件，所以不走 `manifest.map`，`install.sh`
 也不碰它。它是「重装这台机器时，为了让某个 AUR 包装得上，必须留在手边的东西」。
 
-目前只有一个。
+目前有两个：`python-rapidocr`（装不上）和 `elephant-clipboard`（行为要改）。
 
 ---
 
@@ -87,3 +87,68 @@ pytorch 模块数为 **0** —— 是执行不到的死代码，且与上游 whe
 不是打包者塞进去的。
 
 原理、调参和键位见 `docs/10-ocr.md`。
+
+---
+
+## elephant-clipboard —— 剪贴板（launcher 模块，`SUPER+V`）的搜索补丁
+
+### 为什么要改
+
+上游的剪贴板搜索用的是 fzf 模糊匹配，并且 `score = fzf 分数 - 匹配起始位置`，低于 30 分丢弃。
+对应用名这种短文本没问题，对剪贴板（一大段文字）是错的：**匹配位置越靠后越搜不到**。
+2026-10-09 在本机 48 条历史上实测：
+
+| 搜索词 | 原版命中 | 补丁后 |
+|---|---|---|
+| `a` | 0 | 27 |
+| `苦杏仁`（在段落中间） | 0 | 2 |
+| `工作量` | 2 | 7 |
+| `鉴别` | 1 | 4 |
+
+补丁（`clipboard-substring-search.patch`，只动 `internal/providers/clipboard/clipboard.go` 一处）：
+**不分大小写的子串匹配；空格分隔多个词时每个词都要出现（AND）；结果一律按时间从新到旧排**
+（置顶的仍在最上，`pinned_on_top`）。上游 master（2026-10-09）这段代码没变。
+
+### 装法
+
+```bash
+cd ~/cachyOS-config/aur/elephant-clipboard && makepkg -si
+systemctl --user restart elephant walker      # 两个都要重启，见 docs/13 坑 4
+```
+
+★ **必须和已装的 elephant 本体同版本**（Go plugin ABI，见 docs/13）。PKGBUILD 的 `pkgver` 要和
+`pacman -Q elephant` 一致，不一致就改 `pkgver` 和 tarball 的 sha256 再编。
+
+### 补丁的源头：自己的 fork
+
+改动以 commit 形式存在 **github.com/numb747/elephant** 的 `clipboard-substring-search` 分支上
+（2026-10-09 fork，基于 `v2.22.1`，没有给上游开 PR）。本地克隆在 `~/Projects/elephant`，
+`origin` 是 fork（走 `github-numb747` 这个 SSH 别名），`upstream` 是 abenz1267/elephant。
+本目录的 `.patch` 就是从这个分支导出的。
+
+上游发新版时，在 fork 里把补丁挪到新 tag 上，再重新导出：
+
+```bash
+cd ~/Projects/elephant && git fetch upstream --tags
+git rebase --onto vX.Y.Z v2.22.1 clipboard-substring-search   # 冲突了说明上游改了这段，手工处理
+git push -f origin clipboard-substring-search
+git diff vX.Y.Z clipboard-substring-search -- internal/providers/clipboard \
+  > ~/cachyOS-config/aur/elephant-clipboard/clipboard-substring-search.patch
+# 然后改 PKGBUILD 的 pkgver、两个 sha256，makepkg -si
+```
+
+### 升级时会发生什么
+
+`pkgrel=1.1` 比上游 `2.22.1-1` 新，所以同版本下 yay 不会覆盖它。
+但上游一发新版（所有 elephant-* 一起升），yay 会用**未打补丁**的版本替换——**不会坏，只是搜索退回原来那样**。
+所以每次 elephant 升级后回来做一遍：改 `pkgver` / sha256 → `makepkg -si` → 重启两个服务。
+补丁打不上（上游改了这段）时 `prepare()` 会直接失败，不会装出半成品。
+
+自检（看补丁是否还在）：
+
+```bash
+elephant query --json "clipboard;a;300;false" | jq -s '[.[]|select(.item)]|length'   # 原版几乎总是 0
+```
+
+**没有锁 IgnorePkg**：锁住它而 elephant 本体照常升级，插件就会因 ABI 不一致加载失败，剪贴板直接没了。
+宁可退化，不要坏掉。

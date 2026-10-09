@@ -50,6 +50,9 @@ hl.unbind("SUPER + SHIFT + S")
 -- 修饰键掩码不同，不受影响。
 hl.unbind("SUPER + Space")
 
+-- emoji 选择器（官方是 noctalia 的 launcher /emo）改由 Walker 接管，见第 12 节。
+hl.unbind("SUPER + period")
+
 -- 文件管理器改用 ALT + E，见第 14 节。
 -- （想把 SUPER + E 留着当备用入口，把下面这行注释掉即可，两套并存。）
 hl.unbind("SUPER + E")
@@ -682,17 +685,33 @@ hl.config({
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 12. 应用启动器：ALT + Space
+-- 12. 应用启动器：ALT + Space → Walker
 --
 --     官方 config/binds.lua 第 80 行绑的是 SUPER + Space，走 noctalia 的
---     panel-toggle launcher。这里只换修饰键，命令原样不动。
---     unbind 在第 1 节。
+--     panel-toggle launcher；unbind 在第 1 节。
+--
+--     2026-10-09 起换成 Walker（前端）+ Elephant（后端）。noctalia 自带启动器
+--     bug 多且修不动（面板一闪就关，见 cachyOS-config docs/07 坑 10）。
+--     Walker 以 systemd 用户服务常驻（~/.config/systemd/user/walker.service），
+--     这里的 `walker` 只是叫醒它显示窗口；再按一次是关闭（close_when_open）。
+--     配置：~/.config/walker/、~/.config/elephant/。
 --
 --     ⚠️ ALT + Space 在 Windows / 传统 GTK 应用里是「窗口菜单」的助记键。
 --     Wayland 下合成器的全局 bind 会直接截获，应用收不到 —— 和 ALT + W
 --     一个性质。日常影响很小，但用 Wine 跑 Windows 程序时会感觉到。
 -- ────────────────────────────────────────────────────────────────────────────
-hl.bind("ALT + Space", hl.dsp.exec_cmd(noctCall .. "panel-toggle launcher"))
+hl.bind("ALT + Space", hl.dsp.exec_cmd("walker"))
+
+-- emoji / 符号：SUPER + 句号。键位沿用官方，只把 noctalia 的 launcher /emo
+-- 换成 Walker 的 symbols provider（elephant-symbols），选中即复制到剪贴板。
+-- 在 ALT + Space 里敲 `.` 前缀也能进同一个列表。
+hl.bind("SUPER + period", hl.dsp.exec_cmd("walker -m symbols"))
+
+-- ⚠️ 没给 Walker 加 layer 毛玻璃：2026-10-09 试过 hl.layer_rule
+--    { namespace = "walker", blur = true }（带/不带 ignore_alpha、规则加载后
+--    重启 walker 服务再测），grim 截图里框底下的文字始终清晰，规则没生效，
+--    原因未查。框底色改为不透明（style.css .box-wrapper），不依赖模糊。
+--    （排查时确认过不是合成器把 layer 变透明：底色写死 #ff0000 截图是纯红。）
 
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -933,43 +952,24 @@ hl.bind("SUPER + SHIFT + I",
 
 
 -- ────────────────────────────────────────────────────────────────────────────
---  18. 剪贴板面板：SUPER + V（替换官方的同名绑定，加一层「把指针挪进面板」）
+--  18. 剪贴板历史：SUPER + V → Walker（elephant-clipboard）
 --
 --      官方 config/binds.lua 第 127 行是 `noctalia msg panel-toggle clipboard`。
---      直接用它踩到过的问题：面板弹出来不到 1 秒自己消失——哪怕键盘焦点是好的、
---      字也打得进搜索框，然后连面板带字一起没。
+--      2026-10-09 起换成 Walker 的剪贴板模式，和第 12 节的启动器同一套。
 --
---      ⚠️ 根因**没查清**，别把下面这条当定论。2026-09-22 的实测是这样的：
---        · 16:47 稳定复现 6/6：指针在面板矩形外 → 0.78~0.98 秒自关；
---          把指针移进矩形内 → 6/6 常驻。用户手动复核也是这个结论。
---        · 同一个 noctalia 进程（没重启过），17:20 之后就再也复现不了：
---          矩形内/外 × 指针动/不动共 15 组，全部活过 6 秒。
---        也就是说「指针在面板外就自关」只在**某个状态下**成立，那个状态怎么进、
---        怎么出都不知道，它自己消失了。排除掉的方向见 docs/07 坑 10 的表。
+--      换掉的原因：noctalia 面板「打开不到 1 秒自己消失」，根因没查清，此前一直靠
+--      bin/noct-panel 把指针挪进面板矩形兜着（来龙去脉见 docs/07 坑 10）。Walker 的
+--      layer 铺满整屏，结构上不存在「指针在面板外」，这层兜底就不需要了。
+--      bin/noct-panel 还留在包里，回退时把下面的命令换回
+--      `$HOME/.local/bin/noct-panel clipboard` 即可。
 --
---      bin/noct-panel 干的事：开面板 → 从 hyprctl layers 读**面板实际几何** →
---      把指针移进去钉住 → 面板关掉后把指针放回原处。几何是读出来的不是算出来的，
---      所以 placement 改成 attach/float、换分辨率、多显示器都自动跟上。
---      它不判断当前是不是坏状态：坏状态下这是解药，好状态下只是多挪一次指针。
---      按同一个面板的第二下仍然是 toggle 本意（关掉、不动指针）；
---      别的面板（比如 control-center）开着时按它，剪贴板照常开出来并挪指针。
---
---      ⚠️ 副作用：指针被挪到**面板中心**，脚本在面板关闭后会还原——这一步不是
---        礼貌而是必须的，第 6b 节那个「指针底下永远是焦点窗口」的不变量靠它维持
---        （warp 本身不改焦点，Hyprland 只在真实指针移动时累积 m_mousePosDelta，
---        但指针和焦点一旦分处两处，下一次真实鼠标微动就会把焦点拽走）。
---        本配置 cursor:hide_on_key_press = true，按键那一刻指针本就隐身，
---        视觉上基本无感。
---      ★ 绝对路径，理由同第 16/17 节（Hyprland 的 exec 环境 PATH 不含 ~/.local/bin）。
---
---      同样的办法可以套到 ALT + Space 的 launcher 上（第 12 节），改成
---      `exec_cmd("$HOME/.local/bin/noct-panel launcher")` 即可；当前没套——
---      launcher 的用法是「打开就敲字回车」，就算撞上那个状态也基本无感，
---      等真的碍事了再套。
+--      选中一条 = 复制 + 自动粘贴进当前窗口（终端用 Ctrl+Shift+V），由
+--      ~/.local/bin/clip-paste 完成，配置在 ~/.config/elephant/clipboard.toml。
+--      noctalia 的剪贴板服务仍在后台（[shell] clipboard_enabled 没关），只为保留
+--      「源程序关掉后内容还能粘贴」（keep_from_closed_apps）——Elephant 没有这个功能。
 -- ────────────────────────────────────────────────────────────────────────────
 hl.unbind("SUPER + V")
-hl.bind("SUPER + V",
-    hl.dsp.exec_cmd("$HOME/.local/bin/noct-panel clipboard"))
+hl.bind("SUPER + V", hl.dsp.exec_cmd("walker -m clipboard"))
 
 
 -- ────────────────────────────────────────────────────────────────────────────

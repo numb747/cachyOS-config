@@ -1,0 +1,17 @@
+# Walker 的后端：应用/窗口/网页搜索等数据源，Walker 通过本地 socket 查询它。
+#
+# 没用 `elephant service enable` 生成的那份：它缺 PartOf，退出 Hyprland 时不会跟着停。
+# 启动应用时 elephant 自动探测到 uwsm，走 `uwsm-app --` 把应用放进独立的 systemd
+# scope，所以重启本服务不会连带杀掉从启动器打开的程序。
+[Unit]
+Description=Elephant (data provider for Walker)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/elephant
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

@@ -84,7 +84,7 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 
 | 如果只装… | 会缺什么 |
 |---|---|
-| 只装 `hypr` | `ALT+9`、`ALT+Space` 依赖 `noctalia msg` IPC。没有 noctalia 这两个键无效，其余正常 |
+| 只装 `hypr` | `ALT+9` 依赖 `noctalia msg` IPC，没有 noctalia 无效；`ALT+Space` / `SUPER+.` 调 Walker，没装 launcher 模块无效；其余正常 |
 | 只装 `term` | `kitty.conf` 末行 `include themes/noctalia.conf`，那个文件由 noctalia 生成。**本包带了一份种子**，所以不会报错；但换壁纸/配色后由 noctalia 覆盖 |
 | 只装 `ui` | 顶栏和配色对了，但键位是官方的 81 条 |
 | 只装 `nvim` | 独立可用。唯一外部依赖是 zsh（内置终端），没有则回退到 `$SHELL` |

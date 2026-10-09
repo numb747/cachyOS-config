@@ -22,12 +22,12 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     13 篇，见下表（配图在 docs/img/）
+├── docs/                     14 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel 剪贴板面板、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、winapp wine 沙箱、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
-├── aur/                      改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME，不走 manifest）
+├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr、elephant-clipboard
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
 ```
@@ -106,6 +106,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
+| 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
 
 ---
 
@@ -168,6 +169,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
    极易误判成配置写错又去改配置。**改完这类段一律重启进程**
    （`kill $(pgrep -x noctalia); setsid -f noctalia -d`，或
    `hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`）。
+   （2026-10-09 起启动器已换成 Walker，下面这条只在回退到 noctalia 启动器时有用。）
    启动器另外还有个限制：provider 有且只有 `global` / `prefix`
    两个键，**没有** weight/priority/order——「让已开窗口排在应用前面」上游
    [#2470](https://github.com/noctalia-dev/noctalia/issues/2470) 已 closed as not planned，
@@ -275,7 +277,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **125** 条（自定义 39 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **125** 条（自定义 40 条）；`hyprctl binds -j | jq length` 可验
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
   （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
@@ -399,6 +401,21 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   **③ 企业微信/微信「用一阵卡死、之后永远卡在启动页」**是 app fork 出的子进程在 libndk 下没 exec 就挂死、
   占着 binder 让 AMS 以为旧进程没死（logcat `refused to die`）—— 由宿主机常驻服务
   `waydroid-fork-reaper` 自动清理（`/etc` + `/usr/local/bin`，不在本包管辖，全文在 `docs/12` 第 8 节）
+- **launcher 模块**（2026-10-09 新增，第 9 个）：`ALT+Space` / `SUPER+.` / 顶栏启动器按钮
+  从 noctalia 自带启动器换成 **Walker（GTK4 前端）+ Elephant（数据后端）**，两个都是
+  systemd 用户服务常驻。换的原因是 noctalia 启动器 bug 修不动（坑 10 那类面板自关）。
+  应用 + 已开窗口同分排序，`g␣` 谷歌 / `b␣` 百度 / `gh␣` / `aw␣` 网页搜索前缀，
+  CSS `@import` noctalia 的 `gtk-4.0/noctalia.css` 跟壁纸变色。
+  ⚠ 三条：**① elephant 本体和插件必须同一次构建**（Go plugin ABI），别装 `elephant-bin`；
+  **② websearch 前缀要带尾随空格**（`"g "`，源码是裸 HasPrefix）；
+  **③ Hyprland 的 layer 毛玻璃对它不生效**（原因未查），框改成了不透明。
+  企业微信的无标题幽灵窗会出现在窗口列表里，靠「空查询只列应用」绕开。
+  **`SUPER+V` 剪贴板也换成了 Walker（elephant-clipboard）**：回车 = 复制 + 自动粘贴（`bin/clip-paste`，
+  终端用 Ctrl+Shift+V），按键走 Hyprland 的 `send_shortcut`——**wtype 在 kitty 里粘不进去，别换回去**。
+  ⚠ **剪贴板插件是本地补丁版**（`aur/elephant-clipboard/`，子串匹配替代上游「越靠后越搜不到」的模糊匹配），
+  elephant 升级后会被上游版静默替换，要回来重打，见 `aur/README.md`。
+  ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
+  ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）；
   企业微信的 CEF 子进程 `WXWorkWeb.exe` 偶发 `int3` 崩溃（只影响内嵌网页组件如

@@ -51,7 +51,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 | 模块 | 内容 | 文档 |
 |---|---|---|
-| **hypr** | Hyprland 键位方案（39 条自定义绑定 → 共 125 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
+| **hypr** | Hyprland 键位方案（40 条自定义绑定 → 共 125 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
 | **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k | [03](docs/03-terminal.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
@@ -59,6 +59,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
 | **wine** | `winapp`：每个 Windows 程序一套独立 wine prefix + bubblewrap 沙箱；实例是企业微信 | [09](docs/09-wine-apps.md) |
 | **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
+| **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |
 
 还没装系统？先看 [docs/00-install-os.md](docs/00-install-os.md)（Ventoy 制盘、镜像、CachyOS 取舍）。
 设计原则、模块之间怎么咬合，看 [docs/01-architecture.md](docs/01-architecture.md)。
@@ -106,7 +107,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  13 篇说明，见上表
+├── docs/                  14 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它

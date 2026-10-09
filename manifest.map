@@ -21,7 +21,8 @@ config/hypr/config/misc.lua               ~/.config/hypr/config/misc.lua
 # ★ mod_hypr 是硬编码 put 的、不走 put_module（见 install.sh 那句「这三个单独列」注释），
 #   所以这行只被 sync.sh 读到；install.sh 里必须另有一行 put 它，否则装不出去。
 bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
-# 剪贴板面板的包装脚本，配合 mykeys.lua 第 18 节的 SUPER+V。
+# 剪贴板面板的包装脚本。⚠ 2026-10-09 起 SUPER+V 已改走 Walker（launcher 模块），它【当前没有键位在用】，
+# 留着是为了回退：把 mykeys.lua 第 18 节的命令换回 noct-panel clipboard 即可。
 # 用快捷键开的 noctalia 面板会在【某种没查清的状态下】约 1 秒自己关掉，而那个状态里
 # 「指针在不在面板矩形内」是决定性变量。这个脚本开完面板把指针挪进去钉住、关掉后还原，
 # 不判断当前是不是坏状态（坏状态下是解药，好状态下只是多挪一次指针）。见 docs/07 坑 10。
@@ -195,6 +196,25 @@ bin/theme-switch                          ~/.local/bin/theme-switch
 bin/theme-preview                         ~/.local/bin/theme-preview
 config/systemd/user/ocrd.socket           ~/.config/systemd/user/ocrd.socket
 config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
+
+#@module launcher
+# 应用启动器 Walker（GTK4 前端）+ Elephant（数据后端），2026-10-09 替换 noctalia 自带启动器。
+# 键位 ALT+Space / SUPER+. 和 noctalia 顶栏按钮的接线在 hypr、ui 模块里，见 docs/13-launcher.md。
+# ★ 同 ocr：两个 systemd 单元 put 完必须 daemon-reload + enable --now，install.sh 的
+#   mod_launcher 里有；不 enable 的话 ALT+Space 拉起的是一个查不到任何东西的空 Walker。
+# ⚠ 二进制全是 AUR 源码包，且 elephant 本体与所有 elephant-* 插件必须【同一次、同一个 Go
+#   工具链】编出来（插件是 Go plugin，ABI 不对就加载失败），别混装 elephant-bin。
+config/walker/config.toml                 ~/.config/walker/config.toml
+config/walker/themes/noctalia/style.css   ~/.config/walker/themes/noctalia/style.css
+config/walker/themes/noctalia/layout.xml  ~/.config/walker/themes/noctalia/layout.xml
+config/elephant/websearch.toml            ~/.config/elephant/websearch.toml
+config/elephant/windows.toml              ~/.config/elephant/windows.toml
+# 剪贴板（SUPER+V，2026-10-09 起替代 noctalia 剪贴板面板）。clip-paste = 复制 + 自动粘贴，
+# 由 clipboard.toml 的 command 用 $HOME 绝对路径调用（elephant 是 systemd 服务，PATH 无 ~/.local/bin）。
+config/elephant/clipboard.toml            ~/.config/elephant/clipboard.toml
+bin/clip-paste                            ~/.local/bin/clip-paste
+config/systemd/user/elephant.service      ~/.config/systemd/user/elephant.service
+config/systemd/user/walker.service        ~/.config/systemd/user/walker.service
 
 # ── 不在同步范围内（有意）────────────────────────────────────────────────
 # ~/.local/share/wineprefixes/wecom/       wine prefix，2GB+，含聊天记录与登录态。

@@ -1,0 +1,15 @@
+# Walker 常驻（GApplication service 模式），ALT+Space 只是叫它显示窗口，秒开。
+# 不常驻的话每次按键都要冷启动一个 GTK4 进程。
+[Unit]
+Description=Walker launcher
+PartOf=graphical-session.target
+After=graphical-session.target elephant.service
+Wants=elephant.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/walker --gapplication-service
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

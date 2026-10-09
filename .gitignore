@@ -28,3 +28,9 @@ id_ed25519*
 .DS_Store
 __pycache__/
 *.pyc
+
+# ── aur/ 下 makepkg 的构建产物 ─────────────────────────────────────────────
+# aur/<包>/ 只入库 PKGBUILD 和补丁；源码解包、构建目录、成品包都是 makepkg 现做的。
+aur/*/src/
+aur/*/pkg/
+*.pkg.tar.zst
