@@ -60,21 +60,25 @@ noctalia 自带启动器 bug 多，而且修不动。最典型的就是 [07 坑 
 ## 安装（全是 AUR 源码包）
 
 ```bash
-yay -S aur/walker elephant elephant-desktopapplications elephant-windows \
-       elephant-websearch elephant-providerlist elephant-symbols elephant-clipboard
-# 然后用本地补丁版覆盖两个插件（剪贴板搜索规则见下方「剪贴板」，应用排序见坑 7）：
-cd ~/cachyOS-config/aur/elephant-clipboard && makepkg -si
-cd ~/cachyOS-config/aur/elephant-desktopapplications && makepkg -si
+yay -S aur/walker elephant elephant-windows elephant-websearch elephant-providerlist \
+       elephant-symbols elephant-clipboard-substring elephant-desktopapplications-windowfirst
 ```
+
+- 最后两个是**自己发布到 AUR 的补丁版插件**（2026-10-09），分别替代 `elephant-clipboard`
+  （剪贴板搜索规则，见下方「剪贴板」）和 `elephant-desktopapplications`（应用排序，见坑 7），
+  `provides`/`conflicts` 原名。之前是 `aur/` 下的本地 PKGBUILD + `makepkg -si`，已删。
+  维护流程见 [aur/README.md](../aur/README.md)。
 
 - **`aur/walker` 要写前缀**：CachyOS 仓库里也有 `walker`，版本落后（2026-10-09 时仓库 2.17.1，
   AUR 2.17.2 是前一天刚发的上游最新），不写 `aur/` yay 会优先装仓库那个。
-- 两个 PKGBUILD 的维护者都是上游作者 benz（`hello@benz.dev`），源码直接从 GitHub tag 拉，
+- 除了那两个补丁版，其余 PKGBUILD 的维护者都是上游作者 benz（`hello@benz.dev`），源码直接从 GitHub tag 拉，
   不用自己打包。
 - ★ **elephant 本体和所有插件必须同一次、用同一个 Go 工具链编出来。** 插件是
   `go build -buildmode=plugin` 产出的 `.so`，Go plugin 要求与宿主二进制的工具链和依赖版本
   **完全一致**，否则加载失败。所以：**别装 `elephant-bin`**（预编译本体 + 本地编译插件 = 必挂），
   **也别单独升级某一个插件**。以后升级让 yay 一次把 elephant 全家重编。
+  ⚠ 两个补丁版是**独立包名**，上游升级时 yay **不会**顺带重编它们 —— 它们留在旧版本上就会加载失败。
+  elephant 升级前先把这两个 AUR 包更新到同版本，见 [aur/README.md](../aur/README.md)。
 - Walker 和 Elephant 的版本号各走各的（walker 2.17.x 配 elephant 2.22.x 是对的），不用对齐数字。
 - 首次安装时本机缺 `gtk4-layer-shell`（运行时）和 `gobject-introspection`（仅编译时，
   装成了 `--asdeps`，`pacman -Qdtq` 能清）。
@@ -202,8 +206,8 @@ emoji 选中后是**复制到剪贴板**（elephant-symbols 默认 `command = "w
 
 **搜索规则（本地补丁）**：不分大小写的子串匹配，空格分隔多个词表示都要包含，结果按时间从新到旧。
 上游原版是模糊匹配且「位置越靠后扣分越多」，长段落中间的词根本搜不到（搜 `苦杏仁` 0 条）。
-补丁和重装方法在 `aur/elephant-clipboard/`，说明见 [aur/README.md](../aur/README.md)。
-⚠ elephant 每次升级后要回来重打，否则搜索静默退回原版。
+补丁版发布在 AUR：`elephant-clipboard-substring`，说明与维护流程见 [aur/README.md](../aur/README.md)。
+⚠ elephant 每次升级前要先把它更新到同版本，否则插件加载失败、剪贴板直接没了。
 
 配置 `~/.config/elephant/clipboard.toml`：`max_items = 300`（和原 noctalia 设置对齐）、
 `ocr = false`（它的 OCR 是 tesseract，中文差，用户明确不要；屏幕取字另有 RapidOCR，见 [10](10-ocr.md)）、
@@ -364,7 +368,7 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 减半只保证「应用在自己窗口之下」，不管中间夹进多少别的。减半是上游写死的
 （`query.go` 里 `score / 2`），配置调不了。
 
-补丁（`aur/elephant-desktopapplications/`，fork 的 `desktopapps-window-first` 分支）：
+补丁（AUR 包 `elephant-desktopapplications-windowfirst`，fork 的 `desktopapps-window-first` 分支）：
 **有窗口的应用分数 = 它窗口的分数 − 1**，窗口分用和 windows 插件完全相同的算法
 （标题、app_id 取高者，`max(分 − 起始位置, 10)`），多个窗口取最高的。这样应用紧贴在自己窗口下面。
 窗口分不超过 `min_score`（30，窗口基本没匹配上）时不动应用的分。

@@ -406,8 +406,9 @@ mod_launcher() {
 
     # 全是 AUR 源码包。elephant 和插件必须同一次构建（Go plugin ABI），一条 yay 命令装齐即可。
     local miss=()
-    for p in walker elephant elephant-desktopapplications elephant-windows \
-             elephant-websearch elephant-providerlist elephant-symbols elephant-clipboard; do
+    # 两个插件是自己发布的补丁版（aur/README.md）；装的是上游原版时这里也会提示。
+    for p in walker elephant elephant-desktopapplications-windowfirst elephant-windows \
+             elephant-websearch elephant-providerlist elephant-symbols elephant-clipboard-substring; do
         pacman -Q "$p" >/dev/null 2>&1 || miss+=("$p")
     done
     if [ ${#miss[@]} -gt 0 ]; then

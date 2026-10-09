@@ -7,7 +7,7 @@
 #   让 windows provider 给出的那条窗口排到它前面。
 #   窗口条目没有历史加分，应用条目有，不压分的话常用应用永远压着自己的窗口。
 #   上游是减半，会让无关条目夹进中间；本机装的是补丁版插件，应用分 = 窗口分 − 1，
-#   紧贴在自己窗口下面（~/cachyOS-config/aur/elephant-desktopapplications）。
+#   紧贴在自己窗口下面（AUR 包 elephant-desktopapplications-windowfirst，见 cachyOS-config aur/README.md）。
 window_integration = true
 score_open_windows = true
 

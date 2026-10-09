@@ -3,7 +3,11 @@
 这里放的**不是**要装到 `$HOME` 的配置文件，所以不走 `manifest.map`，`install.sh`
 也不碰它。它是「重装这台机器时，为了让某个 AUR 包装得上，必须留在手边的东西」。
 
-目前有三个：`python-rapidocr`（装不上）、`elephant-clipboard` 和 `elephant-desktopapplications`（行为要改）。
+目前只剩一个：`python-rapidocr`（装不上）。
+
+> 原先还有 `elephant-clipboard`、`elephant-desktopapplications` 两份本地补丁版 PKGBUILD，
+> 2026-10-09 已作为**新包名发布到 AUR**（维护者是自己，AUR 账号 couldLover），本地这两份随之删除。
+> 下面两节保留「为什么要改」和维护流程，装法改成直接 `yay`。
 
 ---
 
@@ -90,7 +94,57 @@ pytorch 模块数为 **0** —— 是执行不到的死代码，且与上游 whe
 
 ---
 
-## elephant-clipboard —— 剪贴板（launcher 模块，`SUPER+V`）的搜索补丁
+## 两个 AUR 包的共同约定（2026-10-09 发布）
+
+| AUR 包 | 替代 | 补丁来源（github.com/numb747/elephant 的分支） |
+|---|---|---|
+| [`elephant-clipboard-substring`](https://aur.archlinux.org/packages/elephant-clipboard-substring) | `elephant-clipboard` | `clipboard-substring-search` |
+| [`elephant-desktopapplications-windowfirst`](https://aur.archlinux.org/packages/elephant-desktopapplications-windowfirst) | `elephant-desktopapplications` | `desktopapps-window-first` |
+
+- **新包名 + `provides`/`conflicts`**，不是上传同名包：AUR 规则只允许「带补丁的变体」用不同名字发布。
+  `provides=elephant-xxx=${pkgver}`，所以 `pacman -Q elephant-clipboard` 查得到补丁版，
+  依赖原名的东西也满足；装它会提示和原版冲突、替换掉原版。
+- **装法**：和 elephant 本体、其他插件放在**同一条** yay 命令里（Go plugin ABI，见 `docs/13-launcher.md`）：
+
+  ```bash
+  yay -S aur/walker elephant elephant-windows elephant-websearch elephant-providerlist \
+         elephant-symbols elephant-clipboard-substring elephant-desktopapplications-windowfirst
+  systemctl --user restart elephant walker      # 装了新插件两个都要重启，见 docs/13 坑 4
+  ```
+
+- **打包仓库**：本机 `~/linuxProjects/aur-<包名>/`（和 card-forge / jm-boom 放在一起），
+  `origin` 是 `ssh://aur@aur.archlinux.org/<包名>.git`。里面只入库 `PKGBUILD`、`.SRCINFO`、`.patch`。
+  补丁的 fork 本地克隆是 `~/Projects/elephant`（`origin` = fork，`upstream` = abenz1267/elephant；笔记本上没有这份克隆）。
+
+### ⚠ elephant 升级时会发生什么（和本地版不一样了）
+
+本地版是**同名** `pkgrel=1.1`，上游一升级就被未打补丁的版本替换——退化但不坏。
+换成新包名后**反过来了**：上游所有 `elephant-*` 一起升到新版时，这两个包**不会**被替换，
+留在旧版本上，而 Go plugin 要求和本体同一次构建，于是**加载失败**——剪贴板、应用搜索直接没了。
+`journalctl --user -u elephant` 里看对应 provider 有没有 `providers loaded=`。
+
+所以 elephant 每次升级，**先更新这两个 AUR 包再升级**（或升级后立刻 `yay -S` 重编这两个）。
+维护流程（在有 fork 克隆的那台机器上）：
+
+```bash
+cd ~/Projects/elephant && git fetch upstream --tags
+git rebase --onto vX.Y.Z v2.22.1 clipboard-substring-search   # 冲突 = 上游改了这段，手工处理
+git push -f origin clipboard-substring-search
+git diff vX.Y.Z clipboard-substring-search -- internal/providers/clipboard \
+  > ~/linuxProjects/aur-elephant-clipboard-substring/clipboard-substring-search.patch
+# desktopapplications 同理：分支 desktopapps-window-first，路径 internal/providers/desktopapplications
+
+cd ~/linuxProjects/aur-elephant-clipboard-substring
+sed -i 's/^pkgver=.*/pkgver=X.Y.Z/; s/^pkgrel=.*/pkgrel=1/' PKGBUILD
+updpkgsums && makepkg -f && makepkg --printsrcinfo > .SRCINFO
+git commit -am "Update to X.Y.Z" && git push
+```
+
+补丁打不上时 `prepare()` 直接失败，不会装出半成品。**没有锁 IgnorePkg**，理由同前：锁住插件而本体照常升级，一样加载失败。
+
+---
+
+## elephant-clipboard-substring —— 剪贴板（launcher 模块，`SUPER+V`）的搜索补丁
 
 ### 为什么要改
 
@@ -109,53 +163,15 @@ pytorch 模块数为 **0** —— 是执行不到的死代码，且与上游 whe
 **不分大小写的子串匹配；空格分隔多个词时每个词都要出现（AND）；结果一律按时间从新到旧排**
 （置顶的仍在最上，`pinned_on_top`）。上游 master（2026-10-09）这段代码没变。
 
-### 装法
-
-```bash
-cd ~/cachyOS-config/aur/elephant-clipboard && makepkg -si
-systemctl --user restart elephant walker      # 两个都要重启，见 docs/13 坑 4
-```
-
-★ **必须和已装的 elephant 本体同版本**（Go plugin ABI，见 docs/13）。PKGBUILD 的 `pkgver` 要和
-`pacman -Q elephant` 一致，不一致就改 `pkgver` 和 tarball 的 sha256 再编。
-
-### 补丁的源头：自己的 fork
-
-改动以 commit 形式存在 **github.com/numb747/elephant** 的 `clipboard-substring-search` 分支上
-（2026-10-09 fork，基于 `v2.22.1`，没有给上游开 PR）。本地克隆在 `~/Projects/elephant`，
-`origin` 是 fork（走 `github-numb747` 这个 SSH 别名），`upstream` 是 abenz1267/elephant。
-本目录的 `.patch` 就是从这个分支导出的。
-
-上游发新版时，在 fork 里把补丁挪到新 tag 上，再重新导出：
-
-```bash
-cd ~/Projects/elephant && git fetch upstream --tags
-git rebase --onto vX.Y.Z v2.22.1 clipboard-substring-search   # 冲突了说明上游改了这段，手工处理
-git push -f origin clipboard-substring-search
-git diff vX.Y.Z clipboard-substring-search -- internal/providers/clipboard \
-  > ~/cachyOS-config/aur/elephant-clipboard/clipboard-substring-search.patch
-# 然后改 PKGBUILD 的 pkgver、两个 sha256，makepkg -si
-```
-
-### 升级时会发生什么
-
-`pkgrel=1.1` 比上游 `2.22.1-1` 新，所以同版本下 yay 不会覆盖它。
-但上游一发新版（所有 elephant-* 一起升），yay 会用**未打补丁**的版本替换——**不会坏，只是搜索退回原来那样**。
-所以每次 elephant 升级后回来做一遍：改 `pkgver` / sha256 → `makepkg -si` → 重启两个服务。
-补丁打不上（上游改了这段）时 `prepare()` 会直接失败，不会装出半成品。
-
-自检（看补丁是否还在）：
+### 自检（看补丁是否还在）
 
 ```bash
 elephant query --json "clipboard;a;300;false" | jq -s '[.[]|select(.item)]|length'   # 原版几乎总是 0
 ```
 
-**没有锁 IgnorePkg**：锁住它而 elephant 本体照常升级，插件就会因 ABI 不一致加载失败，剪贴板直接没了。
-宁可退化，不要坏掉。
-
 ---
 
-## elephant-desktopapplications —— 启动器里「应用紧贴自己的窗口」的排序补丁
+## elephant-desktopapplications-windowfirst —— 启动器里「应用紧贴自己的窗口」的排序补丁
 
 ### 为什么要改
 
@@ -165,36 +181,10 @@ elephant query --json "clipboard;a;300;false" | jq -s '[.[]|select(.item)]|lengt
 `query.go` 一处 + `activate.go` 抽出判定函数、加一个算窗口分的函数）：**应用分 = 它窗口的分 − 1**，
 窗口分的算法照抄 windows 插件。详细对比表在 `docs/13-launcher.md` 坑 7。
 
-### 装法
+### 自检
 
-```bash
-cd ~/cachyOS-config/aur/elephant-desktopapplications && makepkg -si
-systemctl --user restart elephant
-```
-
-同 elephant-clipboard：**`pkgver` 必须和 `pacman -Q elephant` 一致**（Go plugin ABI）。
-
-### 补丁的源头
-
-fork 的 **`desktopapps-window-first`** 分支（基于 `v2.22.1`，和剪贴板补丁是两个独立分支，没给上游开 PR）。
-上游发新版时：
-
-```bash
-cd ~/Projects/elephant && git fetch upstream --tags
-git rebase --onto vX.Y.Z v2.22.1 desktopapps-window-first
-git diff vX.Y.Z desktopapps-window-first -- internal/providers/desktopapplications \
-  > ~/cachyOS-config/aur/elephant-desktopapplications/desktopapps-window-first.patch
-# 改 PKGBUILD 的 pkgver、两个 sha256，makepkg -si
-```
-
-### 升级时会发生什么
-
-和 elephant-clipboard 完全一样：同版本 `pkgrel=1.1` 压过上游 `-1`；上游一发新版就被**未打补丁**的版本替换，
-**不会坏，只是退回减半**（窗口仍第一，无关条目又会夹进来）。同样**没锁 IgnorePkg**，理由同上。
-
-自检（窗口开着时，补丁在 → 应用分恰好比窗口少 1；原版 → 约一半）：
+窗口开着时，补丁在 → 应用分恰好比窗口少 1；原版 → 约一半：
 
 ```bash
 elephant query --json "desktopapplications,windows;localsend;4;false" | jq -c 'select(.item)|.item|[.score,.provider]'
 ```
-
