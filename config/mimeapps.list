@@ -1,7 +1,9 @@
 [Added Associations]
+application/json=org.gnome.TextEditor.desktop;
 application/pdf=libreoffice-draw.desktop;
 
 [Default Applications]
+application/json=org.gnome.TextEditor.desktop;
 application/mxf=mpv.desktop
 application/ogg=mpv.desktop
 application/pdf=libreoffice-draw.desktop;
