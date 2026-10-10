@@ -5,7 +5,7 @@
 
 > ⚠ **先确认你在哪台机器上。** 这个仓库有两份检出：
 > **源机器** `/home/david/cachyOS-config`（包从这里打出来，下面写的都按它来），
-> 和**笔记本** `/home/monkey/cachyOS-config`（8 个文件永远显示「不一致」，
+> 和**笔记本** `/home/monkey/cachyOS-config`（10 个文件永远显示「不一致」，
 > 且 `sync.sh --pull`、裸 `install.sh` 是**禁止操作**）。
 > 在笔记本上先读 `docs/11-multi-machine.md`，本文其余部分再照那篇的例外表打折扣。
 
@@ -411,9 +411,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   所以写死了 `depends=elephant=<同版本>`：上游发新版时 `-Syu` 会**报依赖冲突、拒绝升级 elephant**
   ——这是有意的，不是坏了。先更新这两个 AUR 包，流程见 `aur/README.md`。
   ⚠ **2026-10-10 应用插件又修了两处**（上游 blacklist 对 Waydroid 每次会话重建的 .desktop 失效；
-  按「app_id = desktop 文件名」认窗口），代码在 fork `desktopapps-window-first` 分支的 6a63b9e，**AUR 包还没发新版**
-  （源机器没有 AUR 密钥，要在笔记本上发）。源机器眼下装的是同一补丁本地构建的原名包
-  `elephant-desktopapplications 2.22.1-1.2`，AUR 发布后换成 `-windowfirst`，见 `aur/README.md`。
+  按「app_id = desktop 文件名」认窗口），代码在 fork `desktopapps-window-first` 分支的 6a63b9e，已在笔记本发布为
+  AUR `2.22.1-3`（源机器没有 AUR 密钥，以后发版也在笔记本上做）。⚠ 源机器眼下装的仍是同一补丁本地构建的原名包
+  `elephant-desktopapplications 2.22.1-1.2`，**待换成 `-windowfirst`**，见 `aur/README.md`。
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；

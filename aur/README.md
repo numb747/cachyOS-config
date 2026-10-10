@@ -189,7 +189,7 @@ elephant query --json "clipboard;a;300;false" | jq -s '[.[]|select(.item)]|lengt
 `query.go` 一处 + `activate.go` 抽出判定函数、加一个算窗口分的函数）：**应用分 = 它窗口的分 − 1**，
 窗口分的算法照抄 windows 插件。详细对比表在 `docs/13-launcher.md` 坑 7。
 
-### 2026-10-10 追加的两处修复（⚠ AUR 还没发布）
+### 2026-10-10 追加的两处修复（AUR `2.22.1-3`）
 
 ① **blacklist 对启动后新建/重写的 .desktop 也生效**：上游只在启动扫描目录时查，
 Waydroid 每次会话启动都会删掉重建自己导出的 .desktop，屏蔽就失效了（被屏蔽的安卓版 LocalSend
@@ -197,8 +197,8 @@ Waydroid 每次会话启动都会删掉重建自己导出的 .desktop，屏蔽�
 `org.kde.ark` / `org.kde.dolphin` 这类应用之前认不出自己的窗口。同时窗口分改成和 windows 插件逐步一致
 （先挑原始分最高的字段再减起始位置）。详见 `docs/13-launcher.md` 坑 7。
 
-代码在 fork `desktopapps-window-first` 分支的 6a63b9e（已推到 GitHub）。**AUR 上的 `elephant-desktopapplications-windowfirst`
-还停在不含这两处的版本**——源机器没有 AUR 的 SSH 密钥，发布要在笔记本上按上面的维护流程做：
+代码在 fork `desktopapps-window-first` 分支的 6a63b9e。**2026-10-10 已在笔记本发布为 AUR `2.22.1-3`**
+（AUR 仓库提交 83c0e6b）。源机器没有 AUR 的 SSH 密钥，以后发布也要在笔记本上做；
 笔记本没有 fork 克隆，补丁直接从 GitHub 取（这个分支只动 `internal/providers/desktopapplications/`）：
 
 ```bash
@@ -208,8 +208,8 @@ curl -L https://github.com/numb747/elephant/compare/v2.22.1...desktopapps-window
 ```
 
 源机器 2026-10-10 装的是同一补丁本地 `makepkg` 的**原名包** `elephant-desktopapplications 2.22.1-1.2`
-（那份本地 PKGBUILD 已随 `aur/` 本地版一起删掉）。AUR 发布后在源机器上
-`yay -S elephant-desktopapplications-windowfirst` 换过去即可（`conflicts` 原名，会提示替换）。
+（那份本地 PKGBUILD 已随 `aur/` 本地版一起删掉）。⚠ **待办**：在源机器上
+`yay -S elephant-desktopapplications-windowfirst` 换过去（`conflicts` 原名，会提示替换），再重启 walker。
 
 ### 自检
 

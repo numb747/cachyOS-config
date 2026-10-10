@@ -416,8 +416,8 @@ Waydroid 的窗口当时一个都没开，没有实测，是按代码和 Ark/Dol
 
 还剩的：
 
-- ⚠ **这两处修复还没进 AUR 包**：AUR 上的 `elephant-desktopapplications-windowfirst` 是修复前的版本，
-  源机器暂装本地构建的原名包 `2.22.1-1.2`。发布方法见 `aur/README.md`。
+- 两处修复已进 AUR 包 `elephant-desktopapplications-windowfirst 2.22.1-3`（2026-10-10 笔记本发布）。
+  ⚠ 源机器暂装的本地构建原名包 `2.22.1-1.2` 待换过去，见 `aur/README.md`。
 - （打补丁前还有一个「历史分累加到能翻盘」的理论风险，补丁版直接用窗口分覆盖应用分，这条不存在了。）
 
 ## 回退到 noctalia 启动器
