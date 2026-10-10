@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 14 documents under
-> `docs/` — roughly 286 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 290 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 

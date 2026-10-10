@@ -410,6 +410,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 独立包名，**elephant 升级时 yay 不会顺带重编它们**，留在旧版本上就加载失败（Go plugin ABI）。
   所以写死了 `depends=elephant=<同版本>`：上游发新版时 `-Syu` 会**报依赖冲突、拒绝升级 elephant**
   ——这是有意的，不是坏了。先更新这两个 AUR 包，流程见 `aur/README.md`。
+  ⚠ **2026-10-10 应用插件又修了两处**（上游 blacklist 对 Waydroid 每次会话重建的 .desktop 失效；
+  按「app_id = desktop 文件名」认窗口），代码在 fork `desktopapps-window-first` 分支的 6a63b9e，**AUR 包还没发新版**
+  （源机器没有 AUR 密钥，要在笔记本上发）。源机器眼下装的是同一补丁本地构建的原名包
+  `elephant-desktopapplications 2.22.1-1.2`，AUR 发布后换成 `-windowfirst`，见 `aur/README.md`。
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；

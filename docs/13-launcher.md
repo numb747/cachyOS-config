@@ -371,7 +371,9 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 
 补丁（AUR 包 `elephant-desktopapplications-windowfirst`，fork 的 `desktopapps-window-first` 分支）：
 **有窗口的应用分数 = 它窗口的分数 − 1**，窗口分用和 windows 插件完全相同的算法
-（标题、app_id 取高者，`max(分 − 起始位置, 10)`），多个窗口取最高的。这样应用紧贴在自己窗口下面。
+（在标题、app_id 里取**原始分最高**的那个字段，再减它的起始位置，`max(…, 10)`），多个窗口取最高的。
+这样应用紧贴在自己窗口下面。⚠ 顺序不能反：最初写成「每个字段先减再取最大」，Dolphin 的标题原始分高但起始
+位置靠后、app_id 相反，于是算出 160 而 windows 插件给的是 158，应用（159）又跑到窗口前面去了（2026-10-10）。
 窗口分不超过 `min_score`（30，窗口基本没匹配上）时不动应用的分。
 
 实测（隔离实例对比，2026-10-09）：
@@ -386,16 +388,37 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 WeCom / Excalidraw 因 Exec 路径含 `.local` 被搜出来是另一回事：`only_search_title = true` 能去掉，
 但会连 Comment 一起不搜（搜「企业」就出不来 WeCom，见坑 3），没开。
 
-还剩的、有意没修的：
+#### 2026-10-10：被屏蔽的安卓版 LocalSend 又排回第一 → 补丁追加两处修复
 
-- **Waydroid 应用的窗口识别不出来**。elephant 判断「这个应用有没有窗口」只拿窗口 app_id 去比
-  `StartupWMClass` / `Icon` / `Exec` 第一个词，而 Waydroid 窗口的 app_id 是
-  `waydroid.<包名>`，恰好等于 .desktop 文件名——上游没比这一项。要修得改
-  `internal/providers/desktopapplications/activate.go` 的 `appHasWindow`，又多一个要维护的补丁，
-  用户决定先不做。影响：搜 `wecom` 时安卓 WeCom 的窗口排在 WeCom 应用条目后面。
-- **补丁版被升级冲掉时会退回「减半」**：窗口仍第一，只是无关条目又会夹进来。到时候按
-  `aur/README.md` 重打。（打补丁前还有一个「历史分累加到能翻盘」的理论风险，
-  补丁版直接用窗口分覆盖应用分，这条不存在了。）
+现象：一夜之后搜 `local`，第一条又是安卓版 LocalSend（160 分，带历史），窗口 140 第二。
+**blacklist 是上游的 bug**：只在 elephant 启动时扫目录（`walkFunction`）那一次检查。之后由文件监听
+新建/改写的 .desktop 走 `addNewEntry`，**不查 blacklist**。而 Waydroid **每次会话启动都会删掉重建**
+自己导出的 .desktop（那天 08:14 那份就是新的），于是只要 elephant 先于 Waydroid 起来，屏蔽就失效。
+补丁把检查挪进 `addNewEntry`（所有入口都经过它）。
+
+同一版顺手修了另一个之前「有意没修」的：**按 app_id 认窗口时加上「app_id = .desktop 文件名」**
+（freedesktop 的约定）。上游只比 `StartupWMClass` / `Icon` / `Exec` 第一个词，于是 Waydroid 应用
+（app_id `waydroid.<包名>`）和不少 KDE 应用（`org.kde.ark`、`org.kde.dolphin`，Exec 只写 `ark`/`dolphin`）
+都认不出自己的窗口，应用照样带着历史分压过窗口。用户的要求是「同一个应用，窗口永远第一」，不只 LocalSend。
+
+验证（隔离实例，用复制出来的 applications 目录，起来后删掉重建安卓版的 .desktop，模拟 Waydroid）：
+
+| | 修复前 | 修复后（fork `desktopapps-window-first` 分支的 6a63b9e） |
+|---|---|---|
+| `local`，重建 .desktop 后 | 安卓版 160 → 窗口 140 → 原生 139 | 窗口 140 → 原生 139 |
+| `ark` | 应用 88 → 窗口 64 | 窗口 64 → 应用 63 |
+| `dolphin` | 应用 159 → 窗口 158 | 窗口 158 → 应用 157 |
+
+再拿当时开着的所有窗口扫了一遍（`v2ray` `draw` `ark` `dol` `mpv` `qq` `fir` `kit` `rust` `loc` 等全名和短前缀），
+都是「窗口 → 自己的应用」。搜 `libreoffice` 时 Calc / Writer 等和 Draw 窗口同分，那是**别的应用**，
+不受这条规则约束；Draw 自己的应用紧贴在 Draw 窗口下面。
+Waydroid 的窗口当时一个都没开，没有实测，是按代码和 Ark/Dolphin 同一路径推的。
+
+还剩的：
+
+- ⚠ **这两处修复还没进 AUR 包**：AUR 上的 `elephant-desktopapplications-windowfirst` 是修复前的版本，
+  源机器暂装本地构建的原名包 `2.22.1-1.2`。发布方法见 `aur/README.md`。
+- （打补丁前还有一个「历史分累加到能翻盘」的理论风险，补丁版直接用窗口分覆盖应用分，这条不存在了。）
 
 ## 回退到 noctalia 启动器
 

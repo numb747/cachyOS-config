@@ -14,6 +14,9 @@ score_open_windows = true
 # Waydroid 导出的安卓版 LocalSend 和原生的同名同图标，还带历史分，
 # 会顶到原生应用和窗口前面。安卓里要用就从 Waydroid 自己的桌面开。
 # 正则匹配的是去掉 .desktop 的文件名（子目录也只看文件名），不加锚点会误伤。
+# ⚠ 上游的 blacklist 只在 elephant 启动时扫一遍目录，Waydroid 每次会话启动都会重建它的
+#   .desktop，重建的那份就漏过去了——要靠补丁版插件里 2026-10-10 追加的修复才一直有效
+#   （fork 提交 6a63b9e；AUR 包发布前，源机器装的是本地构建的 2.22.1-1.2），见 docs/13 坑 7。
 # （曾经还屏蔽过 ~/.wine 里 Windows 版 Firefox 的快捷方式，wine 已于 2026-10-09 整套卸载。）
 blacklist = [
   '^waydroid\.org\.localsend\.localsend_app$',
