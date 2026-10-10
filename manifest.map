@@ -19,20 +19,18 @@ config/hypr/config/windowrules.lua        ~/.config/hypr/config/windowrules.lua
 # 消除开机时 wall*.png 一闪而过的那 1.5 秒，见 docs/02-hyprland.md。
 config/hypr/config/misc.lua               ~/.config/hypr/config/misc.lua
 # 录屏脚本（wl-screenrec 的开始/停止切换封装），配合 binds.lua 的 Super+Shift/Alt+R。
-# ★ mod_hypr 是硬编码 put 的、不走 put_module（见 install.sh 那句「这三个单独列」注释），
-#   所以这行只被 sync.sh 读到；install.sh 里必须另有一行 put 它，否则装不出去。
+# （2026-10-10 前 mod_hypr 是硬编码 put，这一段每加一行 install.sh 都得另补一行 put；
+#   现在走 put_module，和别的模块一样只改这里。check.sh 会核对每个模块都有 put_module。）
 bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
 # 剪贴板面板的包装脚本。⚠ 2026-10-09 起 SUPER+V 已改走 Walker（launcher 模块），它【当前没有键位在用】，
 # 留着是为了回退：把 mykeys.lua 第 18 节的命令换回 noct-panel clipboard 即可。
 # 用快捷键开的 noctalia 面板会在【某种没查清的状态下】约 1 秒自己关掉，而那个状态里
 # 「指针在不在面板矩形内」是决定性变量。这个脚本开完面板把指针挪进去钉住、关掉后还原，
 # 不判断当前是不是坏状态（坏状态下是解药，好状态下只是多挪一次指针）。见 docs/07 坑 10。
-# ★ 同 hypr-screenrec：mod_hypr 硬编码 put，install.sh 里必须另有一行，否则装不出去。
 bin/noct-panel                            ~/.local/bin/noct-panel
 # Dolphin 目录跳转（文件管理器里的 zi），配合 mykeys.lua 第 20 节的 ALT+Z。
 # 弹 kitty 跑 zoxide query -i，选中的目录经 D-Bus 在已有 Dolphin 窗口里开新标签页。
 # 依赖 zoxide + fzf + kitty（都在 packages.txt）。见 docs/02-hyprland.md。
-# ★ 同 hypr-screenrec：mod_hypr 硬编码 put，install.sh 里必须另有一行，否则装不出去。
 bin/dolphin-jump                          ~/.local/bin/dolphin-jump
 
 #@module term

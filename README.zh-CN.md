@@ -75,19 +75,24 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 ./sync.sh              # 只看哪些文件漂移了（不写任何东西）
 ./sync.sh --diff       # 逐个打印差异
 ./sync.sh --pull       # 收进包里，并重新生成 MANIFEST 和 hypr patch
-./sync.sh --pack       # pull 之后再打 tar.gz
+./sync.sh --pack       # pull 之后再打 tar.gz（只打入库文件）
+./check.sh             # 只读体检仓库本身（见下）
 ```
 
 要纳管一个新文件？只改 `manifest.map` 一行——`install.sh` / `uninstall.sh` / `sync.sh`
 都读它，三个脚本自动跟上。
 
-> 唯一的例外是 **hypr 模块**：`install.sh` 的 `mod_hypr` 是硬编码 `put` 的（为了在覆盖
-> 五个官方文件前先打警告），不走 `put_module`。往 hypr 段加文件时，`install.sh` 里
-> 必须**另外**补一行 `put`，否则 `sync.sh` 收得进来、`install.sh` 却装不出去。
+> ⚠ 新文件要**先 `git add` 再跑 `--pull`**。MANIFEST 和 `--pack` 都跟着 git 索引走，
+> 未跟踪的文件两边都会被静默漏掉（`--pull` 现在会对它报警）。
 
 有些文件包里存的是**模板**而非本机快照（比如 `qt6ct.conf` 里的 `/home/$USER`），
 拉回来会把本机路径写死进包。这类文件在 `manifest.map` 里用 `#@nopull <包内路径>` 标注，
 `--pull` / `--pack` 会跳过它们，`--check` 则照常显示不一致并标 `[nopull · 预期不一致]`。
+
+`./check.sh` 把这个仓库反复踩的「静默失败」变成机器检查：MANIFEST 对 git 索引、
+`manifest.map` 的每个模块都真的被 `install.sh` 安装、`hl.dsp.*` 的函数名（对 Hyprland 自带 stub）
+和参数名（对实测生效过的白名单 —— 写错的键 Hyprland 静默忽略）、文档里过期的数字、
+入库文件里的凭据、所有脚本的语法。它不写任何文件、只看仓库本身，换哪台机器跑结果都一样。
 
 ---
 
@@ -103,6 +108,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── manifest.map           ★ 文件映射表：包内路径 ⇄ 系统路径（三个脚本共用）
 ├── install.sh             包 → 系统（幂等 / 分模块 / --dry-run / 自动备份）
 ├── sync.sh                系统 → 包（把线上改动收回来）
+├── check.sh               只读体检仓库（MANIFEST / 映射表 / hl.dsp / 文档数字）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）

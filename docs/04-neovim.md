@@ -14,7 +14,7 @@ nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 47 个插件
 等 lazy 界面跑完再操作。**不要**把旧机的 `~/.local/share/nvim/lazy/` 拷过来——
 版本由 `lazy-lock.json` 锁定，拷实体反而容易和 git 状态冲突。
 
-> 46 装 / 47 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
+> 54 装 / 55 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
 > `lua/plugins/disabled.lua` 设成 `enabled = false`，属预期。
 
 ---

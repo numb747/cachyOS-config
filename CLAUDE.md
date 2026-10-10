@@ -19,6 +19,7 @@
 ├── manifest.map              ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
 ├── install.sh                包 → 系统（幂等、分模块、自动备份）
 ├── sync.sh                   系统 → 包（把线上改动收回来）
+├── check.sh                  只读体检仓库本身：把下面那些「静默失败」的坑变成机器检查
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
@@ -54,12 +55,15 @@
 # 2. 收回包里（顺序：hypr patch → 文档数字对账 → 最后生成 MANIFEST）
 cd ~/cachyOS-config && ./sync.sh --pull
 # 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
+# 4. 提交前 ./check.sh —— 有 ✗ 就别提交
 ```
 
 > **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
 > ASCII 成品张数、`docs/` 篇数与总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数
 > 和「现状」段那行键位数。
-> 表在 `sync.sh` 的「文档数字对账」段，新增一条加一行 `docnum` 即可。
+> 表在 `sync.sh` 的 `docnums` 函数里，新增一条加一行 `docnum` 即可。
+> 同一张表还有只读模式 `./sync.sh --docs`（`check.sh` 调它），只报过期、不改文件；
+> 正则一处都匹配不到（文档措辞改了）时两种模式都会报警，以前是静默 no-op。
 > ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
 > 于是 `--pull` 跑完那一刻，被改写的 4 份文档在 MANIFEST 里已是陈旧哈希，
 > `sha256sum -c` 当场失败 —— 和 2026-09-11 修掉的「裸 find 导致 MANIFEST
@@ -71,7 +75,9 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ```bash
 ./sync.sh              # 只看哪些文件漂移了（默认，不写任何东西）
 ./sync.sh --diff       # 逐个打印差异
-./sync.sh --pack       # pull 之后再打 tar.gz，准备拷去别的机器
+./sync.sh --pack       # pull 之后再打 tar.gz，准备拷去别的机器（只打入库文件）
+./sync.sh --manifest   # 只重算 MANIFEST，不读系统文件（笔记本上也能跑）
+./check.sh             # 只读体检：MANIFEST / manifest.map / hl.dsp 参数名 / 文档数字 / 凭据 / 语法
 ./install.sh --dry-run # 装之前先看会做什么
 ./install.sh hypr nvim # 只装指定模块（--list 看全部）
 ```
@@ -306,9 +312,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **47 装 / 48 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期。
-  2026-09-18 加 tabby.nvim：46/47 → 47/48。⚠ 这个数字**不在** `sync.sh` 的文档数字
-  对账表里，加减插件要手改）
+- nvim **54 装 / 55 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期。
+  2026-09-18 加 tabby.nvim：46/47 → 47/48。2026-10-10 起这两个数**进了** `sync.sh` 的
+  对账表（锁 = `lazy-lock.json` 条数，装 = 锁 − `disabled.lua` 里的 `enabled = false`），
+  进表时一查 lockfile 已是 55 条，文档落后了 7 个插件没人发现）
 - **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
   输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
   basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
@@ -337,7 +344,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  10 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  9 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，

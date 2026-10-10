@@ -61,6 +61,13 @@ put() {
     mkdir -p "$(dirname "$d")" || { err "建不了目录：$(dirname "$d")"; return 1; }
     if [ -e "$d" ]; then
         if cmp -s "$s" "$d"; then inf "$d 已是最新，跳过"; return 0; fi
+        # 装完会被 rewrite_home 改写路径的文件，和包里那份逐字节必然不同。只比原样的话，
+        # 在非打包机上每跑一次都会「备份 + 覆盖 + 再改写」，.bak 越积越多，
+        # 违背开头说的「不会叠加备份」。改写后的样子一致也算最新。
+        if [ "$HOME" != "$PKG_HOME" ] \
+           && cmp -s <(sed "s#$PKG_HOME#$HOME#g" "$s") "$d"; then
+            inf "$d 已是最新（路径已改写），跳过"; return 0
+        fi
         # 备份失败就别覆盖了 —— 覆盖掉又没备份是这里最坏的结果
         cp -a "$d" "$d.bak-$STAMP" || { err "备份失败，跳过不覆盖：$d"; return 1; }
         inf "备份 → $(basename "$d").bak-$STAMP"
@@ -70,7 +77,13 @@ put() {
     cp -a "$s" "$d" && ok "$d" || { err "写入失败：$d"; return 1; }
 }
 
-run() { if [ $DRY -eq 1 ]; then printf '  [dry] 执行: %s\n' "$*"; else "$@"; fi; }
+# ★ 2026-10-10：原来失败了只有命令自己往 stderr 打一句，FAILED 不置位 —— 不在用户
+#   systemd 会话里（ssh / tty 装）时 enable --now 全失败，结尾照样「✓ 完成」。
+#   和 put 在 2026-08-26 修掉的是同一个形状。
+run() {
+    if [ $DRY -eq 1 ]; then printf '  [dry] 执行: %s\n' "$*"; return 0; fi
+    "$@" || { err "执行失败：$*"; return 1; }
+}
 
 # put_module <模块名> —— 按 manifest.map 里的 #@module 分组批量安装。
 # 路径只写在 manifest.map 一处，三个脚本共用；新增文件不用改脚本。
@@ -103,7 +116,19 @@ mod_hypr() {
         inf "未装 lua，跳过语法预检（不影响安装）"
     fi
 
-    put config/hypr/mykeys.lua "$D/mykeys.lua"
+    # 五个被改过的官方文件（纯动态工作区 + 窗口规则 + 关内置壁纸）。见 docs/02、docs/10。
+    warn "接下来覆盖 5 个 CachyOS 官方文件（binds/variables/workspaces/windowrules/misc）"
+    inf  "它们属于 cachyos-hypr-noctalia 包，pacman 升级可能覆盖回去"
+    inf  "届时用 config/hypr/patches/*.patch 重新打上即可"
+    # ★ 2026-10-10 改走 put_module。原来这里逐个硬编码 put（为了先打上面的 warn），
+    #   结果 manifest.map 的 hypr 段每加一个文件，这里都得另补一行，否则 sync.sh 收得进来、
+    #   install.sh 却装不出去 —— hypr-screenrec / noct-panel / dolphin-jump 连着补了三次，
+    #   两份 README 和 manifest.map 里还各挂着一段警告。warn 打在 put_module 前面一样成立。
+    #   包括 mykeys.lua：它在下面 require 追加之前装好即可，顺序不受影响。
+    put_module hypr
+    # 录屏键位 Super+Shift/Alt/Ctrl+R 直接调 bin/hypr-screenrec，它底下是 wl-screenrec
+    command -v wl-screenrec >/dev/null 2>&1 \
+        || inf "未装 wl-screenrec（录屏键位依赖它）。装：yay -S wl-screenrec"
 
     # 挂载：官方 hyprland.lua 末尾追加一行，幂等
     if grep -q 'require("mykeys")' "$D/hyprland.lua" 2>/dev/null; then
@@ -111,34 +136,11 @@ mod_hypr() {
     elif [ $DRY -eq 1 ]; then
         printf '  [dry] 向 %s 追加 require("mykeys")\n' "$D/hyprland.lua"
     else
-        cp -a "$D/hyprland.lua" "$D/hyprland.lua.bak-$STAMP"
+        cp -a "$D/hyprland.lua" "$D/hyprland.lua.bak-$STAMP" \
+            || { err "备份 hyprland.lua 失败，不追加 require"; return 1; }
         printf '\nrequire("mykeys")\n' >> "$D/hyprland.lua"
         ok 'hyprland.lua 末尾已追加 require("mykeys")'
     fi
-
-    # 五个被改过的官方文件（纯动态工作区 + 窗口规则 + 关内置壁纸）。见 docs/02、docs/10。
-    warn "接下来覆盖 5 个 CachyOS 官方文件（binds/variables/workspaces/windowrules/misc）"
-    inf  "它们属于 cachyos-hypr-noctalia 包，pacman 升级可能覆盖回去"
-    inf  "届时用 config/hypr/patches/*.patch 重新打上即可"
-    local f
-    for f in binds variables workspaces windowrules misc; do
-        put "config/hypr/config/$f.lua" "$D/config/$f.lua"
-    done
-    # ↑ 这三个单独列是因为要先打上面那两句 warn；其余模块统一走 put_module
-
-    # 录屏脚本。binds.lua 的 Super+Shift/Alt/Ctrl+R 直接调它，少了它三个键位全哑。
-    # ★ 因为 mod_hypr 不走 put_module，manifest.map 里那行不会被自动安装，必须显式列在这。
-    put bin/hypr-screenrec "$HOME/.local/bin/hypr-screenrec"
-    command -v wl-screenrec >/dev/null 2>&1 \
-        || inf "未装 wl-screenrec（录屏键位依赖它）。装：yay -S wl-screenrec"
-
-    # 剪贴板面板包装脚本。2026-10-09 起 Super+V 改走 Walker，它只为回退留着（见 manifest.map 注释）。
-    # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
-    put bin/noct-panel "$HOME/.local/bin/noct-panel"
-
-    # Dolphin 目录跳转。mykeys.lua 第 20 节的 ALT+Z 直接调它，少了它那个键位会哑。
-    # ★ 理由同上：mod_hypr 不走 put_module，manifest.map 那行不会被自动安装。
-    put bin/dolphin-jump "$HOME/.local/bin/dolphin-jump"
 
     if command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
         if [ $DRY -eq 1 ]; then
@@ -147,7 +149,7 @@ mod_hypr() {
             hyprctl reload >/dev/null && ok "已重载 Hyprland"
         fi
         if [ $DRY -eq 0 ] && command -v jq >/dev/null 2>&1; then
-            inf "当前绑定总数：$(hyprctl binds -j | jq length)（2026-09-23 实测 124，以 CLAUDE.md「现状」段为准；95 = mykeys 没挂上）"
+            inf "当前绑定总数：$(hyprctl binds -j | jq length)（应与 CLAUDE.md「现状」段一致；95 = mykeys 没挂上）"
         fi
     else
         inf "Hyprland 未在当前会话运行 —— 登录桌面后执行 hyprctl reload"
@@ -177,15 +179,18 @@ mod_nvim() {
         if [ $DRY -eq 1 ]; then
             printf '  [dry] 整目录备份 %s → %s.bak-%s，然后替换\n' "$D" "$D" "$STAMP"
         else
-            mv "$D" "$D.bak-$STAMP" && inf "旧配置整目录备份 → $(basename "$D").bak-$STAMP"
+            # 备份失败就停：往下走会把包里的文件 cp 进旧目录、两套混在一起
+            mv "$D" "$D.bak-$STAMP" || { err "整目录备份失败，nvim 未安装：$D"; return 1; }
+            inf "旧配置整目录备份 → $(basename "$D").bak-$STAMP"
         fi
     fi
     if [ $DRY -eq 1 ]; then
         printf '  [dry] 复制 config/nvim/ → %s/\n' "$D"
     else
-        mkdir -p "$D" && cp -a "$SRC/config/nvim/." "$D/" && ok "$D"
+        mkdir -p "$D" && cp -a "$SRC/config/nvim/." "$D/" && ok "$D" || err "复制 nvim 配置失败：$D"
     fi
-    inf "首次 nvim 启动会按 lazy-lock.json 自动装 46 个插件，等它跑完"
+    # 数字从 lockfile 现数，别写死（这里曾写着 46，插件加到 48 锁时没人记得改）
+    inf "首次 nvim 启动会按 lazy-lock.json 自动装插件（锁了 $(grep -c '": {' "$SRC/config/nvim/lazy-lock.json" 2>/dev/null) 个），等它跑完"
     inf "语言工具链（LSP/formatter）要在 :Mason 里装，前置运行时见 docs/04-neovim.md"
 }
 
@@ -343,7 +348,7 @@ mod_wall() {
         put "wallpaper/ascii/$(basename "$a")" "$W/D-ASCII/$(basename "$a")"
     done
     put_module wall
-    inf "带了 1 张参考图 + $(ls -1 "$SRC"/wallpaper/ascii/ 2>/dev/null | wc -l) 张 D-ASCII 成品。整库（77 张 / 167 MB）用 python _fetch.py 重新拉，见 docs/05"
+    inf "带了 1 张参考图 + $(ls -1 "$SRC"/wallpaper/ascii/ 2>/dev/null | wc -l) 张 D-ASCII 成品。整库用 python _fetch.py 重新拉，见 docs/05"
 
     # settings.toml 里记的是【当时正在用的】那张，未必是包里带的这张 ——
     # 壁纸换得比配置勤，包不可能每次都跟着塞图。缺了就明确告诉用户去哪补。

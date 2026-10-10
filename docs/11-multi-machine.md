@@ -61,10 +61,21 @@
 > `cp -a` 出 `.bak-<时间戳>`）比跑整个模块干净。2026-09-20 源机器吃
 > `util/term.lua` 那批就是这么做的。
 
-### `MANIFEST.txt` 在笔记本上是过期的，别拿它验包
+### `MANIFEST.txt`：笔记本上用 `./sync.sh --manifest` 重算
 
-它只由 `./sync.sh --pull` 生成，而 `--pull` 在笔记本上是禁止操作（见上），所以**笔记本改了
-包内文件后它不会更新**，`sha256sum -c` 必然一片 FAILED。这不是包损坏。
+2026-10-10 之前它只由 `./sync.sh --pull` 生成，而 `--pull` 在笔记本上是禁止操作（见上），
+所以笔记本改了包内文件后 MANIFEST 只能一直过期着，`sha256sum -c` 一片 FAILED
+（2026-10-10 一查，已有 3 份文档的哈希是陈旧的）。
+
+现在有了 **`./sync.sh --manifest`**：只按 git 索引重算 MANIFEST，**不读任何系统文件、
+不重生成 hypr patch、不改文档**，在笔记本上是安全的。笔记本提交包内改动前：
+
+```bash
+./sync.sh --manifest && ./check.sh
+```
+
+`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 10 个「永远不一致」的文件
+是 `./sync.sh`（系统 vs 包）的事，不影响 `check.sh`。
 
 > 此前这里还记着一条「MANIFEST 把 `.git/` 卷了进去」的上游缺陷——**2026-09-11 的
 > `8caafb7` 已经修掉**：`sync.sh` 从裸 `find` 改成跟着 `git ls-files` 走，现在只收入库文件。
