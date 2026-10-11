@@ -141,14 +141,14 @@ ps -p $$ -o comm=      # → zsh   （别用 echo $SHELL 判断，见坑 3）
 ### Hyprland
 
 ```bash
-hyprctl binds -j | jq length     # → 116   （95 = mykeys 没挂上）
+hyprctl binds -j | jq length     # → 122   （95 = mykeys 没挂上）
 ```
 
 - [ ] `Ctrl+Alt+H/J/K/L` 切焦点
 - [ ] `Alt+Enter` 真全屏（盖住顶栏）；在全屏状态下按 `Ctrl+Alt+L` 仍能按方向切窗口
 - [ ] `Alt+W` 关窗口
 - [ ] `Alt+T` 新建桌面，**追加在最右边**；`Alt+[` / `Alt+]` 能走回来
-- [ ] `Alt+\` 在下方开新终端；`Ctrl+Alt+\` 在右侧
+- [ ] 进 tmux 后 `Alt+\` 左右分屏、`Alt+-` 上下分屏、`Alt+/` 弹速查菜单（Hyprland 里这几个 `\` 键 2026-10-11 起**不再绑定**，让给 tmux）
 - [ ] `Alt+S` 进抽屉架（满屏从上方降下），再按收起并回到原来那个桌面
 - [ ] 抽屉架里 `Alt+T` 加一格 → `Alt+[` / `Alt+]` 在两格间来回（**模态**：这几个键在
       抽屉架里切的是抽屉格，不是工作桌面）

@@ -51,8 +51,8 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 | 模块 | 内容 | 文档 |
 |---|---|---|
-| **hypr** | Hyprland 键位方案（40 条自定义绑定 → 共 125 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
-| **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k、tmux | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
+| **hypr** | Hyprland 键位方案（37 条自定义绑定 → 共 122 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
+| **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k、tmux（免前缀 Alt 层，学 Zellij） | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题）、Agent Teams 四个队员角色（开发 / 审查 / 测试 / 查文档）+ 团队日志 | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |

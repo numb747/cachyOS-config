@@ -51,18 +51,19 @@ Wayland 下合成器的全局 bind **直接截获**按键，应用一点都收�
 拿它换「关窗口」得不偿失。`ALT+W` 保住了同一个字母的肌肉记忆，代价只是带菜单栏的
 应用里 Alt+W 原本的「Window」菜单助记键。
 
-### 分屏终端为什么是「往某方向开一个新窗口」
+### ~~分屏终端~~（2026-10-11 撤销，三个 `\` 键让给 tmux）
 
-平铺布局里**没有**「把当前窗口劈成两半」这个动作——窗口数量决定分几块。所以实现是两步：
+原来 `ALT+\` / `CTRL+ALT+\` 在下方 / 右侧开一个新 kitty，`ALT+SHIFT+\` 翻转两个窗口的
+分割方向。实际一直没用上，2026-10-11 全部撤掉：**终端里的分屏交给 tmux 的免前缀 Alt 层**
+（`Alt+\` 左右、`Alt+-` 上下，见 [14](14-tmux.md) 第 1 节）。翻转分割方向官方 `SUPER+J` 仍可用。
+`mykeys.lua` 第 5 节整节删掉，`launchPrefix` 挪到了唯一用它的第 14 节（`ALT+E`）。
+
+想复活的话原理在这：平铺布局里**没有**「把当前窗口劈成两半」这个动作，所以是两步 ——
 
 ```lua
-hl.dispatch(hl.dsp.layout("preselect " .. dir))       -- 预选下一个新窗口落在哪边
+hl.dispatch(hl.dsp.layout("preselect " .. dir))       -- 预选下一个新窗口落在哪边（一次性）
 hl.dispatch(hl.dsp.exec_cmd(launchPrefix .. TERMINAL)) -- 紧接着把终端拉起来
 ```
-
-`preselect` 是一次性的，被这个新窗口消费掉后自动失效。
-想要纯预选（自己手动开任意程序）就把第二行删掉。
-`ALT+SHIFT+\` 是另一回事：翻转**已有的**两个窗口的分割方向。
 
 ### Caps Lock 当 Esc：走 XKB，不是键位绑定
 
@@ -659,7 +660,7 @@ ALT 这一组才是完整的。
   一行都跑不了，需整体翻译。`install.sh` 会检查并中止。
 - **noctalia**：`ALT+9`（顶栏开合）走 `noctalia msg` IPC。
 - **Walker + Elephant**：`ALT+Space` / `SUPER+.` 调 `walker`，没装或两个用户服务没起就没反应（launcher 模块，见 [13](13-launcher.md)）。
-- **UWSM**：分屏终端用 `uwsm app -- ` 前缀（与官方 `binds.lua` 一致）。
+- **UWSM**：`ALT+E` 开文件管理器用 `uwsm app -- ` 前缀（`mykeys.lua` 第 14 节的 `launchPrefix`，与官方 `binds.lua` 一致）。
 
 ## 不要带到虚拟机之外的东西
 

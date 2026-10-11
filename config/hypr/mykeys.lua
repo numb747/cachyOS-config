@@ -258,37 +258,6 @@ hl.bind("CONTROL + 4", two_planes(
 
 
 -- ────────────────────────────────────────────────────────────────────────────
---  5. 分屏终端：ALT + \ 下方开一个 ／ CTRL + ALT + \ 右侧开一个
---
---     一个键直接在指定方向开出一个新终端 —— Windows Terminal 的 Alt+Shift+-
---     / tmux 的 split-window 那种手感。
---
---     原理两步：先用 dwindle 的 preselect 预选「下一个新窗口开在哪一边」，
---     紧接着把终端拉起来，于是它正好落进预选好的位置。preselect 是一次性的，
---     被这个新窗口消费掉后自动失效。
---
---     ⚠ 平铺布局没有「把当前窗口劈成两半」这个动作——窗口数量决定分几块，
---     所以「分屏」在这里只能表现为「往指定方向开一个新窗口」。
---
---     想要纯预选（预选完自己手动开任意程序，不限终端）：把函数里 exec_cmd
---     那一行删掉即可。
---     ALT+SHIFT+\ 是另一回事：把已经存在的两个窗口在上下／左右之间翻转。
--- ────────────────────────────────────────────────────────────────────────────
-local launchPrefix = "uwsm app -- "   -- 与官方 binds.lua 保持一致；不用 UWSM 就改成 ""
-
-local function split_term(dir)
-    return function()
-        hl.dispatch(hl.dsp.layout("preselect " .. dir))
-        hl.dispatch(hl.dsp.exec_cmd(launchPrefix .. (TERMINAL or "kitty")))
-    end
-end
-
-hl.bind("ALT + backslash",           split_term("d"))
-hl.bind("CONTROL + ALT + backslash", split_term("r"))
-hl.bind("ALT + SHIFT + backslash",   hl.dsp.layout("togglesplit"))
-
-
--- ────────────────────────────────────────────────────────────────────────────
 --  6. 鼠标行为：打字时自动隐藏光标，一动鼠标就回来
 --     （KDE「输入时隐藏光标」/ Windows「键入时隐藏指针」的等价物）
 --
@@ -806,18 +775,20 @@ hl.config({
 --     unbind 在第 1 节。
 --
 --     为什么：本配置的「动作类」键位已经全部收在 ALT 上（Enter 全屏、
---     [ / ] 切桌面、\ 分屏、T 新桌面、W 关窗、S 抽屉、Space 启动器、9 顶栏），
+--     [ / ] 切桌面、T 新桌面、W 关窗、S 抽屉、Space 启动器、9 顶栏），
 --     开文件管理器同属这一类，跟着回 ALT 才不用在两组修饰键之间来回猜。
 --     字母 E 保留不变，只是小指 SUPER 换成拇指 ALT，肌肉记忆不用重学。
 --
 --     FILE_MANAGER 走 config/variables.lua 的全局值（当前 dolphin），
---     换文件管理器改那一处即可，这行不用动。launchPrefix 是本文件第 5 节
---     定义的 file-local，作用域覆盖到这里，和官方 binds.lua 的值一致。
+--     换文件管理器改那一处即可，这行不用动。launchPrefix 就定义在下面，值和官方
+--     binds.lua 一致（原在第 5 节；2026-10-11 第 5 节的分屏终端键让给 tmux 后整节删掉，
+--     这里是它唯一的使用者，就挪了过来）。
 --
 --     ⚠️ 同第 8、12 节的老问题：ALT + E 在带菜单栏的 GTK/Qt 应用里原本是
 --     「Edit」菜单的助记键，Wayland 下合成器全局 bind 会先截获，应用收不到。
 --     日常影响很小（这类应用基本都有别的入口），Wine 程序里会明显一点。
 -- ────────────────────────────────────────────────────────────────────────────
+local launchPrefix = "uwsm app -- "   -- 与官方 binds.lua 保持一致；不用 UWSM 就改成 ""
 hl.bind("ALT + E", hl.dsp.exec_cmd(launchPrefix .. (FILE_MANAGER or "dolphin")))
 
 

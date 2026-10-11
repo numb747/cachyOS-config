@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# tmux 的 Alt+Shift+O：从 zoxide 记录的目录里挑一个，切到（或新建）这个目录的 session（见 ~/.tmux.conf）
+dir=$(zoxide query -l | fzf --reverse --prompt '项目> ') || exit 0
+
+# 已有 session 就是从这个目录开的 → 直接用它（按路径认，不按名字：两个 src 目录不会串）
+name=$(tmux list-sessions -F '#{session_path}	#{session_name}' 2>/dev/null |
+       awk -F '\t' -v d="$dir" '$1 == d { print $2; exit }')
+if [ -z "$name" ]; then
+    name=$(basename "$dir" | tr '.:' '__')
+    # 名字被别的目录的 session 占了 → 带上父目录名
+    tmux has-session -t "=$name" 2>/dev/null && name="$(basename "$(dirname "$dir")" | tr '.:' '__')-$name"
+    tmux has-session -t "=$name" 2>/dev/null || tmux new-session -d -s "$name" -c "$dir"
+fi
+
+# 在 tmux 里就切过去；在普通终端里直接运行就接上去
+if [ -n "$TMUX" ]; then tmux switch-client -t "=$name"; else exec tmux attach -t "=$name"; fi

@@ -66,7 +66,7 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 
 | 修饰键 | 语义 | 例子 |
 |---|---|---|
-| `ALT` | **动作** | `ALT+Enter` 全屏、`ALT+W` 关窗、`ALT+T` 新桌面、`ALT+\` 分屏 |
+| `ALT` | **动作** | `ALT+Enter` 全屏、`ALT+W` 关窗、`ALT+T` 新桌面、`ALT+E` 文件管理器 |
 | `CTRL+ALT` | **导航** | `CTRL+ALT+HJKL` 切焦点 |
 | `+SHIFT` | 「**带着窗口一起**」 | `CTRL+ALT+SHIFT+HJKL` 搬窗口、`ALT+SHIFT+T` 带窗口去新桌面 |
 | `SUPER` | 官方保留的第二套入口 | `SUPER+Q` 关窗、`SUPER+F` 全屏 |
@@ -90,6 +90,5 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 | 只装 `nvim` | 独立可用。唯一外部依赖是 zsh（内置终端），没有则回退到 `$SHELL` |
 | 不装 `wall` | `settings.toml` 里的壁纸路径指向不存在的文件，noctalia 显示纯色背景，无报错 |
 
-分屏终端键（`ALT+\`）用的是官方全局变量 `TERMINAL`（在 `config/variables.lua`，
-默认 `kitty`）和 `uwsm app --` 前缀。不用 UWSM 的话把 `mykeys.lua` 第 5 节的
-`launchPrefix` 改成 `""`。
+`ALT+E`（文件管理器）用 `uwsm app --` 前缀。不用 UWSM 的话把 `mykeys.lua` 第 14 节的
+`launchPrefix` 改成 `""`。（原第 5 节的分屏终端键 `ALT+\` 已于 2026-10-11 撤掉、让给 tmux，整节删了。）

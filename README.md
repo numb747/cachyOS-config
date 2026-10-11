@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 15 documents under
-> `docs/` — roughly 331 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 340 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -62,8 +62,8 @@ Installing only part of it:
 
 | Module | Contents | Docs (zh) |
 |---|---|---|
-| **hypr** | Hyprland keymap (40 custom binds → 125 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
-| **term** | kitty (drops straight into nvim), alacritty, zsh, powerlevel10k, tmux | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
+| **hypr** | Hyprland keymap (37 custom binds → 122 total), mouse behavior, purely dynamic workspaces, the "rack" scratchpad system, screen recording | [02](docs/02-hyprland.md) · [cheatsheet](docs/06-keymap-cheatsheet.md) |
+| **term** | kitty (drops straight into nvim), alacritty, zsh, powerlevel10k, tmux (prefix-free Alt layer, Zellij-style) | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim customization: mini.files, toggleterm, lualine, transparent tokyonight | [04](docs/04-neovim.md) |
 | **ui** | noctalia bar wired to the theme engine, GTK/Qt/btop colors, fonts, cursor, input method, default applications | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code: context-usage statusline, multi-session dashboard (`ccw`/`ccs`), pet TUI (`ccp`, which can answer a prompt sitting in another terminal), Agent Teams roles (developer / reviewer / tester / docs-reader) + a team message log | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |

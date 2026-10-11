@@ -1,7 +1,9 @@
-# 14 · tmux：温习、3.x 新东西、遥控 Claude Code、Agent Teams 分屏
+# 14 · tmux：免前缀 Alt 键位、3.x 新东西、遥控 Claude Code、Agent Teams 分屏
 
-> 配置文件只有一个 `~/.tmux.conf`（包内 `home/.tmux.conf`，**term 模块**）。
-> 这一篇一半是温习老功能，一半是 3.6–3.8 新加的东西。第 5 节是「用 tmux 给 Claude Code
+> 配置文件是 `~/.tmux.conf`（包内 `home/.tmux.conf`），外加 `Alt+Shift+O` 用的小脚本
+> `~/.local/bin/tmux-proj`（包内 `bin/tmux-proj`），都在 **term 模块**。
+> **第 1 节是键位**：2026-10-11 起学 Zellij，常用操作全是免前缀的 Alt 单键，前缀 `C-q` 只当备用。
+> 其余一半是温习老功能，一半是 3.6–3.8 新加的东西。第 5 节是「用 tmux 给 Claude Code
 > 打字、回车、等它答完、读答案」，第 7 节是「一个队长 claude 指挥几个队员 claude、
 > 每个队员一个 tmux 窗格」，第 8 节是「什么活该并行、什么活该一条线做下去」。第 5、7 节的结论**全部实测过**（2026-10-11，tmux 3.8 +
 > Claude Code 2.1.296）。
@@ -14,7 +16,8 @@
 - 终端链是 **kitty → nvim `:terminal` → zsh → tmux**（kitty 的 `shell` 直接起 nvim，见
   [03](03-terminal.md#kitty--打开终端直接进-nvim)）。所以 tmux 的「外层终端」其实是 nvim，
   `tmux list-clients -F '#{client_termtype}'` 报的是 `libvterm(0.3)` —— 那就是 nvim 的终端库。
-- 前缀键没改，还是 `C-b`。下文 `前缀 x` 都指「先按 `C-b` 松开，再按 `x`」。
+- **前缀是 `C-q`**（2026-10-11 从 `C-b` 改的，只当备用；`C-b` 还给了 Claude Code 的「命令转后台」）。
+  平时用第 1 节的 Alt 键。下文 `前缀 x` 都指「先按 `C-q` 松开，再按 `x`」。
 
 ### 「复制不出来」是怎么回事（2026-10-11）
 
@@ -31,18 +34,85 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
 
 ---
 
-## 1 · 三层结构：session / window / pane
+## 1 · 键位：免前缀 Alt 层（2026-10-11，学 Zellij）
 
-| 层 | 类比 | 常用键 |
+### 三层结构和对应的键
+
+| 层 | 类比 | 新建 | 切换 | 关 | 改名 |
+|---|---|---|---|---|---|
+| **session**（会话） | 一个工作区，脱离终端也活着 | `Alt+Shift+O` 选项目目录开一个 | `Alt+o` 列表（= 原 `前缀 s`）· `Alt+j/k` 到上/下边界时穿越 | 关光它的标签 | `Alt+Shift+R` |
+| **window**（标签） | 浏览器的 tab，底栏一格一个 | `Alt+Shift+N` | `Alt+1~8` 直达 · `Alt+h/l` 到左/右边界时穿越 | `Alt+q`（多窗格时确认） | `Alt+r` |
+| **pane**（窗格） | tab 里切出来的分屏 | `Alt+\` 左右 · `Alt+-` 上下 · `Alt+n` 自动 | `Alt+h/j/k/l` | 里面 `exit` | — |
+
+其余：`Alt+m` 放大/还原窗格 · `Alt+f` 浮动/放回 · `Alt+v` 复制模式 · `Alt+;` 命令行 ·
+`Alt+d` 脱离 · `Alt+0` 锁定 · **`Alt+/` 速查菜单（忘了就按它，选中即执行）**。
+
+- **穿越**是从 Zellij 学的：窗格和标签、会话用同一组方向键，不用分开记。
+  `Alt+h` 在最左边的窗格上再按 = 上一个标签；`Alt+j` 在最下边 = 下一个会话。
+- `Alt+n` 按窗格形状自动选方向：宽 > 高×2 就左右分，否则上下分（字符约 1:2）。
+- 改名的输入框**是空的**，旧名字显示在提示里；直接回车 / Esc 不改。
+- `Alt+q` 关掉会话里最后一个标签时切到别的会话，不会整个脱离（`detach-on-destroy off`）。
+- `Alt+Shift+O`：zoxide 记录的常去目录 → fzf 选 → 有同名会话就切过去，没有就以该目录新建。
+- `Alt+0` **锁定**：Alt 层和前缀全部放给里面的程序，底栏变红显示 LOCK，再按一次解锁。
+  用在两处：ssh 进去的远端也开着 tmux（外层锁住，Alt 键就到了里层）；偶尔要用被占掉的程序键
+  （比如 Claude Code 的 `Alt+j` 终端面板）。
+
+### 为什么是这些键：本机的冲突表
+
+键要穿过 **Hyprland → fcitx5 → kitty → 外层 nvim → tmux → zsh / Claude Code / nvim** 好几层，
+挑的是上面几层不截、下面几层「用户确认用不到」的组合。2026-10-11 逐层核对：
+
+| 谁 | 占了什么 | 结果 |
 |---|---|---|
-| **session**（会话） | 一个工作区，可以脱离终端独立活着 | `前缀 d` 脱离 · `tmux a` 接回 · `前缀 s` 列表 · `前缀 $` 改名 |
-| **window**（窗口） | 浏览器的 tab，底栏一格一个 | `前缀 c` 新建 · `前缀 n/p` 下/上一个 · `前缀 0-9` 直达 · `前缀 ,` 改名 · `前缀 &` 关 |
-| **pane**（窗格） | tab 里切出来的分屏 | `前缀 %` 左右分 · `前缀 "` 上下分 · `前缀 方向键` 切 · `前缀 x` 关 · `前缀 z` 放大/还原 |
+| **Hyprland** | `Alt+` `9 [ ] T S W E G Z Tab Space Enter` 及 `Alt+Shift+[ ] T S G Enter`；`Ctrl+1~4`；`Ctrl+Alt+HJKL`（加 Shift） | 这些按了根本到不了终端。网上常见的 `Alt+[ ]` 切标签、`Ctrl+Alt` 方向键切窗格在本机都不能用 |
+| Hyprland（已让出） | 原 `Alt+\` / `Ctrl+Alt+\` / `Alt+Shift+\`（分屏终端） | 2026-10-11 从 `mykeys.lua` 第 5 节删掉，`Alt+\` 给了 tmux（见 [02](02-hyprland.md)） |
+| **fcitx5** | `Ctrl+Space` 切输入法、`Super+Space`、单按左 Shift、`Ctrl+Alt+P` | 所以前缀**不能**用社区流行的 `C-Space` |
+| **外层 nvim**（kitty 起的那层） | 连按两下 `Esc`、`Ctrl+/`；**转发 `Alt+Shift+标点` 时丢掉 Shift** | 见下面坑 1 |
+| zsh（emacs 模式 + fzf） | `Alt+c` fzf 跳目录、`Alt+.` 上条末参数、`Alt+b/f/d` 按词、`Alt+n/p` 历史搜索、`Alt+h` run-help、`Alt+l` ls、`Alt+m`、`Alt+q`、`Alt+数字` | 被 Alt 层盖掉的这几个用户都确认不用（有 zoxide 就不需要 `Alt+c`）。**不去 `.zshrc` 里删**：tmux 在外层，绑了里面就收不到，效果一样，还少维护一处 |
+| Claude Code 2.1.296 | `Alt+o` fast mode、`Alt+p` 选模型、`Alt+t` 思考、`Alt+j` 终端面板；`Ctrl+B` 命令转后台、`Ctrl+G` 外部编辑器、`Ctrl+S` 暂存 | `Alt+o` 被占（用 `/fast` 代替），`Alt+j` 被占（`Alt+0` 锁定后可用）；`Alt+t` 本来就被 Hyprland 吃掉；**`Ctrl+B` 因为前缀改成 `C-q` 还回去了** |
+| LazyVim | `Alt+j/k` 上下移动行 | 被占，用户不用 |
 
-session 能脱离终端活着，这是 tmux 最根本的用处：关掉 kitty、断了 ssh，里面的程序照跑，
-`tmux a` 回来一切原样。**长任务（编译、下载、Claude 跑大活）放进 tmux 就不怕手滑关窗口。**
+前缀候选也这么筛过：`C-b` 撞 Claude 的转后台、手指别扭；`C-a` 是 zsh/Claude 的回行首；
+`C-Space` 撞 fcitx5；`C-s` 撞 Claude 暂存和 LazyVim 保存；反引号写代码时到处都是。
+剩下 **`C-q`** 冲突最少（只盖掉 zsh 的 push-line）。查 Claude Code 默认键位的办法：
+`strings ~/.local/share/claude/versions/<版本> | grep -oE '"(meta|alt|ctrl)\+[a-z]":"[a-zA-Z:]+"'`。
 
-### 找 tab、找东西
+### 底栏
+
+配色取自 noctalia 生成的 kitty 调色板（tokyonight 系，主色 `#7a88cf`），底色透明跟 kitty 毛玻璃走，
+用 Nerd Font 圆角做胶囊（终端要开真彩色：`terminal-features ',xterm-256color:RGB'`，
+外层 nvim 终端报的就是 `xterm-256color`）：
+
+- **左**：会话名胶囊，平时蓝 · 按了前缀黄 · 复制模式绿 · 锁定红色 LOCK。
+- **中**：当前标签是「编号 | 名字」双色胶囊，其余暗色；放大了带 󰊓，后台有新输出带黄点。
+- **右**：会话圆点（当前 ●、其余 ○，`Alt+j/k` 穿越时看得出在第几个）+ `Alt+/ 帮助`。
+- 窗格顶部显示标题：Agent Teams 时是任务名，没设标题就显示在跑的程序。
+
+⚠ 换壁纸换了色系，这里的十几个色值不会跟着变（不是 noctalia 模板生成的），要手改。
+
+### 写配置时踩到的坑（都是 2026-10-11 实测）
+
+1. **外层 nvim 转发「Alt+Shift+标点」会丢掉 Shift。** 用 `nvim --headless` 开 `:terminal cat -v`
+   喂按键实测：`<M-S-/>` 出来是 `^[/`，`<M-?>` 才是 `^[?`；**字母不受影响**（`<M-S-n>` → `^[N`）。
+   kitty 交给 nvim 的是前一种，所以按 `Alt+?` 到 tmux 是 `Alt+/`。于是 `Alt+?`、`Alt+:`、
+   `Alt+< >`、`Alt+|` 这类在本机全都**不能用**，帮助放 `Alt+/`、命令行放 `Alt+;`，
+   分屏方向也不能靠 `\` 加不加 Shift 区分（才有了 `Alt+\` / `Alt+-` 这对）。
+2. **参数末尾的分号是命令分隔符，引号里也是。** 菜单项写 `'命令行  Alt+;'` 会被截成 `Alt+`，
+   后面所有菜单参数错位，`Alt+/` 直接报 `not enough arguments` 弹不出来。写成 `'Alt+; '`（带尾空格），
+   菜单键写 `'\;'`。
+3. **注释行末尾的反斜杠会续行**，把下一行配置吞进注释。注释写「……还是 Alt+\」结尾，
+   下一行 `bind -n 'M-\' …` 就静默没了。注释别以 `\` 结尾。
+4. **`#{e|>|f:…}` 浮点比较返回 `"0.00"`，`if -F` 把它当真**（只有空串和 `0` 是假），
+   智能分屏会永远左右分。用整数比较 `#{e|>:#{pane_width},#{e|*:#{pane_height},2}}`。
+5. **测试方法**：独立服务器 `tmux -L 名字 -f 配置 new -d`，`script -qfc 'tmux -L 名字 attach' out.raw &`
+   造一个真客户端，`send-keys -K -c <客户端> M-h` 模拟按键再 `display -p` 看结果。
+   菜单/弹窗是覆盖层，`capture-pane` 抓不到，要 grep `out.raw`。
+   ⚠ `send-keys -K` 触发的 `command-prompt` 会**阻塞到提示框关闭**，脚本要把这一步放后台；
+   ⚠ 同一个 socket 名 `kill-server` 后立刻 `new` 会报 `server exited unexpectedly`，换个名字。
+6. 跑起来的 tmux `source` 新配置时，**删掉的绑定不会消失**（source 只加不减），要先 `unbind -n` 那几个键，
+   或者干脆重启服务器。
+
+### 前缀备用键：找 tab、找东西（Alt 层没覆盖的，或者想用原生的）
 
 | 想做什么 | 键 |
 |---|---|
@@ -95,7 +165,7 @@ session 能脱离终端活着，这是 tmux 最根本的用处：关掉 kitty、
 ### 键盘（能跨屏、能翻历史）
 
 ```
-前缀 [        进复制模式
+前缀 [        进复制模式（或者 Alt+v）
   移动         h j k l / w b / Ctrl-u Ctrl-d / g G / 搜索 / ? n N
   v           开始选择（本配置改的；默认是 空格）
   V           整行选择
@@ -133,6 +203,7 @@ kitty 起 nvim 时带了 `tnoremap <Esc><Esc> <C-\><C-n>`（[03](03-terminal.md)
 | 怎么来 | |
 |---|---|
 | `前缀 *` | 新建一个浮动窗格 |
+| `Alt+f` | 把当前窗格浮起来 / 放回去（本配置加的） |
 | **Ctrl + 鼠标拖** | 拖多大就多大 |
 | `前缀 >` 窗格菜单 → Float | 把现有的平铺窗格浮起来（Tile 是放回去） |
 | `前缀 g` 进入 move 键表 | 然后 `1-4` 贴到四角、方向键贴到四边、`0` 铺满、`Alt+1-4` 缩成四分之一贴角 |
@@ -301,7 +372,8 @@ tmux list-keys | less                # 所有键位（含 3.8 新加的）
 - `前缀 :` 进命令行，所有 `tmux xxx` 命令都能在这里直接敲（去掉 `tmux` 前缀）。
 - `前缀 ?` 列出所有键位；3.7 起各模式里 `C-h` 是该模式的帮助。
 - `前缀 Ctrl-z` 挂起客户端（回到外层 shell），`fg` 回来。
-- 分屏想继承当前目录：`bind '"' split-window -c "#{pane_current_path}"`（以及 `%`），本配置**没加**。
+- 分屏继承当前目录：`Alt+\` / `Alt+-` / `Alt+n` / `Alt+Shift+N` 都带了 `-c "#{pane_current_path}"`。
+- 改完配置：`前缀 r` 重载（删掉的绑定要先 `unbind`，见第 1 节坑 6）。
 
 ---
 
@@ -391,6 +463,29 @@ Opus 4.8，状态栏写的就是它。真要压成本只能点名 `haiku`（没�
   要看得另开一个终端 `tmux -L claude-swarm-<pid> attach`，队长退出时那个服务器一起关。
   能用，但不如直接在 tmux 里启动顺手。
 
+### 和第 1 节免前缀 Alt 层的关系（2026-10-11 实测：不冲突）
+
+独立 tmux 服务器加载新配置，haiku 队长建一个 docs-reader 队员读 README 回报，全程正常：
+25 秒切出队员窗格（队长左 30%、队员右 70%），`Alt+l` / `Alt+h` 在队长和队员之间切换、
+`Alt+m` 放大队员窗格都正常，队员做完后窗格自己关掉。不冲突的原因（读 2.1.296 的调用）：
+
+- Claude Code 指挥 tmux 一律用 **`%pane_id` / `@window_id`**，不用编号 —— `base-index 1` 不影响它；
+- 它给队员窗格**单独**设 `pane-border-format`（`-p`，用队员的颜色），盖过本配置的全局格式，所以
+  队员窗格标题是它自己的样式，别的窗格还是本配置的；`pane-border-status top` 两边设的一样；
+- 队员之间的消息走信箱文件，不经过 tmux 按键；队长面板的键（`↑/↓`、回车、`Esc`、`←` 看队员、
+  `Ctrl+T`、`Ctrl+O`、`Shift+Tab`）都不是 Alt 键；
+- `teammateMode = "tmux"` 在 tmux 外另起的 `claude-swarm-<pid>` 服务器也会读 `~/.tmux.conf`，Alt 层同样可用。
+
+要注意的三点：
+
+- **`Alt+q` 关的是整个标签**：在团队那个标签里按，队长和所有队员一起没（多窗格时会先问一次 y/n）。正常收尾还是对队长说
+  「给所有队员发关闭请求」，先写交接文件（见上面「关掉之后能恢复吗」）。
+- **别在团队标签里自己分屏**（`Alt+\` / `Alt+-` / `Alt+n`）：它重排布局时按整个窗口的窗格列表来
+  （`select-layout main-vertical` / `tiled`），你加的窗格会被一起摆。`team-log.sh -f` 这种放
+  **新标签**（`Alt+Shift+N`）里。
+- 被 Alt 层盖掉的两个 Claude 键：`Alt+o` fast mode 用 `/fast`，`Alt+j` 终端面板先 `Alt+0` 锁定再按。
+  反过来 `Ctrl+B`（命令转后台）因为前缀改成 `C-q` 能用了。
+
 ### 怎么看队员在干什么
 
 | 想看什么 | 怎么看 |
@@ -398,7 +493,7 @@ Opus 4.8，状态栏写的就是它。真要压成本只能点名 `haiku`（没�
 | 某个队员的完整过程 | 它的窗格：收到的消息（`ctrl+o` 展开）、调的工具、回答，全在里面 |
 | 跟某个队员直接说话 | 点进它的窗格打字，不经过队长（实测有效） |
 | 谁在忙、忙了多久 | 队长窗格底部的面板：`● main` / `◯ dev  任务名  1m 3s` |
-| 屏幕太挤 | `前缀 z` 放大当前窗格；`前缀 w` 树状列表带预览；窗格标题就是任务名 |
+| 屏幕太挤 | `Alt+m` 放大当前窗格；`前缀 w` 树状列表带预览；窗格标题就是任务名 |
 | **队员之间说了什么** | **团队日志**（下面），队长看不到这部分 |
 | 事后复盘某个队员做了什么 | 每个队员的完整会话单独存在 `~/.claude/projects/<项目路径转义>/<会话id>.jsonl`，里面有 `"agentName":"dev"` 能认出是谁；比如查谁改了哪些文件：`jq` 筛 `tool_use` 里 `name` 是 `Write`/`Edit` 的 `input.file_path` |
 
@@ -646,7 +741,7 @@ Claude Code 会在同一个会话里把它拉起来、恢复它保存的对话�
 
 ## 改配置
 
-照 [CLAUDE.md](../CLAUDE.md) 的姿势：改 `~/.tmux.conf`，`tmux source ~/.tmux.conf` 验证，
-再收回 `home/.tmux.conf`。它在 **term 模块**，和 `kitty.conf` / `.zshrc` 一起装；
+照 [CLAUDE.md](../CLAUDE.md) 的姿势：改 `~/.tmux.conf`，先用第 1 节坑 5 的独立服务器测，
+再 `前缀 r` 重载，最后收回 `home/.tmux.conf`（`tmux-proj` 收回 `bin/tmux-proj`）。它在 **term 模块**，和 `kitty.conf` / `.zshrc` 一起装；
 笔记本上 `install.sh term` 是禁止操作（[11](11-multi-machine.md)），但这个文件两台机器没有差异，
 单独 `cp` 就行。

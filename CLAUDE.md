@@ -113,7 +113,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
-| tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 | `docs/14-tmux.md` |
+| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 | `docs/14-tmux.md` |
 
 ---
 
@@ -282,7 +282,8 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 - 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
   zsh 5.9.2 + p10k 1.20.17
-- Hyprland 绑定 **125** 条（自定义 40 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
+  （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
   （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
@@ -436,5 +437,11 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   用完让队长关掉；关掉后团队恢复不了，只能恢复队长、重建失忆的新队员 —— 所以关之前先让队长写交接文件。
   另外本机 `sonnet` 映射到 Opus 4.8（有意的），点名 sonnet 省不了钱。
   全在 `docs/14-tmux.md` 第 7 节
+- **tmux 免前缀 Alt 层**（2026-10-11，term 模块）：学 Zellij，分屏 `Alt+\`/`Alt+-`/`Alt+n`、切换 `Alt+h/j/k/l`
+  （左右到边穿越标签、上下到边穿越会话）、标签 `Alt+Shift+N`/`Alt+1~8`/`Alt+q`、会话列表 `Alt+o`、速查 `Alt+/`；
+  前缀改 `C-q` 只当备用（`C-b` 还给 Claude Code）。为此删了 Hyprland 的 3 条 `\` 分屏终端键（mykeys.lua 第 5 节）。
+  ⚠ 三条：**① 外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift**（字母没事），所以没有 `Alt+?`/`Alt+:`/`Alt+|`；
+  **② tmux 参数末尾的 `;` 是命令分隔符，引号也挡不住**；**③ 注释行末尾的 `\` 会续行吞掉下一行**。
+  冲突表和测试方法在 `docs/14-tmux.md` 第 1 节
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
