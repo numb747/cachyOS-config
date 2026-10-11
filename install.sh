@@ -241,6 +241,12 @@ mod_ui() {
     { command -v docker >/dev/null 2>&1 && command -v google-chrome-stable >/dev/null 2>&1; } \
         || inf "Excalidraw 启动器要 docker + google-chrome-stable，缺一个点了没反应。镜像首次启动时自动拉"
 
+    # ADB 无线连接启动器：Exec 同样是绝对路径。发现设备靠 avahi，不靠 adb 自带的 mdns（发行版没编进去）
+    rewrite_home "$HOME/.local/share/applications/adb-wifi.desktop"
+    [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/adb-wifi" 2>/dev/null
+    { command -v adb >/dev/null 2>&1 && command -v avahi-browse >/dev/null 2>&1; } \
+        || inf "「ADB 无线连接」要 android-tools + avahi（且 avahi-daemon 在跑），缺了点了只会报没找到设备"
+
     [ -d /usr/share/icons/Bibata-Modern-Ice ] \
         || inf "未装 Bibata 光标（gtk/uwsm 配置引用了它）。要一致就 yay -S bibata-cursor-theme；不装则回退 Adwaita，无报错"
 

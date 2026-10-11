@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ADB 无线连接
+GenericName=ADB Wireless Connect
+Comment=自动找到开着「无线调试」的安卓设备并 adb connect，不用抄 IP:端口（~/.local/bin/adb-wifi）
+Exec=/home/david/.local/bin/adb-wifi
+Icon=phone
+Terminal=false
+Categories=Development;
+Keywords=adb;android;wireless;debug;wifi;安卓;无线调试;调试;手机;wuxian;tiaoshi;

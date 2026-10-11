@@ -735,6 +735,33 @@ Excalidraw 用不到 cookie 和密码，画布在 localStorage 里，Chrome 本�
 升级镜像：`docker pull excalidraw/excalidraw && docker rm excalidraw`，下次点图标会用新镜像重建。
 画布数据在 chrome profile 里，不在容器里，删容器不丢图。
 
+## ADB 无线连接（2026-10-10）
+
+手机打开「开发者选项 → 无线调试」，在启动器里搜「ADB」/「无线调试」点一下，就会连上，
+通知里会显示连上了哪台设备。不用再去手机上抄 `IP:端口`，手动跑 `adb connect`。
+
+为什么能省掉抄端口这一步：无线调试的**连接端口每次开关都会变**，但手机开着无线调试时
+会用 mDNS 广播 `_adb-tls-connect._tcp` 服务，里面就带着当前的 IP 和端口。
+`bin/adb-wifi` 用 `avahi-browse -rtpk` 读出所有广播，挨个 `adb connect`。
+同一 IP 下端口已经变了的旧条目会留在 `adb devices` 里显示 offline，脚本会先 `adb disconnect` 掉。
+
+**配对只需一次**（密钥记在手机的「已配对设备」里）。第一次用时，在手机上点「使用配对码配对设备」，
+然后在终端跑 `adb-wifi pair`。配对端口也是脚本自动找的（`_adb-tls-pairing._tcp`），只需要输 6 位码。
+
+### 两个坑
+
+**1. 发行版的 adb 不支持 mdns。** android-tools 37.0.0（CachyOS 打的包）编译时没带 mdns，
+`adb mdns check` / `adb mdns services` 都报 `mdns is not supported by this version of adb`，
+设 `ADB_MDNS_OPENSCREEN=1` 也没用。所以按 Google 文档的写法，「配对过的设备会被自动连上」在这里不会生效，
+只能另外用 avahi 发现设备。avahi-daemon 本来就在跑，本机也没有防火墙挡 5353/UDP（见 `docs/12`）。
+如果以后换成 Google 官方的 platform-tools，可以改回 `adb mdns services`。
+
+**2. adb server 会被启动器带走吗？不会。** 脚本有可能是第一个调 adb 的，这时 adb server 就由它 fork 出来。
+elephant 用 `uwsm app` 拉起程序，默认放在 **scope** 里。脚本退出后 scope 里还剩 adb server，
+scope 不会因此被停掉，server 也就保住了。如果以后把启动方式改成 service 类型
+（`app2unit -t service` 之类），主进程一退出 systemd 就会把 server 一起杀掉，
+表现是「通知显示连上了，转头 `adb devices` 是空的」。
+
 ## 已删掉的死配置
 
 `~/.config/qt5ct/` 和 `~/.config/xsettingsd/` 在原机器上存在，但 `qt5ct` 和

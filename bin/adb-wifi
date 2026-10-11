@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# adb-wifi — 一键连上开着「无线调试」的安卓设备,不用每次去手机上抄 IP:端口
+#
+#   adb-wifi          发现并连接(启动器「ADB 无线连接」就是调它)
+#   adb-wifi pair     首次配对:手机点「使用配对码配对设备」后跑这个,只输 6 位码
+#
+# 无线调试的连接端口每次开关都会变,但手机会用 mDNS 广播 _adb-tls-connect._tcp,
+# 照着广播连就行。⚠ 发行版的 adb(android-tools)编译时没带 mdns,
+# `adb mdns services` 直接报 "not supported",所以改用 avahi-browse 来找。
+# 配对是一次性的(密钥记在手机上),之后只需要连接这一步。
+set -uo pipefail
+
+notify() { notify-send -a "ADB" -i phone "$1" "${2:-}"; }
+
+# 列出局域网里广播某个 adb 服务的 IPv4 地址,每行一个 ip:port
+discover() {
+    timeout 8 avahi-browse -rtpk "$1" 2>/dev/null |
+        awk -F';' '$1 == "=" && $3 == "IPv4" { print $8 ":" $9 }' | sort -u
+}
+
+if [[ "${1:-}" == pair ]]; then
+    mapfile -t svcs < <(discover _adb-tls-pairing._tcp)
+    if (( ${#svcs[@]} == 0 )); then
+        echo "没找到配对服务:手机上 无线调试 → 使用配对码配对设备,弹窗开着时再跑一次" >&2
+        exit 1
+    fi
+    for svc in "${svcs[@]}"; do
+        read -rp "配对 $svc,输入手机上的 6 位配对码: " code
+        adb pair "$svc" "$code"
+    done
+    exit 0
+fi
+
+adb start-server >/dev/null 2>&1
+
+mapfile -t targets < <(discover _adb-tls-connect._tcp)
+if (( ${#targets[@]} == 0 )); then
+    notify "没找到设备" "手机上打开 开发者选项 → 无线调试(要和电脑同一个 Wi-Fi)。\n第一次用先在终端跑 adb-wifi pair 配对。"
+    exit 1
+fi
+
+msgs=()
+for t in "${targets[@]}"; do
+    ip=${t%:*}
+    # 同一台设备换了端口后,旧的 ip:旧端口 会以 offline 挂在列表里,先清掉
+    adb devices | awk -v ip="$ip" -v t="$t" 'index($1, ip ":") == 1 && $1 != t { print $1 }' |
+        while read -r stale; do adb disconnect "$stale" >/dev/null 2>&1; done
+
+    out=$(adb connect "$t" 2>&1)
+    if [[ $out == *"connected to"* ]]; then
+        model=$(adb -s "$t" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+        msgs+=("✓ ${model:-$t}  ($t)")
+    else
+        msgs+=("✗ $t  $out")
+    fi
+done
+
+notify "ADB 无线连接" "$(printf '%s\n' "${msgs[@]}")"

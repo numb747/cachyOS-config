@@ -117,6 +117,10 @@ share/applications/waydroid-restart.desktop  ~/.local/share/applications/waydroi
 bin/excalidraw                            ~/.local/bin/excalidraw
 share/applications/excalidraw.desktop     ~/.local/share/applications/excalidraw.desktop
 share/icons/hicolor/scalable/apps/excalidraw.svg  ~/.local/share/icons/hicolor/scalable/apps/excalidraw.svg
+# 启动器里的「ADB 无线连接」：靠 avahi 找手机广播的无线调试端口再 adb connect，不用抄 IP:端口。
+# 见 docs/05-theme-ui.md「ADB 无线连接」。
+bin/adb-wifi                              ~/.local/bin/adb-wifi
+share/applications/adb-wifi.desktop       ~/.local/share/applications/adb-wifi.desktop
 config/fcitx5/profile                     ~/.config/fcitx5/profile
 config/fcitx5/config                      ~/.config/fcitx5/config
 config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf
