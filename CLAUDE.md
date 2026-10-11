@@ -432,7 +432,9 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 三条：**① 分屏模式下角色定义正文替换默认系统提示、`disallowedTools` 不生效**，所以限权限只用
   `tools` 白名单；**② 队长地址是 `team-lead`**；**③ 开启后 Claude 平时给 subagent 起名也会变成队员**（官方文档说的，没实测）；
   **④ 共享任务列表本机用不了** —— Opus/Sonnet 5.5 默认没有 `TaskCreate` 等任务工具（按模型给，不是分屏的问题），
-  要 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` 才有。
+  要 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` 才有；**⑤ 队员做完不退出、一直常驻**（不花 token，但占内存），
+  用完让队长关掉；关掉后团队恢复不了，只能恢复队长、重建失忆的新队员 —— 所以关之前先让队长写交接文件。
+  另外本机 `sonnet` 映射到 Opus 4.8（有意的），点名 sonnet 省不了钱。
   全在 `docs/14-tmux.md` 第 7 节
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
