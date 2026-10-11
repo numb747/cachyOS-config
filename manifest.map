@@ -40,6 +40,8 @@ config/alacritty/alacritty.toml           ~/.config/alacritty/alacritty.toml
 config/alacritty/themes/noctalia.toml     ~/.config/alacritty/themes/noctalia.toml
 home/.zshrc                               ~/.zshrc
 home/.p10k.zsh                            ~/.p10k.zsh
+# tmux 3.8：vi 复制键位改成 vim 习惯 + wl-copy 进剪贴板。见 docs/14-tmux.md。
+home/.tmux.conf                           ~/.tmux.conf
 
 #@module nvim
 config/nvim/init.lua                      ~/.config/nvim/init.lua

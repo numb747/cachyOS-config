@@ -1,5 +1,7 @@
 # 03 · 终端：kitty / alacritty / zsh / powerlevel10k
 
+> tmux 单独一篇：[14-tmux.md](14-tmux.md)。
+
 对应文件：`config/kitty/`、`config/alacritty/`、`home/.zshrc`、`home/.p10k.zsh`
 
 ---

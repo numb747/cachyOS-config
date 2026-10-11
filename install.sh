@@ -157,7 +157,7 @@ mod_hypr() {
 }
 
 mod_term() {
-    head_ "term —— kitty / alacritty / zsh / powerlevel10k"
+    head_ "term —— kitty / alacritty / zsh / powerlevel10k / tmux"
     put_module term
 
     [ -f /usr/share/cachyos-zsh-config/cachyos-config.zsh ] \
@@ -428,7 +428,7 @@ mod_launcher() {
 ALL=(hypr term nvim ui cc wall ocr launcher)
 declare -A DESC=(
     [hypr]="Hyprland 键位、鼠标行为、动态工作区"
-    [term]="kitty / alacritty / zsh / powerlevel10k"
+    [term]="kitty / alacritty / zsh / powerlevel10k / tmux"
     [nvim]="LazyVim 全套配置"
     [ui]="noctalia 顶栏、GTK/Qt/btop 主题、环境变量、输入法"
     [cc]="Claude Code 会话看板 / 宠物 TUI / 上下文状态栏"

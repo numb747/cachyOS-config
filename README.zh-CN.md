@@ -52,7 +52,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | 模块 | 内容 | 文档 |
 |---|---|---|
 | **hypr** | Hyprland 键位方案（40 条自定义绑定 → 共 125 条）、鼠标行为、纯动态工作区、抽屉架、录屏脚本 | [02](docs/02-hyprland.md) · [速查表](docs/06-keymap-cheatsheet.md) |
-| **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k | [03](docs/03-terminal.md) |
+| **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k、tmux | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
 | **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题） | [08](docs/08-claude-code.md) |
@@ -112,8 +112,8 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  14 篇说明，见上表
-├── home/                  .zshrc  .p10k.zsh
+├── docs/                  15 篇说明，见上表
+├── home/                  .zshrc  .p10k.zsh  .tmux.conf
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
 │   ├── ocr-server         屏幕取字的常驻识别服务（RapidOCR，systemd socket 激活）

@@ -23,7 +23,7 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     14 篇，见下表（配图在 docs/img/）
+├── docs/                     15 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
@@ -113,6 +113,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
+| tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 | `docs/14-tmux.md` |
 
 ---
 
