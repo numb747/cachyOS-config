@@ -81,14 +81,48 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
 
 配色取自 noctalia 生成的 kitty 调色板（tokyonight 系，主色 `#7a88cf`），底色透明跟 kitty 毛玻璃走，
 用 Nerd Font 圆角做胶囊（终端要开真彩色：`terminal-features ',xterm-256color:RGB'`，
-外层 nvim 终端报的就是 `xterm-256color`）：
+外层 nvim 终端报的就是 `xterm-256color`）。2026-10-12 重做成**每块都是「彩色图标头 + 暗色正文」的胶囊**，
+样子参考 [catppuccin/tmux](https://github.com/catppuccin/tmux) 的 rounded 和
+[tmux-powerkit](https://github.com/fabioluciano/tmux-powerkit)，但**没装它们**，是照着写的：
 
-- **左**：会话名胶囊，平时蓝 · 按了前缀黄 · 复制模式绿 · 锁定红色 LOCK。
-- **中**：当前标签是「编号 | 名字」双色胶囊，其余暗色；放大了带 󰊓，后台有新输出带黄点。
-- **右**：会话圆点（当前 ●、其余 ○，`Alt+j/k` 穿越时看得出在第几个）+ `Alt+/ 帮助`。
-- 窗格顶部显示标题：Agent Teams 时是任务名，没设标题就显示在跑的程序。
+- **左**：会话胶囊，图标头平时蓝 · 按了前缀黄 · 复制模式绿 · 锁定红色 LOCK。
+- **中**：标签全是「编号 | 名字」胶囊，当前的蓝头亮色、其余灰头暗色；放大了带 󰊓，
+  后台有新输出编号变黄、响铃变红。
+- **右**：会话圆点（当前 ●、其余 ○，`Alt+j/k` 穿越时看得出在第几个）→ 当前目录胶囊（`~` 缩写，
+  超 28 字从左截断）→ git 分支胶囊（不在仓库里不显示）→ `Alt+/` 帮助。时间刻意不放（用户不要）。
+- **状态栏上面空一行**（`status 2`，默认格式挪到第 1 行、第 0 行留空），和窗格内容隔开。
+- 窗格顶部显示标题，当前窗格的也是胶囊：Agent Teams 时是任务名，没设标题就显示在跑的程序。
+
+为什么不直接装现成主题（2026-10-12 查过 tmux-powerkit、janoamaral/tokyo-night-tmux、catppuccin 换
+tokyonight 色、folke 官方 extras 等）：① 它们都接管 `status-left`，本机 Alt 层的 LOCK / 前缀 / 复制三态指示
+就没了（powerkit 认前缀和复制，不认 `key-table off`）；② 用的是标准 tokyonight 色值，和 noctalia 按壁纸
+取色的 kitty 有色差；③ 本包不用 TPM，装插件要多一个联网步骤。
+
+⚠ 两个写外观时会踩的：
+
+- **3.8 的三个默认样式会叠在胶囊上**：`window-status-current-style` 默认 `underscore`（当前标签多一条下划线），
+  `window-status-activity-style` / `bell-style` 默认 `reverse`（有新输出的标签整块反色）。
+  旧的纯文字标签看不太出来，一做成胶囊就很显眼。全设成 `default`，提醒改由编号颜色表达。
+- **Nerd Font 圆角/图标（U+E000–F8FF 那段）在 AI 生成文件时会被静默吃掉**（同 nvim 的 `tabby.lua` 头部注释），
+  第一版就是圆角全丢、只剩方块。改这一段时核对一下码位：
+  `python3 -c "print(sorted({hex(ord(c)) for c in open('$HOME/.tmux.conf').read() if ord(c)>=0xe000}))"`，
+  至少要有 `0xe0b4` / `0xe0b6`。
 
 ⚠ 换壁纸换了色系，这里的十几个色值不会跟着变（不是 noctalia 模板生成的），要手改。
+
+### 在 nvim 终端里跑 tmux：滚走的输出进不了 buffer（2026-10-12 实测）
+
+本机是 kitty → nvim → 终端 buffer → tmux。tmux 用**备用屏幕**（alternate screen）自己管画面和历史，
+所以 nvim 终端 buffer 里**只有当前这一屏**：同样输出 300 行，直接跑 zsh 时 buffer 有 301 行，
+在 tmux 里只有 22 行。「在 nvim 里随意编辑终端输出」这个好处，在 tmux 里只剩眼前一屏，
+更早的历史要用 tmux 自己的复制模式（`Alt+v`）翻。关掉备用屏幕（`smcup@:rmcup@`）也救不回来：
+分屏和状态栏的重绘会乱七八糟地灌进 buffer。所以分工是：**平时用 nvim 原生终端，
+要分屏 / Agent Teams / 会话常驻时才开 tmux**。
+
+同一处还有「两层状态栏」：tmux 状态栏下面紧跟着 nvim 的 lualine（`cmdheight=0`，没有命令行那一行）。
+评估过让 lualine 在 tmux 终端里隐藏、把 nvim 的模式（TERMINAL / NORMAL）推给 tmux 状态栏合成一行
+（`ModeChanged` → `tmux set @nvim_mode`），用户觉得没必要，**没做**。要做时注意切标签会让终端高度变一行，
+Claude Code 对窗口尺寸变化敏感，要先实测。
 
 ### 写配置时踩到的坑（都是 2026-10-11 实测）
 
