@@ -3,6 +3,9 @@
 装在 `~/.claude/` 下的三件东西：**上下文占比状态栏**、**多会话看板**、**宠物版 TUI（能就地代答）**。
 由 `install.sh cc` 安装，`manifest.map` 的 `#@module cc` 段是路径的单一事实来源。
 
+Agent Teams（一个队长 claude 指挥几个队员、tmux 分屏、团队日志）也在 cc 模块里，但写在
+[14-tmux.md](14-tmux.md) 第 7 节 —— 它和 tmux 绑得更紧。
+
 全部实测于 **Claude Code 2.1.246**。凡是写「实测」的结论，都跟直觉相反过，改之前先看第 4 节。
 
 ---

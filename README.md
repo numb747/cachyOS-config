@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 15 documents under
-> `docs/` — roughly 306 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 314 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -66,7 +66,7 @@ Installing only part of it:
 | **term** | kitty (drops straight into nvim), alacritty, zsh, powerlevel10k, tmux | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim customization: mini.files, toggleterm, lualine, transparent tokyonight | [04](docs/04-neovim.md) |
 | **ui** | noctalia bar wired to the theme engine, GTK/Qt/btop colors, fonts, cursor, input method, default applications | [05](docs/05-theme-ui.md) |
-| **cc** | Claude Code: context-usage statusline, multi-session dashboard (`ccw`/`ccs`), pet TUI (`ccp`, which can answer a prompt sitting in another terminal) | [08](docs/08-claude-code.md) |
+| **cc** | Claude Code: context-usage statusline, multi-session dashboard (`ccw`/`ccs`), pet TUI (`ccp`, which can answer a prompt sitting in another terminal), Agent Teams roles (developer / reviewer / docs-reader) + a team message log | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |
 | **wall** | Tokyo Night wallpapers and palette, plus the script that generates the library | [05](docs/05-theme-ui.md#壁纸) |
 | **ocr** | Screen text grab on `Super+Shift/Alt+O`: a resident RapidOCR service replacing normcap, 0.33 s from selection to clipboard | [10](docs/10-ocr.md) |
 | **launcher** | App launcher on `Alt+Space`: Walker + Elephant replacing noctalia's built-in launcher; apps and open windows in one search, `g␣` Google / `b␣` Baidu prefixes, colors follow the wallpaper | [13](docs/13-launcher.md) |

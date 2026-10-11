@@ -1,8 +1,9 @@
-# 14 · tmux：温习、3.x 新东西、拿它遥控 Claude Code
+# 14 · tmux：温习、3.x 新东西、遥控 Claude Code、Agent Teams 分屏
 
 > 配置文件只有一个 `~/.tmux.conf`（包内 `home/.tmux.conf`，**term 模块**）。
-> 这一篇一半是温习老功能，一半是 3.6–3.8 新加的东西，最后一节是「用 tmux 给 Claude Code
-> 打字、回车、等它答完、读答案」，那一节的结论**全部实测过**（2026-10-11，tmux 3.8 +
+> 这一篇一半是温习老功能，一半是 3.6–3.8 新加的东西。第 5 节是「用 tmux 给 Claude Code
+> 打字、回车、等它答完、读答案」，第 7 节是「一个队长 claude 指挥几个队员 claude、
+> 每个队员一个 tmux 窗格」。这两节的结论**全部实测过**（2026-10-11，tmux 3.8 +
 > Claude Code 2.1.296）。
 
 ---
@@ -194,6 +195,9 @@ setw monitor-silence 30      # 这个窗口 30 秒没动静 → 底栏标记（�
 
 ## 5 · 拿 tmux 遥控 Claude Code
 
+> 想要的是「一个大脑 claude 指挥几个小 claude」？那用 Claude Code 内置的 Agent Teams，
+> 见第 7 节，不用自己拿下面这些命令搭。这一节适合「让脚本/别的程序遥控 claude」。
+
 思路很直接：Claude Code 是个终端程序，tmux 能往任意窗格里**打字**（`send-keys`）、能**读屏幕**
 （`capture-pane`）、能**等信号**（`wait-for`）。三样凑齐就是一个遥控器。
 
@@ -207,8 +211,9 @@ setw monitor-silence 30      # 这个窗口 30 秒没动静 → 底栏标记（�
 # 1. 起一个后台会话跑 claude（-x/-y 给个尺寸，否则后台会话是 80×24）
 tmux new -d -s cc -x 160 -y 50 -c ~/some/project claude
 
-# 2. 发一句话并回车 —— 一条命令里带 Enter 就行，实测能提交
-tmux send -t cc '帮我看看 README 有没有错别字' Enter
+# 2. 发一句话，停一下，再单独发回车
+tmux send -t cc -l '帮我看看 README 有没有错别字'
+sleep 1; tmux send -t cc Enter
 
 # 3. 读屏幕（-S - 从历史最开头抓，-J 把折行拼回去）
 tmux capture-pane -p -J -S - -t cc | tail -40
@@ -224,6 +229,11 @@ tmux send -t cc Enter                     # 单独再发一个回车提交
 
 > 实测 `send-keys -l $'a\nb'`（字面量带换行）也**没有**提前提交 —— Claude 把快速连续的输入
 > 当成了粘贴。但这是靠时序碰巧对的，多行一律走 `paste-buffer -p` 才稳。
+>
+> ⚠ **文字和回车要分开发**（2026-10-11 更正）。第一次实测 `tmux send -t cc '文字' Enter`
+> 一条命令能提交，同一天再测就不行了：回车紧跟在文字后面，被 Claude 当成粘贴的一部分，
+> 变成了**换行**，消息停在输入框里。`-l` 发文字、`sleep 1`、再单独发 `Enter` 才稳。
+> 刚关掉信任框或者刚弹过提示框时更容易出这个问题。
 
 **等它答完**：别去屏幕上找「忙碌」的字样（见下面的坑），用 Claude Code 自己的 **Stop 钩子**发信号：
 
@@ -236,7 +246,7 @@ tmux send -t cc Enter                     # 单独再发一个回车提交
 把上面存成一个文件，`claude --settings 那个文件` 启动（不用动全局 settings.json），然后：
 
 ```bash
-tmux send -t cc '跑一下测试' Enter
+tmux send -t cc -l '跑一下测试'; sleep 1; tmux send -t cc Enter
 tmux wait-for cc-done          # 阻塞到 Claude 这一轮说完
 tmux capture-pane -p -J -S -30 -t cc
 ```
@@ -292,6 +302,117 @@ tmux list-keys | less                # 所有键位（含 3.8 新加的）
 - `前缀 ?` 列出所有键位；3.7 起各模式里 `C-h` 是该模式的帮助。
 - `前缀 Ctrl-z` 挂起客户端（回到外层 shell），`fg` 回来。
 - 分屏想继承当前目录：`bind '"' split-window -c "#{pane_current_path}"`（以及 `%`），本配置**没加**。
+
+---
+
+## 7 · Agent Teams：一个队长 claude + 几个队员 claude，每人一个 tmux 窗格
+
+需求是：只跟一个「大脑」claude 说话，由它分派给开发、review、查文档几个小 claude；
+哪个小 claude 不对劲，能直接在 tmux 里点进去看、插话。这正是 Claude Code 内置的
+**Agent Teams**（实验功能）加上它的 **tmux 分屏显示**，不用自己拿第 5 节那些命令搭。
+
+### 和第 5 节自己搭的区别
+
+| | 内置 Agent Teams（用这个） | 第 5 节自己用 tmux 命令搭 |
+|---|---|---|
+| 谁创建、管理队员 | Claude Code 自己 | 自己写的 `send-keys` / `wait-for` |
+| 队员之间怎么通信 | 内置信箱 + 共享任务列表 | 没有，只能读屏 |
+| 结果怎么回到队长 | 队员做完自动带着结果通知队长 | 读屏，很脆 |
+| 权限提示 | 汇总到队长那里批 | 卡在各自窗格里没人批 |
+
+tmux 在这里只当**显示器**：`teammateMode` 设成 `auto` 之后，Claude Code 自己调 tmux 给每个队员切窗格。
+
+### 本机怎么开的（cc 模块）
+
+- `~/.claude/settings.json` 合并了三样（`install.sh cc` 的 `cc_teams` 做，只加键、不碰 token）：
+  `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"`、`teammateMode = "auto"`、团队日志的 4 个钩子。
+- 三个角色定义在 `~/.claude/agents/`（包内 `claude/agents/`）：
+
+  | 角色 | 模型 | 工具 | 干什么 |
+  |---|---|---|---|
+  | `developer` | 跟队长 | 全部 | 写代码、跑测试 |
+  | `reviewer` | sonnet | 只读 + Bash（看 diff、跑测试）+ 消息/任务 | 审查，只审不改 |
+  | `docs-reader` | sonnet | 只读 + WebFetch/WebSearch + 消息/任务 | 查项目文档和官方文档，给出处 |
+
+用的时候：**先开 tmux，在 tmux 里启动 `claude`**，然后跟它说：
+
+> 建一个 agent team：developer 类型的队员叫 dev，reviewer 类型的叫 rev，docs-reader 类型的叫 doc。
+> 任务是……dev 写完让 rev 审，有疑问问 doc。
+
+### 队长必须在 tmux 里启动吗
+
+- **`auto`（本机设置）**：在 tmux 里启动 → 分屏；不在 tmux 里 → 退回「不分屏」模式
+  （所有队员在队长终端里，用面板上下键切换着看）。**要分屏就得在 tmux 里启动。**
+- **`tmux`（强制）**：不在 tmux 里也会分屏 —— 实测它**另起一个独立的 tmux 服务器**
+  （socket 是 `/tmp/tmux-$UID/claude-swarm-<队长 pid>`，会话名 `claude-swarm`），队员都在那里面。
+  要看得另开一个终端 `tmux -L claude-swarm-<pid> attach`，队长退出时那个服务器一起关。
+  能用，但不如直接在 tmux 里启动顺手。
+
+### 怎么看队员在干什么
+
+| 想看什么 | 怎么看 |
+|---|---|
+| 某个队员的完整过程 | 它的窗格：收到的消息（`ctrl+o` 展开）、调的工具、回答，全在里面 |
+| 跟某个队员直接说话 | 点进它的窗格打字，不经过队长（实测有效） |
+| 谁在忙、忙了多久 | 队长窗格底部的面板：`● main` / `◯ dev  任务名  1m 3s` |
+| 屏幕太挤 | `前缀 z` 放大当前窗格；`前缀 w` 树状列表带预览；窗格标题就是任务名 |
+| **队员之间说了什么** | **团队日志**（下面），队长看不到这部分 |
+
+### 团队日志：队员之间的对话队长看不到
+
+队员 A 直接发给队员 B 的消息**只出现在 A、B 两个人的窗格里**，队长只收到发给它的消息和
+队员做完时的汇报；信箱文件（`~/.claude/teams/<团队>/inboxes/`）会话结束就删。所以挂了钩子，
+每条消息、每次空闲、每个任务建立/完成都记一行到 `~/.claude/team-logs/<日期>.jsonl`：
+
+```bash
+~/.claude/team-log.sh        # 今天的日志，人读格式
+~/.claude/team-log.sh -f     # 跟随 —— 开个 tmux 窗格放着，就是一个「团队频道」
+~/.claude/team-log.sh -r     # 原始 JSON
+```
+
+实测长这样（两个 haiku 队员，doc 读 README 给 rev，rev 审 calc.py）：
+
+```
+13:20:53  ✉ doc → rev  这个项目是一个极简演示程序：输入两个数字，输出它们的和（README.md:2…
+13:21:15  ✉ rev → doc  审查结论：有阻塞问题。calc.py:2 的 add 写成了 a - b，和需求相反 ⏎ - 阻塞 …
+13:21:37  ✉ rev → team-lead  审查结论：有阻塞问题。calc.py:2 的 add 实现为 a - b …
+13:21:43  ⏸ rev 空闲
+```
+
+钩子字段文档没写全，实测（2.1.296）：队员发的 `SendMessage` 带 `agent_type`（角色名）但**没有队员名**，
+发送方要从 `tool_response.routing.sender` 取；队长发的没有 `agent_type`；`TeammateIdle` 带
+`teammate_name` / `team_name`。所以脚本把 stdin **原样**存下、只加时间戳，显示时再挑字段。
+⚠ 钩子调用带 `--hook` 参数，不靠「stdin 是不是终端」判断 —— 从脚本里手动查看时 stdin 也不是终端，
+第一版就这么误判过（手动查看被当成了钩子调用，什么都不显示）。
+⚠ 钩子脚本**永远 exit 0**：`TeammateIdle` / `TaskCompleted` 的 exit 2 意思是「不许停 / 不许完成」，
+日志写失败绝不能变成卡住队员。
+
+### 实测踩到的
+
+- **队长的地址是 `team-lead`**，不是 `lead`。队员按自己的理解发给 `lead` 会被退回
+  （`Not sent — no agent named 'lead' is reachable`），它会自己改，但白跑一轮。已写进三个角色定义。
+- **队员之间会互相客套**（「收到」「好的，我等 rev 的结论」），每条消息都让对方再跑一轮、花一份钱。
+  角色定义里加了「不发纯确认消息」。
+- ⚠ 官方文档说：开启团队功能后，Claude 平时委派工作时**给 subagent 起了名字，那个 subagent 也会变成队员**，
+  也就是没要团队也可能冒出团队。嫌这样就把 settings.json 里的开关改成 `"0"`（改完立即生效，不用重启）。没实测。
+- 小模型当队长时**不一定会建任务列表**（`~/.claude/tasks/<团队>/` 是空的），但不影响消息和汇报。
+- 中途可能弹提示框（这次是 auto mode 计费说明）卡住队长，要按回车。有人看着的时候无所谓，无人值守时注意。
+- 关掉 tmux 会话后，队长和队员进程过一两秒自己退出，没有留下孤儿进程。
+  ⚠ 查残留进程别用 `pgrep -f` 加 `kill` —— 模式会匹配到执行它的那个 shell 自己（退出码 144，
+  和 `CLAUDE.md` 坑 14 一模一样，这次又踩了一次）。用 `pgrep -x 2.1.296` / `pgrep -x claude`
+  再读 `/proc/<pid>/cmdline` 确认。
+
+### 两种显示方式怎么选
+
+`auto` 已经替你选好了，这里记一下差别，免得以后疑惑：
+
+| | 不分屏（in-process） | tmux 分屏 |
+|---|---|---|
+| 看队员 | 面板里上下键选、回车看，一次一个 | 同时看所有人，点进去直接打字 |
+| 环境 | 任何终端 | 要 tmux |
+| 角色定义的正文 | **追加**在默认系统提示后面 | **替换**默认系统提示 —— 所以本包的三份写得比较完整 |
+| `disallowedTools` | 生效 | **不生效** —— 所以本包限制权限一律用 `tools` 白名单 |
+| 队员进程 | 在队长进程里，队长退出全没 | 各自独立进程 |
 
 ---
 

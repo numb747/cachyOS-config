@@ -113,7 +113,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
-| tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 | `docs/14-tmux.md` |
+| tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 | `docs/14-tmux.md` |
 
 ---
 
@@ -345,7 +345,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  9 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  13 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，
@@ -424,5 +424,13 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `elephant-desktopapplications 2.22.1-1.2`，**待换成 `-windowfirst`**，见 `aur/README.md`。
   ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
   ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
+- **Agent Teams**（2026-10-11 新增，进 **cc** 模块）：一个队长 claude 指挥 `developer` / `reviewer` /
+  `docs-reader` 三种队员，**在 tmux 里启动**就每个队员一个窗格（`teammateMode = "auto"`）。
+  角色定义在 `claude/agents/`，`claude/team-log.sh` 是团队日志钩子 —— 队员之间的消息**队长看不到**，
+  靠它记进 `~/.claude/team-logs/`。开关、`teammateMode`、钩子由 `install.sh` 的 `cc_teams` 合并进
+  settings.json（同 statusLine，只加键不碰 token）。
+  ⚠ 三条：**① 分屏模式下角色定义正文替换默认系统提示、`disallowedTools` 不生效**，所以限权限只用
+  `tools` 白名单；**② 队长地址是 `team-lead`**；**③ 开启后 Claude 平时给 subagent 起名也会变成队员**（官方文档说的，没实测）。
+  全在 `docs/14-tmux.md` 第 7 节
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）

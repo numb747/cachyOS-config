@@ -283,18 +283,25 @@ mod_ui() {
 }
 
 mod_cc() {
-    head_ "cc —— Claude Code 本机工具（看板 / 宠物 TUI / 状态栏）"
+    head_ "cc —— Claude Code 本机工具（看板 / 宠物 TUI / 状态栏 / Agent Teams）"
     put_module cc
     # manifest 里 cp -a 保原权限，但包里的权限万一被 tar 洗掉就跑不起来，兜一下
     [ $DRY -eq 0 ] && chmod +x "$HOME/.claude/cc-pet.py" "$HOME/.claude/cc-watch.py" \
-                             "$HOME/.claude/statusline.sh" "$HOME/.claude/test-cc.py" 2>/dev/null
+                             "$HOME/.claude/statusline.sh" "$HOME/.claude/test-cc.py" \
+                             "$HOME/.claude/team-log.sh" 2>/dev/null
 
     command -v claude >/dev/null 2>&1 \
         || warn "没装 claude CLI —— 脚本装好了但没会话可看"
     python3 -c 'import curses' 2>/dev/null \
         || warn "python3 缺 curses 模块，ccp 起不来（ccw 不受影响）"
 
-    # ── 激活状态栏 ──────────────────────────────────────────────────────────
+    cc_statusline
+    cc_teams
+}
+
+# ── 激活状态栏 ──────────────────────────────────────────────────────────────
+# （2026-10-11 从 mod_cc 拆出来：它中间有好几个 return，后面再接 cc_teams 会被跳过）
+cc_statusline() {
     # settings.json 含明文 API token、永不入包（见 manifest.map 文末），所以这里
     # 不能整份铺开，只能把 statusLine 那一个键【合并】进本机已有的文件。
     # 只写不读 token；改前备份；jq 写临时文件再 mv，避免中途失败把配置写坏。
@@ -326,6 +333,39 @@ mod_cc() {
     if jq '.statusLine = {type:"command", command:"~/.claude/statusline.sh", padding:1}' \
             "$S" > "$S.tmp-$$" && [ -s "$S.tmp-$$" ]; then
         mv "$S.tmp-$$" "$S" && ok "statusLine 已合并进 settings.json"
+    else
+        rm -f "$S.tmp-$$"
+        err "jq 合并失败，settings.json 原样未动（备份仍在）"
+    fi
+}
+
+# ── 激活 Agent Teams ────────────────────────────────────────────────────────
+# 和 cc_statusline 同一个约束：settings.json 含 token 不入包，只能把键合并进去。
+# 合并三样：实验开关 env、teammateMode=auto（在 tmux 里启动就分屏）、团队日志的 4 个钩子。
+# 钩子按 command 去重，重复跑不会叠出第二份。见 docs/14-tmux.md 第 7 节。
+cc_teams() {
+    local S="$HOME/.claude/settings.json"
+    command -v jq >/dev/null 2>&1 || { warn "没有 jq，跳过 Agent Teams 设置（见 docs/14 第 7 节手动加）"; return 0; }
+    [ -f "$S" ] || { warn "$S 不存在，跳过 Agent Teams 设置"; return 0; }
+    local H='~/.claude/team-log.sh --hook'
+    local F='def addhook($ev; $m): .hooks[$ev] = ((.hooks[$ev] // [])
+               | if any(.[]?; any(.hooks[]?; .command == $cmd)) then .
+                 else . + [({hooks: [{type: "command", command: $cmd}]}) + (if $m then {matcher: $m} else {} end)] end);
+             .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
+             | .teammateMode = (.teammateMode // "auto")
+             | addhook("PostToolUse"; "SendMessage") | addhook("TeammateIdle"; null)
+             | addhook("TaskCreated"; null) | addhook("TaskCompleted"; null)'
+    if jq --arg cmd "$H" -e "$F" "$S" 2>/dev/null | cmp -s - <(jq . "$S"); then
+        inf "Agent Teams 设置已在 settings.json 里，跳过"
+        return 0
+    fi
+    if [ $DRY -eq 1 ]; then
+        printf '  [dry] 合并 Agent Teams 设置进 %s\n' "$S"
+        return 0
+    fi
+    cp -a "$S" "$S.bak-$STAMP" && inf "备份 → settings.json.bak-$STAMP"
+    if jq --arg cmd "$H" "$F" "$S" > "$S.tmp-$$" && [ -s "$S.tmp-$$" ]; then
+        mv "$S.tmp-$$" "$S" && ok "Agent Teams 已开启（teammateMode=$(jq -r .teammateMode "$S")，团队日志钩子已挂）"
     else
         rm -f "$S.tmp-$$"
         err "jq 合并失败，settings.json 原样未动（备份仍在）"
