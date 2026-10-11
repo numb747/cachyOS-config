@@ -55,7 +55,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k、tmux | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
-| **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题）、Agent Teams 三个队员角色 + 团队日志 | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |
+| **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题）、Agent Teams 四个队员角色（开发 / 审查 / 测试 / 查文档）+ 团队日志 | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
 | **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
 | **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |

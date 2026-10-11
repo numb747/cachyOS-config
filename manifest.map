@@ -150,12 +150,13 @@ claude/e2e_answer.py                      ~/.claude/e2e_answer.py
 claude/e2e_ui.py                          ~/.claude/e2e_ui.py
 claude/pty_drive.py                       ~/.claude/pty_drive.py
 claude/probe_multiq.py                    ~/.claude/probe_multiq.py
-# Agent Teams（2026-10-11 加）：三个队员角色 + 团队日志钩子脚本。见 docs/14-tmux.md 第 7 节。
+# Agent Teams（2026-10-11 加）：四个队员角色 + 团队日志钩子脚本。见 docs/14-tmux.md 第 7 节。
 # ★ 和 statusline 同理：团队开关 / teammateMode / 日志钩子写在 settings.json 里，
 #   由 mod_cc 用 jq 合并进本机文件（只加键、不读 token）。
 claude/agents/developer.md                ~/.claude/agents/developer.md
 claude/agents/reviewer.md                 ~/.claude/agents/reviewer.md
 claude/agents/docs-reader.md              ~/.claude/agents/docs-reader.md
+claude/agents/tester.md                   ~/.claude/agents/tester.md
 claude/team-log.sh                        ~/.claude/team-log.sh
 
 #@module wall
