@@ -28,14 +28,26 @@ return {
         border = "Normal",
         background = "Normal",
       },
-      -- 居中竖长条：宽度锁在 80~110 列的阅读舒适区，高度尽量拉满
-      -- 不指定 row/col 时 toggleterm 会按 width/height 自动居中
-      width = function()
+      -- 两档，Alt+= 切换（见下面 set_terminal_keymaps），每个终端各记各的：
+      --   阅读档（默认）：居中竖长条，宽度锁在 80~110 列的阅读舒适区，高度 90%
+      --   大档：在里面开 tmux 看 Agent Teams 分屏用。阅读档封顶 110 列，队长只分到三十几列
+      -- 不指定 row/col 时 toggleterm 会按 width/height 自动居中。
+      -- 大档用「总数 − 4」而不是百分比：要留的是固定的东西 —— 圆角边框上下左右各 1 格，
+      -- 再空 1 格（上面是 tabby 顶栏、下面是 lualine，cmdheight=0 没有命令行那一行），
+      -- 按 toggleterm 的居中公式正好卡在两者之间。百分比在宽屏上会让留白白白变大。
+      -- 浮窗大不过 kitty 窗口，要整屏就先 SUPER+D 最大化 / SUPER+F 全屏 kitty。
+      width = function(term)
         local cols = vim.o.columns
+        if term.float_big then
+          return cols - 4
+        end
         -- 宽屏取半屏并封顶 110 列；窄屏时退让到 90% 避免溢出
         return math.min(math.max(80, math.min(110, math.floor(cols * 0.5))), math.floor(cols * 0.9))
       end,
-      height = function()
+      height = function(term)
+        if term.float_big then
+          return vim.o.lines - 4
+        end
         return math.floor(vim.o.lines * 0.9)
       end,
     },
@@ -129,6 +141,21 @@ return {
       vim.keymap.set({ "t", "n" }, "<C-f>", function()
         vim.cmd("stopinsert")
         vim.schedule(list_terminals)
+      end, opts)
+      -- Alt+= 浮窗在阅读档 / 大档之间切换（尺寸见上面 float_opts）。状态记在终端对象上，
+      -- 隐藏再召回、kitty 改尺寸（VimResized）都保持当前档。update_float 当场改窗口大小，
+      -- 里面的 tmux / Claude 跟着重排。键挑过：Hyprland、tmux Alt 层、zsh、Claude Code 都没占，
+      -- 且不带 Shift（外层 nvim 转发 Alt+Shift+标点会丢 Shift，见 docs/14）。
+      vim.keymap.set({ "t", "n" }, "<A-=>", function()
+        local buf = vim.api.nvim_get_current_buf()
+        local term = require("toggleterm.terminal").find(function(t)
+          return t.bufnr == buf
+        end)
+        if not (term and term:is_float()) then
+          return
+        end
+        term.float_big = not term.float_big
+        require("toggleterm.ui").update_float(term)
       end, opts)
       -- Ctrl+r 重命名不在这里绑：它对原生 :terminal 也要生效，
       -- 已统一挪到 util/term.lua 的 TermOpen(pattern="*") 里。

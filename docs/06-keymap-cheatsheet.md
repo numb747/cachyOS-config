@@ -172,6 +172,7 @@
 |---|---|
 | `Ctrl+/` | 开/关浮动终端（normal / terminal 模式都能按） |
 | `Esc Esc` | 从终端模式回普通模式（kitty 和 toggleterm 都绑了） |
+| `Alt+=` | 浮动终端在阅读档 / 大档之间切换（浮窗里开 tmux 看团队分屏用，见 `docs/04`） |
 | `<leader>th` / `<leader>tv` | 水平 / 垂直终端 |
 | `<leader>tn` / `Ctrl+r` | 给当前终端命名 |
 | `<leader>tl` / `Ctrl+f` | 列出并切换终端 |

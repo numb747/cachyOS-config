@@ -96,17 +96,34 @@ Ctrl+/          开/关浮动终端（normal 和 terminal 模式都能按）
 <leader>tl      列出并切换终端  Ctrl+f（终端内）
 <leader>tt      一次开 4 个终端
 Esc Esc         从终端模式回普通模式
+Alt+=           浮窗在「阅读档 / 大档」之间切换（终端内，normal 和 terminal 模式都能按）
 ```
 
-浮动窗口尺寸是函数算的，不是写死的：
+浮动窗口尺寸是函数算的，不是写死的，分两档（2026-10-12 加大档）：
 
 ```lua
+-- 阅读档（默认）
 width  = 宽屏取半屏并封顶 110 列；窄屏退让到 90% 避免溢出
 height = 屏幕高度的 90%
+-- 大档（Alt+=）
+width  = 总列数 − 4
+height = 总行数 − 4
 ```
 
-宽度锁在 80~110 列的阅读舒适区，高度尽量拉满，不指定 `row`/`col` 时 toggleterm 会
-自动居中。
+阅读档把宽度锁在 80~110 列的阅读舒适区，高度尽量拉满，不指定 `row`/`col` 时 toggleterm 会
+自动居中。大档是给「浮窗里开 tmux 看 Agent Teams 分屏」用的 —— 阅读档封顶 110 列，
+队长（30%）只分到三十几列。
+
+- **大档为什么是「减 4」不是百分比**：要留的是固定的东西 —— 圆角边框上下左右各 1 格，外面再空 1 格
+  （上面是 tabby 顶栏、下面是 lualine；noice 让 `cmdheight=0`，没有命令行那一行）。按 toggleterm 的
+  居中公式（`row = (lines − h)/2 − 1`）正好卡在两者之间。百分比在宽屏上会让留白白白变大。
+  实测（headless，编辑器 140×50）：大档浮窗 136×46，占第 1–48 行、第 1–138 列，第 0 行和第 49 行空着。
+- **档位记在终端对象上**（`term.float_big`），每个终端各记各的：隐藏再召回、kitty 改尺寸
+  （toggleterm 的 `VimResized` → `ui.update_float`）都保持当前档。切换也走 `update_float`，
+  当场改窗口大小，里面的 tmux / Claude 跟着重排，不用关了重开。
+- **`Alt+=` 是挑过的**：Hyprland、tmux 的 Alt 层、zsh、Claude Code 都没占；不带 Shift
+  （外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift，见 [14](14-tmux.md)）。只绑在 toggleterm 的终端 buffer 上。
+- **浮窗大不过 kitty 窗口**：kitty 平时是半屏平铺，要整屏先 `SUPER+D` 最大化 / `SUPER+F` 全屏，再 `Alt+=`。
 
 ### 专注模式 —— `<leader>z` 和 `<leader>uz` 是两层，不是两套
 
