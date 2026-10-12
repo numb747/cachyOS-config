@@ -179,6 +179,7 @@
 | `<leader>tt` | 一次开 4 个终端 |
 | `<leader>e` / `<leader>E` | mini.files（cwd / 项目根） |
 | `<leader>fm` | mini.files（当前文件所在目录） |
+| `<leader>sf` / `<leader>sF` | 在当前文件所在目录里 grep / grep 光标词或选区（LazyVim 自带的 `sg`/`sG` 是项目根 / cwd） |
 | `<leader>z` | no-neck-pain 居中阅读模式（布局层：真 split 撑边距） |
 | `<leader>uz` | snacks.zen 专注模式（模态层：单窗口抬进浮窗放大） |
 | `q` | **已禁用**（防手滑录宏） |

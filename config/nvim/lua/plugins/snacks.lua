@@ -50,5 +50,26 @@ return {
     { "<leader>E", false },
     { "<leader>e", false },
     { "<c-/>", false },
+
+    -- 以「当前文件所在目录」为范围 grep,补 LazyVim 只有 root(sg/sw)和 cwd(sG/sW)的空缺。
+    -- 用 cwd 而不是 dirs:结果路径相对该目录显示，深目录下不会被长前缀挤满。
+    -- 非文件 buffer(终端、mini.files 等)没有真实目录，退回 cwd。
+    {
+      "<leader>sf",
+      function()
+        local dir = vim.bo.buftype == "" and vim.fn.expand("%:p:h") or vim.uv.cwd()
+        Snacks.picker.grep({ cwd = dir })
+      end,
+      desc = "Grep (File Dir)",
+    },
+    {
+      "<leader>sF",
+      function()
+        local dir = vim.bo.buftype == "" and vim.fn.expand("%:p:h") or vim.uv.cwd()
+        Snacks.picker.grep_word({ cwd = dir })
+      end,
+      desc = "Visual selection or word (File Dir)",
+      mode = { "n", "x" },
+    },
   },
 }

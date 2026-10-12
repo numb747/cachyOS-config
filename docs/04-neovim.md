@@ -240,6 +240,24 @@ mini.files 是「把目录当 buffer 编辑」的范式：**重命名文件 = �
 在这里按 `l` 打开图片能直接看到图（2026-09-11 起；当时靠 snacks.image，2026-09-12 起
 改由 image.nvim 接管）；但右侧 **preview 窗格不出图**，原因见下面「image.nvim」一节。
 
+#### 配套：在当前文件目录里 grep —— `<leader>sf` / `<leader>sF`（2026-10-12 新增）
+
+`<leader>fm` 解决了「当前文件同目录找文件」，但搜**文件内容**时 LazyVim 只给了两档范围：
+`<leader>sg`/`sw` 搜项目根，`<leader>sG`/`sW` 搜 cwd。深目录里只想搜邻近文件时，这两档都太大。
+`snacks.lua` 的 `keys` 补了第三档：
+
+```
+<leader>sf   grep（当前文件所在目录）
+<leader>sF   grep 光标下的词 / visual 选区（当前文件所在目录）
+```
+
+- 传的是 `cwd` 不是 `dirs`：结果路径相对该目录显示，深目录下不会被长前缀挤满。
+- 非文件 buffer（终端、mini.files）没有真实目录，退回 cwd。
+- `sf`/`sF` 在 LazyVim 里原本没被占用（2026-10-12 grep 过 LazyVim 源码确认）。
+
+不用 `autochdir` / `:lcd %:h` 的思路：LazyVim 的 root 检测、picker、LSP 都依赖 cwd，
+让 cwd 跟着文件跳会把别处搞乱；按需传 `cwd` 给单个 picker 是零副作用的。
+
 #### mini.lua 里那段 `vim.glob.to_lpeg` 补丁
 
 ```lua
