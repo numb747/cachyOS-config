@@ -19,10 +19,10 @@
 
 ---
 
-## 笔记本：11 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi）
+## 笔记本：13 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个）
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
-> 拉取远程后默认**全量对齐**，只有下面这 11 个文件例外——它们要么绑死在本机硬件上、
+> 拉取远程后默认**全量对齐**，只有下面这 13 个文件例外——它们要么绑死在本机硬件上、
 > 要么绑死在 `/home/monkey` 这个用户路径上，照搬远程会真的变坏。
 > `./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
 
@@ -38,6 +38,8 @@
 | `~/.config/walker/themes/noctalia/style.css` | 输入框 16px · 列表 14px · 副标题 11px · 大图标 28px，内边距同比收 | 21 · 17 · 13 · 38 | 跟 layout 配套；比例和 kitty 那条同理（笔记本视距近，物理字号该比源机小一点）。改完 `systemctl --user restart walker`（layout 只在启动时读） |
 | `~/.local/share/applications/excalidraw.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 和 noctalia `config.toml` 同类：`mod_ui` 里的 `rewrite_home` 本来就改写它（`Exec` 必须是绝对路径，见 `9a8a34a`）。2026-10-10 补登，之前漏在表外 |
 | `~/.local/share/applications/adb-wifi.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上一条：`mod_ui` 的 `rewrite_home` 改写它。2026-10-12 随 `f0c5ab5`（ADB 无线连接）进包，笔记本逐文件装时手工 `sed` 换了路径 |
+| `~/.local/share/kio/servicemenus/send-to-phone.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它（Dolphin 右键菜单，`Exec` 要绝对路径）。随 `58ef096` 进包，2026-10-13 补登 |
+| `~/.local/share/applications/mmd-view.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它。随 `61cedbb` 进包，2026-10-13 补登 |
 | `~/.config/kdeglobals` | 多一段 `[KFileDialog Settings]`，段顺序被重排 | 原样 | KDE 程序（Dolphin 的文件对话框）运行时往里写的；配色段（noctalia 模板生成，坑 2）两边内容一致。⚠ 覆盖不会坏，只丢文件对话框的视图偏好，下次又会写回来 |
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
@@ -75,7 +77,7 @@
 ./sync.sh --manifest && ./check.sh
 ```
 
-`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 11 个「永远不一致」的文件
+`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 13 个「永远不一致」的文件
 是 `./sync.sh`（系统 vs 包）的事，不影响 `check.sh`。
 
 > 此前这里还记着一条「MANIFEST 把 `.git/` 卷了进去」的上游缺陷——**2026-09-11 的
