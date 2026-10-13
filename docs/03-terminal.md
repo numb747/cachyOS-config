@@ -219,6 +219,7 @@ powerlevel10k 在 `precmd` 里重新赋值 `PROMPT`，任何静态赋值都会�
 | hacktools | 探测 `$HACKTOOLS`（默认 `~/hacktools`）目录存在才定义别名 |
 | AI sandbox | 探测 `docker` 命令存在才定义 |
 | 可选工具链 | rvm / zoxide / uv，全部探测后才启用 |
+| tmux 窗格状态 | 只在 `$TMUX_PANE` 存在时生效：`preexec`/`precmd` 把正在跑的命令、上一条的退出码/耗时写进 tmux 窗格选项，给 tmux 的 `Alt+a` 总览用（2026-10-13，见 [14](14-tmux.md) 第 9 节） |
 
 **所有外部依赖一律写成「探测存在才启用」**，目录/命令不存在时整段静默跳过。
 这样同一份 `.zshrc` 扔到任何机器都不会在每次开 shell 时刷报错。

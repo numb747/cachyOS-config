@@ -1,11 +1,13 @@
-# 14 · tmux：免前缀 Alt 键位、3.x 新东西、遥控 Claude Code、Agent Teams 分屏
+# 14 · tmux：免前缀 Alt 键位、3.x 新东西、遥控 Claude Code、Agent Teams 分屏、窗格总览
 
 > 配置文件是 `~/.tmux.conf`（包内 `home/.tmux.conf`），外加 `Alt+Shift+O` 用的小脚本
-> `~/.local/bin/tmux-proj`（包内 `bin/tmux-proj`），都在 **term 模块**。
+> `~/.local/bin/tmux-proj`（包内 `bin/tmux-proj`）和 `Alt+a` 用的 `~/.local/bin/tmux-panes`
+> （包内 `bin/tmux-panes`），都在 **term 模块**。
 > **第 1 节是键位**：2026-10-11 起学 Zellij，常用操作全是免前缀的 Alt 单键，前缀 `C-q` 只当备用。
 > 其余一半是温习老功能，一半是 3.6–3.8 新加的东西。第 5 节是「用 tmux 给 Claude Code
 > 打字、回车、等它答完、读答案」，第 7 节是「一个队长 claude 指挥几个队员 claude、
-> 每个队员一个 tmux 窗格」，第 8 节是「什么活该并行、什么活该一条线做下去」。第 5、7 节的结论**全部实测过**（2026-10-11，tmux 3.8 +
+> 每个队员一个 tmux 窗格」，第 8 节是「什么活该并行、什么活该一条线做下去」，
+> 第 9 节是「好几个会话里散着一堆 Claude 和 npm，`Alt+a` 一张表看全、回车直达」。第 5、7 节的结论**全部实测过**（2026-10-11，tmux 3.8 +
 > Claude Code 2.1.296）。
 
 ---
@@ -40,12 +42,12 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
 
 | 层 | 类比 | 新建 | 切换 | 关 | 改名 |
 |---|---|---|---|---|---|
-| **session**（会话） | 一个工作区，脱离终端也活着 | `Alt+Shift+O` 选项目目录开一个 | `Alt+o` 列表（= 原 `前缀 s`）· `Alt+j/k` 到上/下边界时穿越 | 关光它的标签 | `Alt+Shift+R` |
+| **session**（会话） | 一个工作区，脱离终端也活着 | `Alt+Shift+O` 选项目目录开一个 | `Alt+o` 列表（= 原 `前缀 s`）· `Alt+j/k` 到上/下边界时穿越 · **`Alt+a` 按窗格找（第 9 节）** | 关光它的标签 | `Alt+Shift+R` |
 | **window**（标签） | 浏览器的 tab，底栏一格一个 | `Alt+Shift+N` | `Alt+1~8` 直达 · `Alt+h/l` 到左/右边界时穿越 | `Alt+q`（多窗格时确认） | `Alt+r` |
 | **pane**（窗格） | tab 里切出来的分屏 | `Alt+\` 左右 · `Alt+-` 上下 · `Alt+n` 自动 | `Alt+h/j/k/l` | 里面 `exit` | — |
 
 其余：`Alt+m` 放大/还原窗格 · `Alt+f` 浮动/放回 · `Alt+v` 复制模式 · `Alt+;` 命令行 ·
-`Alt+d` 脱离 · `Alt+0` 锁定 · **`Alt+/` 速查菜单（忘了就按它，选中即执行）**。
+`Alt+d` 脱离 · `Alt+0` 锁定 · **`Alt+a` 窗格总览（第 9 节）** · **`Alt+/` 速查菜单（忘了就按它，选中即执行）**。
 
 - **穿越**是从 Zellij 学的：窗格和标签、会话用同一组方向键，不用分开记。
   `Alt+h` 在最左边的窗格上再按 = 上一个标签；`Alt+j` 在最下边 = 下一个会话。
@@ -68,7 +70,7 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
 | Hyprland（已让出） | 原 `Alt+\` / `Ctrl+Alt+\` / `Alt+Shift+\`（分屏终端） | 2026-10-11 从 `mykeys.lua` 第 5 节删掉，`Alt+\` 给了 tmux（见 [02](02-hyprland.md)） |
 | **fcitx5** | `Ctrl+Space` 切输入法、`Super+Space`、单按左 Shift、`Ctrl+Alt+P` | 所以前缀**不能**用社区流行的 `C-Space` |
 | **外层 nvim**（kitty 起的那层） | 连按两下 `Esc`、`Ctrl+/`；**转发 `Alt+Shift+标点` 时丢掉 Shift** | 见下面坑 1 |
-| zsh（emacs 模式 + fzf） | `Alt+c` fzf 跳目录、`Alt+.` 上条末参数、`Alt+b/f/d` 按词、`Alt+n/p` 历史搜索、`Alt+h` run-help、`Alt+l` ls、`Alt+m`、`Alt+q`、`Alt+数字` | 被 Alt 层盖掉的这几个用户都确认不用（有 zoxide 就不需要 `Alt+c`）。**不去 `.zshrc` 里删**：tmux 在外层，绑了里面就收不到，效果一样，还少维护一处 |
+| zsh（emacs 模式 + fzf） | `Alt+c` fzf 跳目录、`Alt+.` 上条末参数、`Alt+b/f/d` 按词、`Alt+n/p` 历史搜索、`Alt+h` run-help、`Alt+l` ls、`Alt+m`、`Alt+q`、`Alt+数字`、`Alt+a` accept-and-hold（2026-10-13 给了窗格总览） | 被 Alt 层盖掉的这几个用户都确认不用（有 zoxide 就不需要 `Alt+c`）。**不去 `.zshrc` 里删**：tmux 在外层，绑了里面就收不到，效果一样，还少维护一处 |
 | Claude Code 2.1.296 | `Alt+o` fast mode、`Alt+p` 选模型、`Alt+t` 思考、`Alt+j` 终端面板；`Ctrl+B` 命令转后台、`Ctrl+G` 外部编辑器、`Ctrl+S` 暂存 | `Alt+o` 被占（用 `/fast` 代替），`Alt+j` 被占（`Alt+0` 锁定后可用）；`Alt+t` 本来就被 Hyprland 吃掉；**`Ctrl+B` 因为前缀改成 `C-q` 还回去了** |
 | LazyVim | `Alt+j/k` 上下移动行 | 被占，用户不用 |
 
@@ -90,6 +92,7 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
   后台有新输出编号变黄、响铃变红。
 - **右**：会话圆点（当前 ●、其余 ○，`Alt+j/k` 穿越时看得出在第几个）→ 当前目录胶囊（`~` 缩写，
   超 28 字从左截断）→ git 分支胶囊（不在仓库里不显示）→ `Alt+/` 帮助。时间刻意不放（用户不要）。
+  会话圆点前面还有一段**窗格提醒计数**（Claude 等你 / 答完没看、命令跑完 / 失败没看），全 0 时不显示，见第 9 节。
 - **状态栏上面空一行**（`status 2`，默认格式挪到第 1 行、第 0 行留空），和窗格内容隔开。
 - 窗格顶部显示标题，当前窗格的也是胶囊：Agent Teams 时是任务名，没设标题就显示在跑的程序。
 
@@ -287,7 +290,8 @@ tmux display-popup -E -d '#{pane_current_path}' 'zsh'   # 临时开个 shell，�
 - **OSC 133**：shell 如果发 OSC 133 标记（命令开始/结束/提示符），tmux 会触发
   `pane-command-started` / `pane-command-finished` / `pane-shell-prompt` 钩子 ——
   「长命令跑完弹个通知」可以直接挂在这上面。⚠ 本机 zsh + p10k **默认不发** OSC 133，
-  要用得先在 `.zshrc` 里开（还没做）。
+  要用得先在 `.zshrc` 里开（还没做）。第 9 节的命令追踪没走这条，直接在 `preexec`/`precmd` 里
+  `tmux set -p` 写窗格选项 —— 能顺带记下命令原文、退出码和耗时，OSC 133 只给「开始 / 结束」两个时刻。
 
 老的监视选项照样好用，不依赖这些新东西：
 
@@ -773,9 +777,117 @@ Claude Code 会在同一个会话里把它拉起来、恢复它保存的对话�
 
 ---
 
+## 9 · 窗格总览 `Alt+a`：一堆 Claude 和 npm 散在几个会话里，怎么一眼找到（2026-10-13）
+
+### 为什么 `Alt+o` 不够
+
+`Alt+o`（`choose-tree -Zs`）按**会话 → 标签**列，而标签名是 `automatic-rename` 按进程名起的 ——
+开了七八个 Claude 时满屏都叫 `claude`，只能一个个展开看。它的 `/` 搜索也只搜名字和屏幕文字，
+**不搜窗格标题**。真正能区分它们的信息其实一直都有：Claude Code 会把对话主题写进窗格标题
+（窗格顶上那个胶囊显示的就是它），只是 `Alt+o` 不显示。所以换个思路：**按窗格列，按主题 / 命令 / 目录搜**。
+
+### 用法
+
+`Alt+a` 弹出一张表（`display-popup` 里跑 fzf），**所有会话的所有窗格**一行一个：
+
+```
+ 等你授权  claude  重构登录流程                 …/tradition-medi   tradition-medi:1.1    40秒
+ 答完了    claude  mmd-view 竖向布局模式        ~                  Projects:1.1          19分
+ 失败 1    zsh     cargo build --release        …/gaoTest          Projects:1.2           2分
+ 干活中    claude  tmux 多会话 Claude Code 窗口… ~                  Projects:2.1          15分
+ 干活中    队员    developer                    …/tradition-medi   tradition-medi:1.2
+ 运行中    npm     npm run dev                  …/tradition-medi   tradition-medi:2.1   9时12
+ 空闲      claude  tradition-medi-jingluo-bf    …/jingluo          tradition-medi-jingluo:1.1
+ 空闲      zsh     —                            ~                  Projects:2.2
+```
+
+- **排序就是优先级**：等你的 → 答完/跑完你还没看的 → 干活中 → 运行中 → 空闲，同一档里新的在前。
+  所以大多数时候**按 `Alt+a` 直接回车**就是去「最该去的那个」。
+- **打字过滤**：主题、命令、目录、会话名都能搜（`jingluo`、`npm`、`mmd`）；`claude` 只筛 Claude。
+- 下半屏**预览**那个窗格当前的画面（带颜色），不用跳过去就知道它停在哪；`Ctrl-/` 收起。
+- `Enter` 跳过去（切会话 + 切标签 + 选窗格一步到位），`Ctrl-R` 刷新，`Esc` 关。
+  `●` 标的是你按 `Alt+a` 时所在的窗格。
+
+| 状态 | 含义 | 从哪来 |
+|---|---|---|
+| 等你授权 / 等你回答 / 等你处理 | Claude 卡在授权、提问、对话框上 | 会话文件 `status = waiting`，细分原因来自 `claude agents --json` 的 `waitingFor` |
+| 答完了 | Claude 停下了，**而且停下之后你没看过它** | `status = idle` 且 `statusUpdatedAt` 晚于 `@seen` |
+| 干活中 | Claude 正在跑 | `status = busy`（队员：屏幕上有转圈那行） |
+| 失败 N / 跑完了 | 一条跑了 ≥10 秒的命令结束了、你还没看；N 是退出码 | `.zshrc` 写的 `@sh_exit` / `@sh_end` 对比 `@seen` |
+| 运行中 | shell 里有前台命令在跑（npm、ssh、nvim…），后面是已跑时长 | `pane_current_command` 不是 shell；命令原文取 `@sh_cmd`，没有就读 `/proc` 前台进程组 |
+| 空闲 | 都不是；shell 那行会带上一条命令（失败的前面打个叉） | |
+
+**底栏**（右侧会话圆点前面）同步显示计数：黄铃 = Claude 在等你、绿勾 = Claude 答完没看、
+青三角 = 命令跑完没看、红叉 = 命令失败没看，后面跟一个灰色 `Alt+a` 提示；**全是 0 就整段不显示**。
+它是 `status-right` 里的 `#(tmux-panes --status)`，跟 `status-interval 5` 走，最多晚 5 秒；一次约 25 ms。
+**正在你眼前的那个窗格不计数**（你已经在看了）。
+
+### 状态从哪来：没用 Claude Code 钩子
+
+原本打算用钩子（`UserPromptSubmit` → 干活中、`Notification` → 等你、`Stop` → 答完了）给窗格打标记。
+动手前发现 Claude Code 自己就在维护一份状态：**`~/.claude/sessions/<pid>.json`**，
+里面有 `status`（`busy` / `idle` / `waiting`）和 `statusUpdatedAt` —— cc 模块的 `ccw` 看板读的也是它（[08](08-claude-code.md)）。
+它比钩子准：**按 Esc 打断时 `Stop` 钩子不触发**，钩子方案会一直卡在「干活中」，会话文件则会正确落回 `idle`。
+所以 `~/.claude/settings.json` **一个字没改**。
+
+- **会话文件 → 窗格**：顺着 claude 进程的父进程链往上找，碰到哪个窗格的 `pane_pid` 就是哪个。
+  ⚠ 会话文件里其实也记了 `"tmux": "Projects:@7.%34"`，但**不带是哪个 tmux 服务器**，
+  用 `tmux -L 测试名` 起的测试服务器同样有 `%0 %1`，按它对会认错（实测踩到：测试服务器里冒出了真服务器的「队长1」），所以只认进程树。
+- **Agent Teams 的队员没有会话文件**（进程名是版本号 `2.1.273` 这种），退而看屏幕：
+  最后 40 行里有「`✢ Hashing… (2m 23s · ↓ 6.8k tokens`」这种转圈行就算干活中。
+  ⚠ 这是按 Claude Code 2.1.273 的界面写的正则（`SPIN_LINE`），升级后界面变了要跟着改。
+  另外**窗格标题前面的 `✳` 判断不了忙闲** —— 实测在干活的会话标题前面照样是 `✳`。
+- **队长常年显示「干活中」不是 bug**：队员在跑时队长的 `status` 就是 `busy`，屏幕上看着却像空闲。
+
+### 「看过没」：`@seen`
+
+`~/.tmux.conf` 挂了 `pane-focus-in` / `pane-focus-out` 两个钩子，窗格得到或失去焦点
+（切窗格、切标签、切会话、终端本身切走再切回来）时把当前时间写进窗格选项 `@seen`。
+结束时间晚于 `@seen`、而且它现在**不在你眼前**，才算「答完了 / 跑完了」。
+「在你眼前」= 当前窗格 + 当前标签 + 所在会话挂着一个**聚焦**的客户端（`client_flags` 里有 `focused`）。
+你盯着它答完、再切走时，`focus-out` 会把 `@seen` 刷新到切走那一刻，所以不会被误报成没看过。
+配置加载时 `tmux-panes --init-seen` 给还没有 `@seen` 的窗格补上「现在」，不然第一次打开时所有旧窗格都会被当成没看过。
+
+### shell 那一半：`.zshrc` 的 preexec / precmd
+
+只在 `$TMUX_PANE` 存在（在 tmux 里）时启用，见 `.zshrc` 的「tmux 窗格状态」段：
+
+- `preexec`：`@sh_cmd`（命令原文，换行换成 `⏎`，截 300 字）、`@sh_start`
+- `precmd`：`@sh_last`、`@sh_exit`、`@sh_dur`、`@sh_end`，并清掉 `@sh_cmd` / `@sh_start`
+
+每个提示符多一次 tmux 调用（约 2 ms，合成一条 `\;` 链）。
+**`$?` 在多个 precmd 函数之间是保留的**（2026-10-13 在 pty 里实测：前一个函数 `return 0`，后一个照样看到 1），
+所以不用费劲把自己排到 p10k 前面。
+⚠ **改完 `.zshrc` 之前就开着的 shell 没有这些钩子**，要 `exec zsh` 或开新窗格才开始记；
+在那之前「运行中」的命令原文由 `/proc/<shell>/stat` 的 tpgid 找前台进程组兜底（npm 那两行就是这么来的），
+只是没有退出码和耗时。
+
+「跑完了 / 失败」只提醒跑了 **≥10 秒**的命令（`tmux-panes` 里的 `LONG_CMD`）—— `ls`、`git status`
+跑完不需要谁提醒你。
+
+### 实测和坑（2026-10-13）
+
+用第 1 节坑 5 的办法起独立服务器测完整链路：在别的会话跑 `sleep 12; false` →
+2 秒时显示「运行中 sleep 12; false」→ 结束后「失败 1」、底栏出现红叉 1 → `Alt+a` 弹窗里输入 `other` 回车 →
+客户端落在 `other:1.1` → 再看列表变回「空闲」带叉、底栏计数消失。
+
+- **`display-popup` 的命令会展开格式**：`"tmux-panes --from '#{pane_id}'"` 拿到的是按键时所在窗格。
+- **`switch-client -t %窗格id` 会连带切标签、选中那个窗格**，不用再拼 `select-window` / `select-pane`。
+- **测试时 `send-keys -K M-a` 会阻塞到弹窗关闭**（和第 1 节坑 5 里的 `command-prompt` 一样），
+  要放后台：`(tmux send-keys -K -c 客户端 M-a &)`，第一次没放直接卡死了测试脚本。
+- 图标全是 Nerd Font 私用区字符，`tmux-panes` 里一律写 `"\uf0f3"` 这种转义（理由同「底栏」那段的坑）。
+
+### 想调的话
+
+- 提醒阈值：`tmux-panes` 顶部 `LONG_CMD = 10`。
+- 不想要底栏计数：删掉 `status-right` 开头那段 `#(~/.local/bin/tmux-panes --status)`，`Alt+a` 不受影响。
+- 只想看 Claude：在列表里输入 `claude`（队员那几行要输 `队员`）。
+
+---
+
 ## 改配置
 
 照 [CLAUDE.md](../CLAUDE.md) 的姿势：改 `~/.tmux.conf`，先用第 1 节坑 5 的独立服务器测，
-再 `前缀 r` 重载，最后收回 `home/.tmux.conf`（`tmux-proj` 收回 `bin/tmux-proj`）。它在 **term 模块**，和 `kitty.conf` / `.zshrc` 一起装；
+再 `前缀 r` 重载，最后收回 `home/.tmux.conf`（`tmux-proj` / `tmux-panes` 收回 `bin/` 下同名文件）。它在 **term 模块**，和 `kitty.conf` / `.zshrc` 一起装；
 笔记本上 `install.sh term` 是禁止操作（[11](11-multi-machine.md)），但这个文件两台机器没有差异，
 单独 `cp` 就行。

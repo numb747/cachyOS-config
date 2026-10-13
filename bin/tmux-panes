@@ -1,0 +1,407 @@
+#!/usr/bin/env python3
+"""
+tmux 的 Alt+a：所有会话里的所有窗格一张表 —— 哪个 Claude 在等你、哪个答完了你还没看、
+哪条命令在跑 / 跑完了 / 失败了，打字过滤，回车直达（见 ~/.tmux.conf 与 docs/14-tmux.md 第 9 节）。
+
+用法:
+  tmux-panes [--from %ID]   交互（display-popup 里跑 fzf，回车 switch-client 过去）
+  tmux-panes --list         只输出列表行（fzf 的 Ctrl-R 刷新调它）
+  tmux-panes --preview %ID  预览一个窗格（fzf 调）
+  tmux-panes --status       底栏计数（status-right 的 #() 调，跟 status-interval 走）
+  tmux-panes --init-seen    给还没有 @seen 的窗格补上「现在」（tmux.conf 加载时调一次）
+
+数据源 —— 刻意没用 Claude Code 钩子:
+  Claude   ~/.claude/sessions/<pid>.json 的 status（busy / idle / waiting）和 statusUpdatedAt。
+           这是 Claude Code 自己维护的，Esc 打断、拒绝授权也会正确落回 idle；
+           钩子做不到这点（打断时 Stop 不触发，状态会卡在「干活中」）。按进程树对到窗格。
+           Agent Teams 的队员没有这个文件，退而看屏幕上有没有「…（12s · ↓ 1k tokens」那行转圈。
+  shell    .zshrc 里 preexec / precmd 写的窗格选项 @sh_cmd @sh_start @sh_last @sh_exit @sh_dur @sh_end；
+           钩子装上之前就开着的 shell 没有这些，正在跑的命令退而从 /proc 读前台进程。
+  看过没   tmux.conf 的 pane-focus-in / pane-focus-out 钩子写的 @seen（epoch 秒）。
+           「答完了 / 跑完了」= 结束时间晚于你最后一次看它，且它现在不在你眼前。
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import unicodedata
+from pathlib import Path
+
+SESSIONS = Path.home() / ".claude" / "sessions"
+SHELLS = {"zsh", "bash", "sh", "fish", "dash"}
+LONG_CMD = 10          # 跑了这么多秒以上的命令，跑完你没看才算「跑完了」；短命令不提醒
+SELF = os.path.realpath(__file__)
+
+# 配色同 ~/.tmux.conf（tokyonight，取自 noctalia 生成的 kitty 配色）
+HEX = {"blue": "#7a88cf", "cyan": "#7bb0c0", "mag": "#d7729f", "yel": "#e6c384",
+       "grn": "#9cd58a", "red": "#f7768e", "fg": "#c0caf5", "sub": "#737aa2", "dim": "#545c7e"}
+
+
+def fg(name: str) -> str:
+    h = HEX[name]
+    return f"\033[38;2;{int(h[1:3], 16)};{int(h[3:5], 16)};{int(h[5:7], 16)}m"
+
+
+R = "\033[0m"
+B = "\033[1m"
+
+# Nerd Font 图标一律写转义：AI 生成文件时私用区字符会被静默吃掉（见 docs/14-tmux.md「底栏」）
+I_BELL, I_CHECK, I_CROSS = "\uf0f3", "\uf00c", "\uf00d"
+I_SPIN, I_CIRCLE, I_PLAY, I_TERM = "\uf110", "\uf10c", "\uf04b", "\uf120"
+
+# 队员没有会话文件，靠屏幕上的转圈行判断：「✢ Hashing… (2m 23s · ↓ 6.8k tokens」
+SPIN_LINE = re.compile(r"…\s*\((?:\d+h\s*)?(?:\d+m\s*)?\d+s\b")
+# Claude Code 写进窗格标题的前缀符号（✳ 空闲、盲文点转圈等）
+TITLE_PREFIX = re.compile(r"^[\s✳✢✶✻✽·*⠀-⣿]+")
+
+FIELDS = ["id", "session", "win", "pane", "cmd", "pid", "title", "path", "active", "wactive",
+          "seen", "sh_cmd", "sh_start", "sh_last", "sh_exit", "sh_dur", "sh_end"]
+FMT = "\t".join("#{%s}" % f for f in [
+    "pane_id", "session_name", "window_index", "pane_index", "pane_current_command", "pane_pid",
+    "pane_title", "pane_current_path", "pane_active", "window_active",
+    "@seen", "@sh_cmd", "@sh_start", "@sh_last", "@sh_exit", "@sh_dur", "@sh_end"])
+
+
+# ---------------------------------------------------------------- 采集
+
+def tmux(*args: str) -> str:
+    try:
+        return subprocess.run(["tmux", *args], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def num(s) -> float:
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def list_panes() -> list[dict]:
+    out = []
+    for line in tmux("list-panes", "-a", "-F", FMT).splitlines():
+        parts = line.split("\t")
+        if len(parts) == len(FIELDS):  # 标题里万一带了 Tab，这一行宁可不要也别错位
+            out.append(dict(zip(FIELDS, parts)))
+    return out
+
+
+def focused_sessions() -> set[str]:
+    """终端处于聚焦状态的客户端所在的会话。窗格要在这些会话的当前标签里当前窗格上，才算「在你眼前」。"""
+    out = set()
+    for line in tmux("list-clients", "-F", "#{client_session}\t#{client_flags}").splitlines():
+        s, _, flags = line.partition("\t")
+        if "focused" in flags.split(","):
+            out.add(s)
+    return out
+
+
+def proc_stat(pid: int) -> list[str]:
+    """/proc/<pid>/stat 里 comm 之后的字段：[0]=state [1]=ppid [5]=tpgid [19]=starttime。"""
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+    except (OSError, IndexError):
+        return []
+
+
+def foreground(shell_pid: int) -> tuple[str, float | None]:
+    """窗格里前台进程组的命令行和启动时刻（钩子装上前就开着的 shell 走这条）。"""
+    st = proc_stat(shell_pid)
+    if len(st) < 6:
+        return "", None
+    tpgid = int(st[5])
+    try:
+        args = Path(f"/proc/{tpgid}/cmdline").read_bytes().rstrip(b"\0").replace(b"\0", b" ").decode(errors="replace")
+        uptime = float(Path("/proc/uptime").read_text().split()[0])
+        start = time.time() - uptime + int(proc_stat(tpgid)[19]) / os.sysconf("SC_CLK_TCK")
+    except (OSError, IndexError, ValueError):
+        return "", None
+    return args, start
+
+
+def claude_sessions(panes: list[dict]) -> dict[str, dict]:
+    """{窗格 id: 会话文件内容}。顺着 claude 进程的父进程链往上找，碰到哪个窗格的 pane_pid 就是哪个。"""
+    by_pid = {int(p["pid"]): p["id"] for p in panes if p["pid"].isdigit()}
+    out = {}
+    for f in SESSIONS.glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+            pid = int(d["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if not Path(f"/proc/{pid}").exists():
+            continue  # 进程没了，文件是残留
+        cur, pane = pid, None
+        for _ in range(20):
+            if cur in by_pid:
+                pane = by_pid[cur]
+                break
+            st = proc_stat(cur)
+            if len(st) < 2 or int(st[1]) <= 1:
+                break
+            cur = int(st[1])
+        # 会话文件自己也记了 "tmux": "会话:@窗口.%窗格"，但不带是哪个 tmux 服务器（-L 起的测试服务器
+        # 也有 %0 %1），会认错窗格，所以只认进程树
+        if pane:
+            out[pane] = d
+    return out
+
+
+def capture(pane_id: str, color: bool = False) -> list[str]:
+    args = ["capture-pane", "-p", "-t", pane_id] + (["-e"] if color else [])
+    lines = tmux(*args).splitlines()
+    while lines and not re.sub(r"\x1b\[[0-9;]*m", "", lines[-1]).strip():
+        lines.pop()
+    return lines
+
+
+# ---------------------------------------------------------------- 判定
+
+def is_claude_cmd(cmd: str) -> bool:
+    # 主会话进程名是 claude；Agent Teams 队员直接跑版本号命名的二进制，进程名是 2.1.273 这种
+    return cmd == "claude" or bool(re.fullmatch(r"\d+\.\d+\.\d+", cmd))
+
+
+def classify(p: dict, cc: dict[str, dict], visible: bool, with_wait_detail: dict | None = None) -> dict:
+    """返回一行的语义：prio（越小越靠前）、icon、color、state、kind、main、since、flag。
+    flag 只给底栏计数用：wait / done / ok / fail。"""
+    seen = num(p["seen"])
+    d = cc.get(p["id"])
+    if d or is_claude_cmd(p["cmd"]):
+        title = TITLE_PREFIX.sub("", p["title"]).strip()
+        if title in ("", "Claude Code", os.uname().nodename):
+            title = (d or {}).get("name") or "Claude Code"
+        r = {"kind": "claude" if d else "队员", "main": title}
+        if d:
+            st = d.get("status")
+            since = num(d.get("statusUpdatedAt") or d.get("startedAt")) / 1000 or None
+            started = num(d.get("startedAt")) / 1000
+        else:
+            st = "busy" if any(SPIN_LINE.search(l) for l in capture(p["id"])[-40:]) else "idle"
+            since = started = None
+        if st == "waiting":
+            label = (with_wait_detail or {}).get(d.get("pid") if d else None) or "等你处理"
+            return r | dict(prio=0, icon=I_BELL, color="yel", state=label, since=since,
+                            flag=None if visible else "wait")
+        if st == "busy":
+            return r | dict(prio=3, icon=I_SPIN, color="cyan", state="干活中", since=since, flag=None)
+        # 刚启动还没问过话的会话 statusUpdatedAt ≈ startedAt，别当成「答完了」
+        if since and since > seen and since - (started or 0) > 5 and not visible:
+            return r | dict(prio=1, icon=I_CHECK, color="grn", state="答完了", since=since, flag="done")
+        return r | dict(prio=6, icon=I_CIRCLE, color="sub", state="空闲", since=since, flag=None)
+
+    if p["cmd"] not in SHELLS:
+        cmd, start = p["sh_cmd"], num(p["sh_start"]) or None
+        if not cmd:
+            cmd, start = foreground(int(p["pid"])) if p["pid"].isdigit() else ("", None)
+        return dict(prio=4, icon=I_PLAY, color="blue", state="运行中", kind=p["cmd"],
+                    main=cmd or p["cmd"], since=start, flag=None)
+
+    last, ex, dur, end = p["sh_last"], p["sh_exit"], num(p["sh_dur"]), num(p["sh_end"]) or None
+    failed = ex not in ("", "0")
+    if last and end and end > seen and dur >= LONG_CMD and not visible:
+        if failed:
+            return dict(prio=1, icon=I_CROSS, color="red", state=f"失败 {ex}", kind=p["cmd"],
+                        main=last, since=end, flag="fail")
+        return dict(prio=2, icon=I_CHECK, color="grn", state="跑完了", kind=p["cmd"],
+                    main=last, since=end, flag="ok")
+    main = (f"{I_CROSS} " if failed else "") + last if last else "—"
+    return dict(prio=7, icon=I_TERM, color="dim", state="空闲", kind=p["cmd"], main=main,
+                since=end, flag=None)
+
+
+def collect(wait_detail: bool = False) -> list[tuple[dict, dict]]:
+    panes = list_panes()
+    cc = claude_sessions(panes)
+    focused = focused_sessions()
+    detail = waiting_for() if wait_detail and any(d.get("status") == "waiting" for d in cc.values()) else None
+    rows = []
+    for p in panes:
+        visible = p["active"] == "1" and p["wactive"] == "1" and p["session"] in focused
+        rows.append((p, classify(p, cc, visible, detail)))
+    rows.sort(key=lambda pr: (pr[1]["prio"], -(pr[1]["since"] or 0)))
+    return rows
+
+
+def waiting_for() -> dict:
+    """{pid: 中文原因}。只有 claude agents --json 给 waitingFor（约 0.1s），所以只在有人等时才调。"""
+    cn = {"permission prompt": "等你授权", "input needed": "等你回答",
+          "sandbox request": "等你放行", "dialog open": "对话框开着"}
+    try:
+        data = json.loads(subprocess.run(["claude", "agents", "--json"], capture_output=True,
+                                         text=True, timeout=5).stdout or "[]")
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return {}
+    return {a.get("pid"): cn.get(a.get("waitingFor") or "", "") or None for a in data if isinstance(a, dict)}
+
+
+# ---------------------------------------------------------------- 渲染
+
+def width(s: str) -> int:
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 0 if unicodedata.combining(c) else 1 for c in s)
+
+
+def clip(s: str, n: int) -> str:
+    """按显示宽度截断并补齐（中文占两格）。"""
+    if width(s) > n:
+        out, w = "", 0
+        for c in s:
+            cw = width(c)
+            if w + cw > n - 1:
+                break
+            out, w = out + c, w + cw
+        s = out + "…"
+    return s + " " * max(0, n - width(s))
+
+
+def rjust(s: str, n: int) -> str:
+    return " " * max(0, n - width(s)) + s
+
+
+def short_dir(path: str, n: int) -> str:
+    """~ 缩写；太长就从左边砍目录，留下最后几级：~/xcylProjects/tradition-medi → …/tradition-medi"""
+    home = str(Path.home())
+    if path == home or path.startswith(home + "/"):
+        path = "~" + path[len(home):]
+    parts = path.split("/")
+    while width(path) > n and len(parts) > 1:
+        parts = parts[1:]
+        path = "…/" + "/".join(parts)
+    return path
+
+
+def age(since: float | None) -> str:
+    return dur(time.time() - since) if since else ""
+
+
+def dur(sec: float) -> str:
+    s = max(0, int(sec))
+    if s < 60:
+        return f"{s}秒"
+    if s < 3600:
+        return f"{s // 60}分"
+    if s < 86400:
+        return f"{s // 3600}时{s % 3600 // 60:02d}"
+    return f"{s // 86400}天"
+
+
+def term_cols() -> int:
+    if os.environ.get("FZF_COLUMNS", "").isdigit():
+        return int(os.environ["FZF_COLUMNS"])
+    try:
+        return os.get_terminal_size(sys.stderr.fileno()).columns
+    except OSError:
+        return 120
+
+
+def render(rows: list[tuple[dict, dict]], current: str | None) -> list[str]:
+    where = {p["id"]: f"{p['session']}:{p['win']}.{p['pane']}" for p, _ in rows}
+    ww = max([width(w) for w in where.values()] + [4])
+    cols = term_cols() - 4                       # fzf 的指针和边距
+    dir_w = 24
+    main_w = max(16, cols - 2 - 9 - 8 - dir_w - ww - 7 - 10)
+    out = []
+    for p, r in rows:
+        c = fg(r["color"])
+        mark = f"{fg('blue')}●{R}" if p["id"] == current else " "
+        main = clip(r["main"], main_w)
+        line = (f"{c}{r['icon']} {B}{clip(r['state'], 8)}{R} {fg('sub')}{clip(r['kind'], 7)}{R} "
+                f"{fg('fg') if r['prio'] < 6 else fg('sub')}{main}{R}{mark} "
+                f"{fg('cyan')}{clip(short_dir(p['path'], dir_w), dir_w)}{R} "
+                f"{fg('dim')}{clip(where[p['id']], ww)} {rjust(age(r['since']), 6)}{R}")
+        out.append(f"{p['id']}\t{line}")
+    return out
+
+
+def preview(pane_id: str) -> None:
+    rows = [pr for pr in collect() if pr[0]["id"] == pane_id]
+    if not rows:
+        print("窗格已经不在了（Ctrl-R 刷新）")
+        return
+    p, r = rows[0]
+    c = fg(r["color"])
+    print(f"{c}{r['icon']} {B}{r['state']}{R}  {fg('sub')}{r['kind']} · "
+          f"{p['session']}:{p['win']}.{p['pane']} ({p['id']}) · {age(r['since']) or '—'}{R}")
+    print(f"{fg('sub')}目录{R}  {p['path']}")
+    if r["kind"] in ("claude", "队员"):
+        print(f"{fg('sub')}主题{R}  {r['main']}")
+    else:
+        if p["cmd"] not in SHELLS:
+            print(f"{fg('sub')}在跑{R}  {r['main']}")
+        if p["sh_last"]:
+            ex = p["sh_exit"]
+            ok = fg("grn") + "退出 0" if ex == "0" else fg("red") + f"退出 {ex}"
+            print(f"{fg('sub')}上一条{R} {p['sh_last']}  {ok}{R}{fg('sub')} · 用时 {dur(num(p['sh_dur']))}"
+                  f" · {age(num(p['sh_end']))}前结束{R}")
+    print(f"{fg('dim')}{'─' * 60}{R}")
+    lines = capture(pane_id, color=True)
+    n = int(os.environ.get("FZF_PREVIEW_LINES", "30")) - 5
+    print("\n".join(lines[-max(n, 5):]) + R)
+
+
+def status() -> None:
+    """底栏：等你的 Claude、答完没看的 Claude、跑完没看的命令（成功 / 失败），都为 0 就什么也不输出。"""
+    cnt = {"wait": 0, "done": 0, "ok": 0, "fail": 0}
+    for _, r in collect():
+        if r["flag"]:
+            cnt[r["flag"]] += 1
+    parts = []
+    for flag, color, icon in (("wait", "yel", I_BELL), ("done", "grn", I_CHECK),
+                              ("ok", "cyan", I_PLAY), ("fail", "red", I_CROSS)):
+        if cnt[flag]:
+            parts.append(f"#[fg={HEX[color]}]{icon} {cnt[flag]}")
+    if parts:
+        print(" ".join(parts) + " #[fg=#545c7e]Alt+a ")
+
+
+def init_seen() -> None:
+    now = str(int(time.time()))
+    cmd: list[str] = []
+    for p in list_panes():
+        if not p["seen"]:
+            cmd += ["set", "-p", "-t", p["id"], "@seen", now, ";"]
+    if cmd:
+        tmux(*cmd[:-1])
+
+
+def interactive(current: str | None) -> None:
+    os.environ["TMUX_PANES_FROM"] = current or ""   # fzf 的 Ctrl-R 刷新会继承它，● 当前标记不丢
+    lines = render(collect(wait_detail=True), current)
+    fzf = ["fzf", "--ansi", "--no-sort", "--layout=reverse", "--delimiter=\t", "--with-nth=2..",
+           "--prompt=窗格> ", "--info=inline-right", "--no-scrollbar", "--highlight-line",
+           "--header=Enter 跳过去 · Ctrl-R 刷新 · Ctrl-/ 预览开关 · Esc 关  （按 主题 / 命令 / 目录 / 会话 过滤）",
+           f"--preview={SELF} --preview {{1}}", "--preview-window=down,55%,border-top,follow",
+           f"--bind=ctrl-r:reload({SELF} --list)", "--bind=ctrl-/:toggle-preview",
+           "--color=bg+:#2c314a,fg+:#c0caf5,hl:#e6c384,hl+:#e6c384,pointer:#7a88cf,prompt:#7a88cf,"
+           "header:#545c7e,info:#545c7e,border:#3b4261,gutter:-1,bg:-1,preview-bg:-1"]
+    res = subprocess.run(fzf, input="\n".join(lines), capture_output=False, stdout=subprocess.PIPE, text=True)
+    pick = res.stdout.strip().split("\t", 1)[0]
+    if pick.startswith("%"):
+        # switch-client 的目标给窗格 id，会连带切到那个标签、选中那个窗格（3.8 实测）
+        tmux("switch-client", "-t", pick)
+
+
+def main(argv: list[str]) -> None:
+    if not argv:
+        interactive(None)
+    elif argv[0] == "--from":
+        interactive(argv[1] if len(argv) > 1 else None)
+    elif argv[0] == "--list":
+        print("\n".join(render(collect(wait_detail=True), os.environ.get("TMUX_PANES_FROM"))))
+    elif argv[0] == "--preview" and len(argv) > 1:
+        preview(argv[1])
+    elif argv[0] == "--status":
+        status()
+    elif argv[0] == "--init-seen":
+        init_seen()
+    else:
+        print(__doc__.strip())
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

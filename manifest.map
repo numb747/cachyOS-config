@@ -41,8 +41,10 @@ config/alacritty/themes/noctalia.toml     ~/.config/alacritty/themes/noctalia.to
 home/.zshrc                               ~/.zshrc
 home/.p10k.zsh                            ~/.p10k.zsh
 # tmux 3.8：免前缀 Alt 层（学 Zellij）+ vi 复制键位 + wl-copy 进剪贴板；tmux-proj 是 Alt+Shift+O 的项目选择器。见 docs/14-tmux.md。
+# tmux-panes 是 Alt+a 的窗格总览 + 底栏提醒计数（Claude 读 ~/.claude/sessions，shell 那半边靠 .zshrc 的 preexec/precmd）。见 docs/14 第 9 节。
 home/.tmux.conf                           ~/.tmux.conf
 bin/tmux-proj                             ~/.local/bin/tmux-proj
+bin/tmux-panes                            ~/.local/bin/tmux-panes
 
 #@module nvim
 config/nvim/init.lua                      ~/.config/nvim/init.lua

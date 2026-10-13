@@ -75,6 +75,34 @@ coach() {
   claude --append-system-prompt "$(cat "$p")" "$@"
 }
 
+# ─── tmux 窗格状态（tmux 的 Alt+a 总览和底栏计数读这些，见 docs/14-tmux.md 第 9 节）───
+# 只在 tmux 里生效：命令开始时记下命令和时刻，回到提示符时记下退出码、耗时、结束时刻。
+# 每个提示符多一次 tmux 调用（约 2ms）。$? 在 precmd 函数之间是保留的，不用抢第一个。
+if [[ -n $TMUX_PANE ]] && (( $+commands[tmux] )); then
+    zmodload zsh/datetime
+    autoload -Uz add-zsh-hook
+    _tmux_track_preexec() {
+        local c=${1//$'\n'/ ⏎ }
+        _tmux_track_cmd=${${c//$'\t'/ }[1,300]}
+        _tmux_track_t0=$EPOCHSECONDS
+        tmux set -p -t $TMUX_PANE @sh_cmd "$_tmux_track_cmd" \; \
+             set -p -t $TMUX_PANE @sh_start $EPOCHSECONDS 2>/dev/null
+    }
+    _tmux_track_precmd() {
+        local e=$?
+        [[ -n $_tmux_track_t0 ]] || return 0   # 空回车不触发 preexec，没东西可记
+        tmux set -p -t $TMUX_PANE @sh_last "$_tmux_track_cmd" \; \
+             set -p -t $TMUX_PANE @sh_exit $e \; \
+             set -p -t $TMUX_PANE @sh_dur $(( EPOCHSECONDS - _tmux_track_t0 )) \; \
+             set -p -t $TMUX_PANE @sh_end $EPOCHSECONDS \; \
+             set -pu -t $TMUX_PANE @sh_cmd \; \
+             set -pu -t $TMUX_PANE @sh_start 2>/dev/null
+        unset _tmux_track_t0
+    }
+    add-zsh-hook preexec _tmux_track_preexec
+    add-zsh-hook precmd _tmux_track_precmd
+fi
+
 
 # Added by Antigravity CLI installer
 export PATH="/home/david/.local/bin:$PATH"

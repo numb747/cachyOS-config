@@ -113,7 +113,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
-| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 | `docs/14-tmux.md` |
+| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
 
 ---
 
@@ -443,5 +443,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 三条：**① 外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift**（字母没事），所以没有 `Alt+?`/`Alt+:`/`Alt+|`；
   **② tmux 参数末尾的 `;` 是命令分隔符，引号也挡不住**；**③ 注释行末尾的 `\` 会续行吞掉下一行**。
   冲突表和测试方法在 `docs/14-tmux.md` 第 1 节
+- **tmux 窗格总览 `Alt+a`**（2026-10-13，term 模块，`bin/tmux-panes`）：所有会话的所有窗格一张表，
+  Claude 等你 / 答完没看 / 干活中、命令运行中 / 跑完没看 / 失败，按这个优先级排，打字过滤、回车直达；底栏同步显示计数。
+  ⚠ **Claude 状态读 `~/.claude/sessions/<pid>.json`，没用钩子**（钩子在 Esc 打断时不触发，会卡在「干活中」），
+  settings.json 没动；队员没有会话文件，靠屏幕转圈行推断，Claude Code 升级后可能要改正则。
+  shell 那半边靠 `.zshrc` 的 preexec/precmd，**之前就开着的 shell 要 `exec zsh` 才开始记**。见 `docs/14-tmux.md` 第 9 节
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
