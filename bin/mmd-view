@@ -11,8 +11,14 @@
   %% @link <节点id> <另一个.mmd>      路径相对当前 .mmd；双击节点进入那张细节图
   %% @note <节点id|*> <一行文字>     备注 / 新需求，在页面里按 n 编辑（* = 整张图），一行一条
 
+页面里按 e 导出当前看到的样子：复制到剪贴板 + 存成 ~/Pictures/mmd_<图名>_<时间>.png。
+
 服务只绑 127.0.0.1、随机端口；页面关掉后几秒自动退出（靠 SSE 长连接判断，不靠心跳，
 因为 Chrome 会把切到后台的窗口的定时器限流到一分钟一次）。
+只认 Host 是 localhost 的请求，/api/* 还要带 X-MMD-View 头 —— 防别的网页扫到端口后写备注、遥控 nvim。
+
+单实例：已经开着的窗口能显示这个文件（它的目录包含这个文件），就让它跳过去并切到前台，不再开新窗口；
+打开目录则只复用同一目录的。实例登记在 $XDG_RUNTIME_DIR/mmd-view/<端口>.json。
 """
 import json
 import os
@@ -23,11 +29,17 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import URLError
 from urllib.parse import parse_qs, quote, urlparse
+from urllib.request import Request, urlopen
 
 HOME = Path.home()
 SHARE = HOME / ".local/share/mmd-view"
 CONFIG = HOME / ".config/mermaid/config.json"
+REG = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "mmd-view"
+EXPORT_DIR = HOME / "Pictures"
+WIN_CLASS = "chrome-localhost__-Default"   # --app 窗口的 class 只看主机名，见 main() 里 localhost 的注释
+MAX_EXPORT = 50 << 20
 MERMAID_JS = [
     HOME / ".local/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/mermaid/dist/mermaid.min.js",
     Path("/usr/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/mermaid/dist/mermaid.min.js"),
@@ -111,6 +123,19 @@ def ancestors(pid: int) -> list[int]:
     return out
 
 
+def hypr_clients() -> list[dict]:
+    r = run(["hyprctl", "clients", "-j"])
+    try:
+        return json.loads(r.stdout) if r and r.returncode == 0 else []
+    except ValueError:
+        return []
+
+
+def focus_window(address: str):
+    # 本机 Hyprland 是 Lua 配置，dispatch 的参数按 Lua 表达式解析
+    run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = hl.get_window("address:{address}") }})'])
+
+
 def locate_terminal(pid: int):
     """找跑着 pid 的终端窗口，不做任何切换。返回 (Hyprland 窗口 dict 或 None, 要执行的 tmux 命令)。
     在 tmux 里就先定位到窗格，再找 tmux 客户端所在的那个 kitty。"""
@@ -129,8 +154,7 @@ def locate_terminal(pid: int):
                 tmux_cmds.append(["tmux", "switch-client", "-c", cname, "-t", pane])
             chain = ancestors(int(cpid))
             break
-    r = run(["hyprctl", "clients", "-j"])
-    wins = json.loads(r.stdout) if r and r.returncode == 0 else []
+    wins = hypr_clients()
     for p in chain:
         # 同一个进程可能开了多个窗口（kitty 的 new_os_window）：分不清时取最近用过的那个
         mine = sorted((w for w in wins if w["pid"] == p), key=lambda w: w["focusHistoryID"])
@@ -191,8 +215,7 @@ def reuse_nvim(proj: Path, path: Path, line: int) -> bool:
             for cmd in tmux_cmds:
                 run(cmd)
             if win:
-                # 本机 Hyprland 是 Lua 配置，dispatch 的参数按 Lua 表达式解析
-                run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = hl.get_window("address:{win['address']}") }})'])
+                focus_window(win["address"])
             return True
     return False
 
@@ -203,12 +226,23 @@ class State:
         self.proj = git_root(root)
         self.files = scan(root)
         self.version = 0
-        self.changed: list[str] = []
+        self.log: list[tuple[int, object]] = []   # (版本号, 推给页面的消息)，SSE 按版本号补发
         self.cond = threading.Condition()
         self.clients = 0
         self.seen_client = False
         self.last_disconnect = time.time()
         self.started = time.time()
+        self.reg: Path | None = None
+        self.win: str | None = None
+
+    def push(self, msgs: list):
+        """消息：文件相对路径 = 它变了；"\\0list" = 文件列表变了；{"goto": f} = 让页面跳到 f。"""
+        with self.cond:
+            for m in msgs:
+                self.version += 1
+                self.log.append((self.version, m))
+            del self.log[:-100]
+            self.cond.notify_all()
 
     def watch(self):
         while True:
@@ -217,11 +251,27 @@ class State:
             if now != self.files:
                 diff = [f for f in now if self.files.get(f) != now[f]]
                 list_changed = now.keys() != self.files.keys()
-                with self.cond:
-                    self.files = now
-                    self.changed = diff + (["\0list"] if list_changed else [])
-                    self.version += 1
-                    self.cond.notify_all()
+                self.files = now
+                self.push(diff + (["\0list"] if list_changed else []))
+
+    def register(self, port: int):
+        """登记到 $XDG_RUNTIME_DIR/mmd-view/，给之后双击的 mmd-view 找来复用。先写临时文件再改名，读的一方不会读到半截。"""
+        REG.mkdir(mode=0o700, exist_ok=True)
+        self.reg = REG / f"{port}.json"
+        tmp = self.reg.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"root": str(self.root), "port": port, "pid": os.getpid(), "win": self.win}))
+        tmp.replace(self.reg)
+
+    def catch_window(self, before: set, port: int):
+        """Chrome 起来后，多出来的那个 --app 窗口就是我们的：记下地址，复用时按地址切前台（不按标题认，
+        不同项目的图都叫 00-overview.mmd）。5 秒内没等到就算了，复用时照样跳图，只是不切前台。"""
+        for _ in range(25):
+            time.sleep(0.2)
+            new = [w for w in hypr_clients() if w.get("class") == WIN_CLASS and w["address"] not in before]
+            if new:
+                self.win = new[0]["address"]
+                self.register(port)
+                return
 
 
 def make_handler(st: State):
@@ -239,9 +289,20 @@ def make_handler(st: State):
             self.end_headers()
             self.wfile.write(body)
 
+        def allowed(self, path: str) -> bool:
+            """Host 不是 localhost 的一律拒绝（防 DNS rebinding）；/api/* 还要带 X-MMD-View 头：
+            跨站请求带自定义头要先过 CORS 预检，这里不回 CORS 头，浏览器就拦下了。
+            /api/events 例外：EventSource 加不了头，它只读、没副作用，跨站读也被 CORS 挡住。"""
+            port = self.server.server_address[1]
+            if self.headers.get("Host") not in (f"localhost:{port}", f"127.0.0.1:{port}"):
+                return False
+            return not path.startswith("/api/") or path == "/api/events" or self.headers.get("X-MMD-View") == "1"
+
         def do_GET(self):
             u = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            if not self.allowed(u.path):
+                return self.send(403, "forbidden")
             if u.path == "/":
                 return self.send(200, (SHARE / "viewer.html").read_bytes(), "text/html; charset=utf-8")
             if u.path == "/mermaid.js":
@@ -266,12 +327,25 @@ def make_handler(st: State):
             self.send(404, "not found")
 
         def do_POST(self):
-            if urlparse(self.path).path != "/api/note":
+            u = urlparse(self.path)
+            if not self.allowed(u.path):
+                return self.send(403, "forbidden")
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+            except ValueError:
+                return self.send(400, "bad length")
+            if u.path == "/api/export":
+                if n > MAX_EXPORT:
+                    return self.send(413, "图太大")
+                return self.export(parse_qs(u.query).get("f", [""])[0], self.rfile.read(n))
+            if u.path not in ("/api/note", "/api/goto"):
                 return self.send(404, "not found")
             try:
-                req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+                req = json.loads(self.rfile.read(n))
             except ValueError:
                 return self.send(400, "bad json")
+            if u.path == "/api/goto":
+                return self.goto(req.get("f", ""))
             p = inside(st.root, req.get("f", ""))
             node = req.get("id", "")
             if not p or not p.is_file() or not re.fullmatch(r"[\w.-]+|\*", node):
@@ -295,6 +369,31 @@ def make_handler(st: State):
                 return self.send(500, "没有 kitty")
             self.send(200, f"新开 nvim：{q.get('f')}:{line}（下次会复用它）")
 
+        def goto(self, f: str):
+            """另一个 mmd-view 进程转交过来的：让页面跳到 f（空 = 只切前台）。页面没连着就回 409，对方会新开窗口。"""
+            if f and f not in st.files:
+                st.files = scan(st.root)   # 刚建的文件 watch 可能还没扫到
+                if f not in st.files:
+                    return self.send(404, "这个实例的侧栏里没有它")
+            with st.cond:
+                # 刚启动、页面还没连上来（连着双击两个文件）：等它一会儿，别白白多开一个窗口
+                if not st.seen_client:
+                    st.cond.wait_for(lambda: st.clients > 0, timeout=max(0, 10 - (time.time() - st.started)))
+                if st.clients == 0:
+                    return self.send(409, "窗口已经关了")
+            if f:
+                st.push([{"goto": f}])
+            self.send(200, json.dumps({"win": st.win}), "application/json")
+
+        def export(self, f: str, png: bytes):
+            if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+                return self.send(400, "不是 PNG")
+            stem = re.sub(r"[^\w.-]+", "_", Path(f).stem or "diagram")[:80]
+            EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+            p = EXPORT_DIR / f"mmd_{stem}_{time.strftime('%Y%m%d_%H%M%S')}.png"
+            p.write_bytes(png)
+            self.send(200, "~/" + str(p.relative_to(HOME)))
+
         def events(self):
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
@@ -304,11 +403,12 @@ def make_handler(st: State):
                 st.clients += 1
                 st.seen_client = True
                 seen = st.version
+                st.cond.notify_all()
             try:
                 while True:
                     with st.cond:
                         st.cond.wait_for(lambda: st.version != seen, timeout=2)
-                        msgs = st.changed if st.version != seen else []
+                        msgs = [m for v, m in st.log if v > seen]
                         seen = st.version
                     data = "".join(f"data: {json.dumps(m)}\n\n" for m in msgs) or ": ping\n\n"
                     self.wfile.write(data.encode())
@@ -335,6 +435,38 @@ def reaper(st: State, srv: ThreadingHTTPServer):
             return
 
 
+def hand_over(target: Path) -> bool:
+    """已经开着的实例能显示 target 就交给它：让它的页面跳过去、把它的窗口切到前台。
+    文件：实例的目录包含它就行，有多个取最深的；目录：只认同一个目录（上层目录的实例侧栏范围对不上）。"""
+    cands = []
+    for p in REG.glob("*.json"):
+        try:
+            r = json.loads(p.read_text())
+            alive = Path(f"/proc/{r['pid']}").exists()
+        except (OSError, ValueError, KeyError, TypeError):
+            alive = False
+        if not alive:
+            p.unlink(missing_ok=True)   # 被 kill 掉、没来得及删的残留登记
+            continue
+        root = Path(r["root"])
+        if target.is_dir() and root == target:
+            cands.append((root, r, ""))
+        elif target.is_file() and target.is_relative_to(root):
+            cands.append((root, r, str(target.relative_to(root))))
+    for root, r, f in sorted(cands, key=lambda c: -len(c[0].parts)):
+        req = Request(f"http://localhost:{r['port']}/api/goto", data=json.dumps({"f": f}).encode(),
+                      headers={"X-MMD-View": "1", "Content-Type": "application/json"})
+        try:
+            win = json.loads(urlopen(req, timeout=12).read()).get("win")
+        except (OSError, URLError, ValueError):
+            continue   # 404 侧栏里没有 / 409 窗口已关 / 连不上：试下一个，都不行就新开
+        if win:
+            focus_window(win)
+        print(f"已交给开着的窗口：{root}", flush=True)
+        return True
+    return False
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     no_browser = "--no-browser" in sys.argv
@@ -348,6 +480,8 @@ def main():
     target = Path(args[0] if args else ".").expanduser().resolve()
     if not target.exists():
         sys.exit(f"mmd-view: 不存在：{target}")
+    if not no_browser and hand_over(target):
+        return
     root = target.parent if target.is_file() else target
     st = State(root)
     first = str(target.relative_to(root)) if target.is_file() else next(iter(sorted(st.files)), "")
@@ -356,7 +490,8 @@ def main():
     srv.daemon_threads = True
     # 用 localhost 而不是 127.0.0.1：--app 窗口的 class 由主机名决定，
     # 127.0.0.1 会和 Excalidraw 窗口撞成同一个 class，任务栏图标就对不上了
-    url = f"http://localhost:{srv.server_address[1]}/#f={quote(first)}"
+    port = srv.server_address[1]
+    url = f"http://localhost:{port}/#f={quote(first)}"
     print(url, flush=True)
 
     if not no_browser:
@@ -367,15 +502,22 @@ def main():
         log = open(HOME / ".cache/mmd-view.log", "a")
         os.dup2(log.fileno(), 1)
         os.dup2(log.fileno(), 2)
+        st.register(port)   # fork 之后登记，pid 才是服务进程自己
+        before = {w["address"] for w in hypr_clients()}
         subprocess.Popen(["google-chrome-stable", f"--app={url}",
                           f"--user-data-dir={SHARE / 'chrome-profile'}",
                           "--password-store=basic", "--no-first-run", "--no-default-browser-check"],
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                          start_new_session=True)
+        threading.Thread(target=st.catch_window, args=(before, port), daemon=True).start()
 
     threading.Thread(target=st.watch, daemon=True).start()
     threading.Thread(target=reaper, args=(st, srv), daemon=True).start()
-    srv.serve_forever()
+    try:
+        srv.serve_forever()
+    finally:
+        if st.reg:
+            st.reg.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

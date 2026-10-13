@@ -54,6 +54,16 @@
   #toast { position:absolute; left:50%; top:52px; transform:translateX(-50%); background:var(--panel); border:1px solid var(--line);
            border-radius:6px; padding:4px 12px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; }
   #toast.show { opacity:1; }
+  .meta { cursor:pointer; }
+  #info textarea { width:100%; min-height:124px; margin-top:6px; resize:none; user-select:text; font:inherit; font-size:20px;
+                   background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; outline:none; }
+  #info textarea:focus { border-color:var(--yellow); }
+  #notesBtn, #exportBtn { font:inherit; font-size:13px; background:var(--panel); color:var(--fg); border:1px solid var(--line);
+                          border-radius:6px; padding:3px 10px; cursor:pointer; }
+  #notesBtn.has { color:var(--yellow); border-color:var(--yellow); }
+</style>
+<!-- 画在图上的样式单独放：导出 PNG 时把这一段（var() 换成实际颜色）塞进 SVG，导出图和屏幕上一致 -->
+<style id="hl-css">
   /* 高亮：选中=黄，上游（谁指向它）=绿，下游（它指向谁）=橙，搜索命中=紫 */
   /* 节点 .label-container 里第一条 path 是手绘斜线填充，其余是轮廓。发光只加在轮廓上，
      斜线淡下去 —— 整个节点加 drop-shadow 会让每根斜线都发光，压住文字 */
@@ -66,14 +76,7 @@
   .hl-match .label-container > path:not(:first-child) { stroke:var(--purple) !important; filter:drop-shadow(0 0 4px var(--purple)); }
   path.e-up { stroke:var(--green) !important; stroke-width:2.5px !important; }
   path.e-down { stroke:var(--orange) !important; stroke-width:2.5px !important; }
-  .meta { cursor:pointer; }
   .note-dot { fill:var(--yellow); stroke:var(--bg); stroke-width:2px; }
-  #info textarea { width:100%; min-height:124px; margin-top:6px; resize:none; user-select:text; font:inherit; font-size:20px;
-                   background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; outline:none; }
-  #info textarea:focus { border-color:var(--yellow); }
-  #notesBtn { font:inherit; font-size:13px; background:var(--panel); color:var(--fg); border:1px solid var(--line);
-              border-radius:6px; padding:3px 10px; cursor:pointer; }
-  #notesBtn.has { color:var(--yellow); border-color:var(--yellow); }
 </style>
 </head>
 <body>
@@ -84,10 +87,11 @@
     <span id="title"></span>
     <input id="q" placeholder="/ 搜节点" autocomplete="off">
     <button id="notesBtn" title="整张图的备注（n）">本图备注</button>
+    <button id="exportBtn" title="把当前看到的样子导出成 PNG：复制到剪贴板 + 存到 ~/Pictures（e）">导出</button>
     <select id="font" title="字体（t 切换）"><option value="cute">手写字体</option><option value="mono">等宽字体</option></select>
     <select id="dir" title="方向（d 横竖互换）·只影响显示，不改文件"><option value="auto">按文件方向</option><option value="h">横向</option><option value="v">竖向</option></select>
     <span id="help">滚轮缩放 · 拖动平移 · 点节点看上下游（再点一次展开整条链）· 双击跳源码 / 细节图<br>
-      / 搜索 · n 备注 · t 字体 · d 横竖 · f 适应窗口 · b 侧栏 · Esc 取消 · Alt+← 返回上一张图</span>
+      / 搜索 · n 备注 · e 导出 · t 字体 · d 横竖 · f 适应窗口 · b 侧栏 · Esc 取消 · Alt+← 返回上一张图</span>
   </div>
   <div id="info"></div>
   <div id="err"></div>
@@ -109,6 +113,8 @@ const toast = (msg, ms = 1800) => {
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms);
 };
 const showErr = msg => { const e = $('#err'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; };
+// 服务要求 /api/* 带这个头（跨站请求带不了，防别的网页遥控）
+const api = (url, opts = {}) => fetch(url, { ...opts, headers: { 'X-MMD-View': '1', ...opts.headers } });
 
 // 两套字体：手写（和 mmd 出的静态图一致）/ 等宽（照 kitty 里 LazyVim 的：英文 Adwaita Mono，中文回退到等距更纱黑体）
 // 页面和图里的文字一起换；图要按新字体重新量字宽排版，所以切换时重画
@@ -134,6 +140,9 @@ async function setFont(key) {
 let dir = ['auto', 'h', 'v'].includes(localStorage.getItem('mmd-view.dir')) ? localStorage.getItem('mmd-view.dir') : 'auto';
 let shownHoriz = null;   // 当前这张图实际显示的是不是横向；null = 不是流程图，方向不适用
 const FLIP = { LR: 'TB', RL: 'BT', TB: 'LR', TD: 'LR', BT: 'RL' };
+// 每张图离开时的 { view, sel, deep }，按「文件|横竖」记（横竖不同，视野坐标就对不上）。只在内存里，刷新页面就清空
+const memo = {};
+const memoKey = (f, horiz) => f + '|' + horiz;
 
 function orient(text) {
   const lines = text.split('\n');
@@ -164,14 +173,16 @@ async function init() {
   const es = new EventSource('/api/events');
   es.onmessage = ev => {
     const f = JSON.parse(ev.data);
-    if (f === '\0list') loadList();
+    // 另一次双击转交过来的（单实例）：改 hash 跳过去，Alt+← 还能回来
+    if (f?.goto !== undefined) { if (f.goto !== cur) location.hash = '#f=' + encodeURIComponent(f.goto); }
+    else if (f === '\0list') loadList();
     else if (f === cur) show(cur, true).then(ok => ok && toast('已刷新：' + cur));
   };
   route();
 }
 
 async function loadList() {
-  const r = await (await fetch('/api/files')).json();
+  const r = await (await api('/api/files')).json();
   files = r.files;
   $('#root').textContent = r.root.replace(/^\/home\/[^/]+/, '~');
   $('#list').innerHTML = '';
@@ -207,7 +218,7 @@ function parseMeta(text) {
 
 async function show(f, keepView) {
   const same = f === cur;
-  const res = await fetch('/api/src?f=' + encodeURIComponent(f));
+  const res = await api('/api/src?f=' + encodeURIComponent(f));
   if (!res.ok) return showErr('打不开：' + f);
   const text = await res.text(), o = orient(text);
   const id = 'mmd' + (++seq);
@@ -219,6 +230,9 @@ async function show(f, keepView) {
     return showErr(f + '\n' + (e.message || e));   // 语法错：留着上一版图，只报错
   }
   showErr('');
+  // 离开一张图（换图或换横竖）前记下视野和选中，回来时恢复 —— 从细节图 Alt+← 回来不用重新找刚才那块
+  if (cur && (f !== cur || o.horiz !== shownHoriz)) memo[memoKey(cur, shownHoriz)] = { view: { ...view }, sel, deep };
+  const back = !(keepView && same) && memo[memoKey(f, o.horiz)];
   cur = f;
   shownHoriz = o.horiz;
   $('#dir').disabled = o.horiz === null;
@@ -231,7 +245,7 @@ async function show(f, keepView) {
   svg.removeAttribute('style'); svg.removeAttribute('width'); svg.removeAttribute('height');
   const b = svg.viewBox.baseVal, pad = 30;
   vb0 = { x: b.x - pad, y: b.y - pad, w: b.width + 2 * pad, h: b.height + 2 * pad };
-  if (!(keepView && same && view)) view = { ...vb0 };
+  if (!(keepView && same && view)) view = back ? { ...back.view } : { ...vb0 };
   apply();
   meta = parseMeta(text);
   const dn = meta.notes['*'];
@@ -241,6 +255,7 @@ async function show(f, keepView) {
   if (!same) card.pinned = null;
   if (same && sel && nodes.has(sel)) highlight();
   else if (same && card.id === '*') renderCard();
+  else if (!same && back?.sel && nodes.has(back.sel)) { clearSel(); sel = back.sel; deep = back.deep; openCard(sel); highlight(); }
   else clearSel();
   return true;
 }
@@ -416,7 +431,7 @@ function openNotes() {
 }
 
 async function saveNote(id, text) {
-  const r = await fetch('/api/note', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const r = await api('/api/note', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                        body: JSON.stringify({ f: cur, id, text }) });
   if (!r.ok) return toast(await r.text());
   delete drafts[draftKey(id)];
@@ -497,8 +512,46 @@ function clearSel() { sel = null; deep = false; card.id = null; card.open = fals
 
 async function openSrc(n) {
   const s = meta.src[n]; if (!s) return;
-  const r = await fetch(`/api/open?f=${encodeURIComponent(s.path)}&l=${s.line}&a=${encodeURIComponent(s.anchor)}`);
+  const r = await api(`/api/open?f=${encodeURIComponent(s.path)}&l=${s.line}&a=${encodeURIComponent(s.anchor)}`);
   toast(await r.text(), 2500);
+}
+
+// 导出：所见即所得 —— 窗口里看得到的这块，连同高亮、变暗、黄点；信息卡和顶栏是界面，不进图。
+// 只出 PNG（SVG 不嵌字体，发给别人会变样）。复制到剪贴板 + 存 ~/Pictures，两边各报各的结果
+async function exportPng() {
+  if (!svg) return;
+  const S = stage.getBoundingClientRect(), inv = svg.getScreenCTM().inverse();
+  // 范围按舞台四角换算，不用 view：preserveAspectRatio 会在一个方向上多露出一截
+  const pt = (x, y) => { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(inv); };
+  const a = pt(S.left, S.top), b = pt(S.right, S.bottom);
+  const s = svg.cloneNode(true);
+  s.setAttribute('viewBox', `${a.x} ${a.y} ${b.x - a.x} ${b.y - a.y}`);
+  s.setAttribute('width', S.width); s.setAttribute('height', S.height);
+  s.querySelectorAll('title').forEach(t => t.remove());
+  // 高亮样式在页面 CSS 里、还用了 var()，单独当图片渲染时都没有：把 var() 换成实际颜色后塞进 SVG
+  const cs = getComputedStyle(document.documentElement);
+  const style = document.createElementNS(SVGNS, 'style');
+  style.textContent = $('#hl-css').textContent.replace(/var\((--[\w-]+)\)/g, (_, v) => cs.getPropertyValue(v).trim());
+  s.append(style);
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(s));
+  await img.decode();
+  // 2 倍（同 mmd -s 2），超过 Chrome 画布上限（单边 16384、总面积约 2.68 亿像素）就降倍数
+  const k = Math.min(2, 16384 / S.width, 16384 / S.height, Math.sqrt(2.68e8 / (S.width * S.height)));
+  const c = document.createElement('canvas');
+  c.width = Math.floor(S.width * k); c.height = Math.floor(S.height * k);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = cs.getPropertyValue('--bg').trim(); ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const [copied, saved] = await Promise.allSettled([
+    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]),
+    api('/api/export?f=' + encodeURIComponent(cur), { method: 'POST', body: blob })
+      .then(async r => { const t = await r.text(); if (!r.ok) throw new Error(t); return t; }),
+  ]);
+  toast([copied.status === 'fulfilled' ? '已复制到剪贴板' : '复制失败：' + (copied.reason?.message || copied.reason),
+         saved.status === 'fulfilled' ? '存到 ' + saved.value : '存文件失败：' + (saved.reason?.message || saved.reason)].join(' · '), 3500);
+  return { w: c.width, h: c.height, copied: copied.status, saved: saved.value };
 }
 
 function follow(n) {
@@ -576,12 +629,14 @@ addEventListener('keydown', e => {
   else if (e.key === 't') setFont(font === 'cute' ? 'mono' : 'cute');
   else if (e.key === 'd') shownHoriz === null ? toast('只有流程图能切横竖') : setDir(shownHoriz ? 'v' : 'h');
   else if (e.key === 'n') { e.preventDefault(); openNotes(); }
+  else if (e.key === 'e') exportPng();
   else if (e.key === 'Escape') clearSel();
 });
 addEventListener('resize', apply);
 $('#font').onchange = () => { setFont($('#font').value); $('#font').blur(); };
 $('#dir').onchange = () => { setDir($('#dir').value); $('#dir').blur(); };
-$('#notesBtn').onclick = () => (card.id === '*' ? clearSel() : showDiagramNotes());
+$('#exportBtn').onclick = () => { $('#exportBtn').blur(); exportPng(); };
+$('#notesBtn').onclick =() => (card.id === '*' ? clearSel() : showDiagramNotes());
 
 init();
 </script>
