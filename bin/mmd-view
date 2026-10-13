@@ -1,0 +1,382 @@
+#!/usr/bin/env python3
+"""mmd-view —— 交互式看 Mermaid 图：缩放平移、点节点高亮上下游、点节点跳源码、改文件自动刷新。
+
+用法：mmd-view [文件.mmd | 目录]       （默认当前目录，cwd 是 ~ 时弹目录选择框；目录下所有 .mmd 列在侧栏）
+     mmd-view --no-browser PATH     只起服务、打印 URL（调试用）
+
+.mmd 里可以写三种注释行（Mermaid 自己会忽略它们，mmd 出静态图不受影响）：
+  %% @src  <节点id> <路径> <锚点文字>  路径相对项目根（.mmd 所在的 git 仓库根），锚点是定义那一行里的一段文字，
+                                      打开时现场找行号（也认旧写法 <路径>:<行号>，但代码一挪就漂）。
+                                      优先复用工作目录在本项目里的 nvim（tmux 里的也行），没有才新开 kitty
+  %% @link <节点id> <另一个.mmd>      路径相对当前 .mmd；双击节点进入那张细节图
+  %% @note <节点id|*> <一行文字>     备注 / 新需求，在页面里按 n 编辑（* = 整张图），一行一条
+
+服务只绑 127.0.0.1、随机端口；页面关掉后几秒自动退出（靠 SSE 长连接判断，不靠心跳，
+因为 Chrome 会把切到后台的窗口的定时器限流到一分钟一次）。
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, quote, urlparse
+
+HOME = Path.home()
+SHARE = HOME / ".local/share/mmd-view"
+CONFIG = HOME / ".config/mermaid/config.json"
+MERMAID_JS = [
+    HOME / ".local/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/mermaid/dist/mermaid.min.js",
+    Path("/usr/lib/node_modules/@mermaid-js/mermaid-cli/node_modules/mermaid/dist/mermaid.min.js"),
+]
+SKIP_DIRS = {"node_modules", "target", "dist", "build", "__pycache__", "venv"}
+MAX_DIRS = 3000  # 防止误在 ~ 下打开时把整个家目录扫一遍
+GRACE = 8        # 最后一个页面断开后再等几秒（刷新页面会短暂断开）
+
+
+def scan(root: Path) -> dict:
+    """root 下所有 .mmd 的 {相对路径: mtime}，跳过隐藏目录和常见的构建/依赖目录。"""
+    out, n = {}, 0
+    for d, dirs, files in os.walk(root):
+        dirs[:] = sorted(x for x in dirs if not x.startswith(".") and x not in SKIP_DIRS)
+        n += 1
+        if n > MAX_DIRS:
+            break
+        for f in files:
+            if f.endswith((".mmd", ".mermaid")):
+                p = Path(d) / f
+                try:
+                    out[str(p.relative_to(root))] = p.stat().st_mtime
+                except OSError:
+                    pass
+    return out
+
+
+def git_root(d: Path) -> Path:
+    r = subprocess.run(["git", "-C", str(d), "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True)
+    return Path(r.stdout.strip()) if r.returncode == 0 else d
+
+
+def inside(base: Path, rel: str) -> Path | None:
+    p = (base / rel).resolve()
+    try:
+        p.relative_to(base.resolve())
+    except ValueError:
+        return None
+    return p
+
+
+def resolve_line(p: Path, line: str, anchor: str) -> int | None:
+    """@src 写锚点（定义那一行里的一段文字）时现场找行号：代码挪动了也不会指错。"""
+    if not anchor:
+        return int(line) if line.isdigit() else 1
+    for i, text in enumerate(p.read_text(errors="replace").splitlines(), 1):
+        if anchor in text:
+            return i
+    return None
+
+
+def write_note(p: Path, node: str, text: str):
+    """备注存成 .mmd 里的 `%% @note <节点id|*> <一行>`，一行一条；* 是整张图的备注。
+    先删掉这个节点的旧备注，新的插在文件末尾的 classDef 块之前（arch-map 约定 classDef 放最后）。"""
+    lines = p.read_text().splitlines()
+    pat = re.compile(rf"^\s*%%\s*@note\s+{re.escape(node)}(\s|$)")
+    lines = [l for l in lines if not pat.match(l)]
+    at = len(lines)
+    while at > 0 and (lines[at - 1].lstrip().startswith("classDef ") or not lines[at - 1].strip()):
+        at -= 1
+    lines[at:at] = [f"  %% @note {node} {t.strip()}" for t in text.splitlines() if t.strip()]
+    p.write_text("\n".join(lines) + "\n")
+
+
+def run(cmd, timeout=2):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def ancestors(pid: int) -> list[int]:
+    out = []
+    while pid > 1 and len(out) < 64:
+        out.append(pid)
+        try:
+            pid = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    return out
+
+
+def locate_terminal(pid: int):
+    """找跑着 pid 的终端窗口，不做任何切换。返回 (Hyprland 窗口 dict 或 None, 要执行的 tmux 命令)。
+    在 tmux 里就先定位到窗格，再找 tmux 客户端所在的那个 kitty。"""
+    chain, tmux_cmds = ancestors(pid), []
+    r = run(["tmux", "list-panes", "-a", "-F", "#{pane_pid} #{pane_id} #{session_name}"])
+    for row in (r.stdout.split("\n") if r and r.returncode == 0 else []):
+        ppid, pane, sess = (row.split(" ", 2) + ["", ""])[:3]
+        if ppid.isdigit() and int(ppid) in chain:
+            tmux_cmds = [["tmux", "select-window", "-t", pane], ["tmux", "select-pane", "-t", pane]]
+            c = run(["tmux", "list-clients", "-F", "#{client_pid} #{client_name} #{client_session}"])
+            clients = [x.split(" ", 2) for x in (c.stdout.split("\n") if c and c.returncode == 0 else []) if x]
+            if not clients:
+                return None, tmux_cmds
+            cpid, cname, csess = next((x for x in clients if x[2] == sess), clients[0])
+            if csess != sess:
+                tmux_cmds.append(["tmux", "switch-client", "-c", cname, "-t", pane])
+            chain = ancestors(int(cpid))
+            break
+    r = run(["hyprctl", "clients", "-j"])
+    wins = json.loads(r.stdout) if r and r.returncode == 0 else []
+    for p in chain:
+        # 同一个进程可能开了多个窗口（kitty 的 new_os_window）：分不清时取最近用过的那个
+        mine = sorted((w for w in wins if w["pid"] == p), key=lambda w: w["focusHistoryID"])
+        if mine:
+            return mine[0], tmux_cmds
+    return None, tmux_cmds
+
+
+# 在 nvim 里挑一个「普通文件、非浮动」的窗口打开（当前标签页优先），别把终端 / 浮动窗占掉。
+# luaeval 只收表达式，所以整段包成立即执行的函数
+OPEN_LUA = """(function()
+local path, line = _A[1], _A[2]
+local function ok(w)
+  return vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "" and vim.api.nvim_win_get_config(w).relative == ""
+end
+local target
+for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do if not target and ok(w) then target = w end end
+for _, t in ipairs(vim.api.nvim_list_tabpages()) do
+  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(t)) do if not target and ok(w) then target = w end end
+end
+if target then vim.api.nvim_set_current_win(target) else vim.cmd("tabnew") end
+vim.cmd("stopinsert")
+vim.cmd("edit " .. vim.fn.fnameescape(path))
+vim.api.nvim_win_set_cursor(0, { math.min(line, vim.api.nvim_buf_line_count(0)), 0 })
+vim.cmd("normal! zz")
+return "ok"
+end)()"""
+
+
+def reuse_nvim(proj: Path, path: Path, line: int) -> bool:
+    """挑一个已开着的 nvim 跳过去（每个 nvim 都会在 $XDG_RUNTIME_DIR 自动开 socket）：
+    ① 工作目录在本项目里的；② 没有的话，就用开在终端窗口里的那个 nvim，不管它的工作目录在哪——
+    用户的用法是平时只开一个 kitty，里面就是那个 LazyVim（kitty.conf 的 shell nvim），图上点代码就该在它里面打开。
+    LSP 按文件路径找项目根，不看 nvim 工作目录，所以在 ~ 下的 nvim 里打开别的项目，pyright 照样以那个项目为根（2026-10-13 实测）。
+    同档里依次比：已经打开了这个文件 > 工作目录是项目的上层目录、越深越好 > 所在窗口最近用过（Hyprland focusHistoryID）。
+    插件 / 脚本起的无头 nvim 没有终端窗口，只在工作目录正好落在项目里时才会被选中。"""
+    runtime = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
+    vpath = str(path).replace("'", "''")
+    cands = []
+    for sock in runtime.glob("nvim.*.0"):
+        r = run(["nvim", "--server", str(sock), "--remote-expr", f"getcwd() . \"\\n\" . bufloaded('{vpath}')"], timeout=1)
+        if not r or r.returncode != 0 or "\n" not in r.stdout:
+            continue
+        cwd, loaded = r.stdout.rsplit("\n", 1)
+        cwd = Path(cwd)
+        inside_proj = cwd.is_relative_to(proj)
+        win, tmux_cmds = locate_terminal(int(sock.name.split(".")[1]))
+        if not inside_proj and not win:
+            continue
+        above = proj.is_relative_to(cwd)
+        rank = (not inside_proj, loaded.strip() != "1", not above, -len(cwd.parts) if above else 0,
+                win["focusHistoryID"] if win else 1 << 30)
+        cands.append((rank, sock, win, tmux_cmds))
+    expr = "luaeval('{}', ['{}', {}])".format(OPEN_LUA.replace("'", "''"), vpath, line)
+    for _, sock, win, tmux_cmds in sorted(cands, key=lambda c: c[0]):
+        r = run(["nvim", "--server", str(sock), "--remote-expr", expr], timeout=2)
+        if r and r.stdout.strip() == "ok":
+            for cmd in tmux_cmds:
+                run(cmd)
+            if win:
+                # 本机 Hyprland 是 Lua 配置，dispatch 的参数按 Lua 表达式解析
+                run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = hl.get_window("address:{win['address']}") }})'])
+            return True
+    return False
+
+
+class State:
+    def __init__(self, root: Path):
+        self.root = root
+        self.proj = git_root(root)
+        self.files = scan(root)
+        self.version = 0
+        self.changed: list[str] = []
+        self.cond = threading.Condition()
+        self.clients = 0
+        self.seen_client = False
+        self.last_disconnect = time.time()
+        self.started = time.time()
+
+    def watch(self):
+        while True:
+            time.sleep(0.5)
+            now = scan(self.root)
+            if now != self.files:
+                diff = [f for f in now if self.files.get(f) != now[f]]
+                list_changed = now.keys() != self.files.keys()
+                with self.cond:
+                    self.files = now
+                    self.changed = diff + (["\0list"] if list_changed else [])
+                    self.version += 1
+                    self.cond.notify_all()
+
+
+def make_handler(st: State):
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def send(self, code, body, ctype="text/plain; charset=utf-8"):
+            if isinstance(body, str):
+                body = body.encode()
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            u = urlparse(self.path)
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            if u.path == "/":
+                return self.send(200, (SHARE / "viewer.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/mermaid.js":
+                js = next((p for p in MERMAID_JS if p.exists()), None)
+                if not js:
+                    return self.send(500, "找不到 mermaid.min.js，先装 mermaid-cli")
+                return self.send(200, js.read_bytes(), "text/javascript")
+            if u.path == "/config.json":
+                return self.send(200, CONFIG.read_bytes() if CONFIG.exists() else b"{}", "application/json")
+            if u.path == "/api/files":
+                return self.send(200, json.dumps({"root": str(st.root), "proj": str(st.proj),
+                                                  "files": sorted(st.files)}), "application/json")
+            if u.path == "/api/src":
+                p = inside(st.root, q.get("f", ""))
+                if not p or not p.is_file():
+                    return self.send(404, "not found")
+                return self.send(200, p.read_text(errors="replace"))
+            if u.path == "/api/open":
+                return self.open_src(q)
+            if u.path == "/api/events":
+                return self.events()
+            self.send(404, "not found")
+
+        def do_POST(self):
+            if urlparse(self.path).path != "/api/note":
+                return self.send(404, "not found")
+            try:
+                req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+            except ValueError:
+                return self.send(400, "bad json")
+            p = inside(st.root, req.get("f", ""))
+            node = req.get("id", "")
+            if not p or not p.is_file() or not re.fullmatch(r"[\w.-]+|\*", node):
+                return self.send(400, "bad request")
+            write_note(p, node, req.get("text", ""))
+            self.send(200, "ok")
+
+        def open_src(self, q):
+            p = inside(st.proj, q.get("f", ""))
+            if not p or not p.is_file():
+                return self.send(404, f"项目里没有这个文件：{q.get('f')}")
+            line = resolve_line(p, q.get("l", ""), q.get("a", ""))
+            if line is None:
+                return self.send(404, f"{q.get('f')} 里找不到锚点「{q.get('a')}」—— 代码改过了，重新跑 /arch-map")
+            if reuse_nvim(st.proj, p, line):
+                return self.send(200, f"已在打开着的 nvim 里跳到 {q.get('f')}:{line}")
+            try:
+                subprocess.Popen(["kitty", "--detach", "--directory", str(st.proj), "nvim", f"+{line}", str(p)],
+                                 start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except FileNotFoundError:
+                return self.send(500, "没有 kitty")
+            self.send(200, f"新开 nvim：{q.get('f')}:{line}（下次会复用它）")
+
+        def events(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            with st.cond:
+                st.clients += 1
+                st.seen_client = True
+                seen = st.version
+            try:
+                while True:
+                    with st.cond:
+                        st.cond.wait_for(lambda: st.version != seen, timeout=2)
+                        msgs = st.changed if st.version != seen else []
+                        seen = st.version
+                    data = "".join(f"data: {json.dumps(m)}\n\n" for m in msgs) or ": ping\n\n"
+                    self.wfile.write(data.encode())
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            finally:
+                with st.cond:
+                    st.clients -= 1
+                    st.last_disconnect = time.time()
+
+    return H
+
+
+def reaper(st: State, srv: ThreadingHTTPServer):
+    while True:
+        time.sleep(1)
+        with st.cond:
+            idle = st.clients == 0
+            gone = st.seen_client and time.time() - st.last_disconnect > GRACE
+            never = not st.seen_client and time.time() - st.started > 60
+        if idle and (gone or never):
+            srv.shutdown()
+            return
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    no_browser = "--no-browser" in sys.argv
+    if not args and Path.cwd() == HOME:
+        # 从启动器点开（cwd 是 ~，没参数）：弹目录选择框，免得把整个家目录扫一遍
+        r = subprocess.run(["zenity", "--file-selection", "--directory",
+                            "--title=选择放 .mmd 图的目录"], capture_output=True, text=True)
+        if r.returncode != 0:
+            return
+        args = [r.stdout.strip()]
+    target = Path(args[0] if args else ".").expanduser().resolve()
+    if not target.exists():
+        sys.exit(f"mmd-view: 不存在：{target}")
+    root = target.parent if target.is_file() else target
+    st = State(root)
+    first = str(target.relative_to(root)) if target.is_file() else next(iter(sorted(st.files)), "")
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(st))
+    srv.daemon_threads = True
+    # 用 localhost 而不是 127.0.0.1：--app 窗口的 class 由主机名决定，
+    # 127.0.0.1 会和 Excalidraw 窗口撞成同一个 class，任务栏图标就对不上了
+    url = f"http://localhost:{srv.server_address[1]}/#f={quote(first)}"
+    print(url, flush=True)
+
+    if not no_browser:
+        # 后台化：从终端或文件管理器启动都立刻返回
+        if os.fork():
+            os._exit(0)
+        os.setsid()
+        log = open(HOME / ".cache/mmd-view.log", "a")
+        os.dup2(log.fileno(), 1)
+        os.dup2(log.fileno(), 2)
+        subprocess.Popen(["google-chrome-stable", f"--app={url}",
+                          f"--user-data-dir={SHARE / 'chrome-profile'}",
+                          "--password-store=basic", "--no-first-run", "--no-default-browser-check"],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)
+
+    threading.Thread(target=st.watch, daemon=True).start()
+    threading.Thread(target=reaper, args=(st, srv), daemon=True).start()
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# mmdc 包装：默认带手绘风 + Excalifont/小赖字体 + Tokyo Night 配色，用系统 chrome 渲染。
+# 用法同 mmdc：mmd -i a.mmd -o a.svg|png ；显式传 -c/-p/-b 可覆盖默认。
+cfg=~/.config/mermaid
+args=("$@")
+[[ " $* " == *" -c "* || " $* " == *" --configFile "* ]] || args+=(-c "$cfg/config.json")
+[[ " $* " == *" -p "* || " $* " == *" --puppeteerConfigFile "* ]] || args+=(-p "$cfg/puppeteer.json")
+[[ " $* " == *" -b "* || " $* " == *" --backgroundColor "* ]] || args+=(-b "#1a1b26")
+[[ " $* " == *" -s "* || " $* " == *" --scale "* ]] || args+=(-s 2)
+exec ~/.local/bin/mmdc "${args[@]}"

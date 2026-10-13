@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>mmd-view</title>
+<style>
+  :root { --bg:#1a1b26; --panel:#1f2335; --line:#292e42; --fg:#c0caf5; --mute:#565f89;
+          --blue:#7aa2f7; --green:#9ece6a; --orange:#ff9e64; --yellow:#e0af68; --red:#f7768e; --purple:#bb9af7; }
+  * { box-sizing: border-box; }
+  /* 双击节点是「进入/跳源码」，不要浏览器顺手选中一个词（那个蓝色小方块）；报错信息留着可选，方便复制 */
+  body { margin:0; height:100vh; display:flex; overflow:hidden; background:var(--bg); color:var(--fg);
+         font-family: Excalifont, Xiaolai, sans-serif; user-select:none; }
+  #err { user-select:text; }
+  #side { width:230px; flex:none; overflow:auto; padding:14px 10px; background:var(--panel); border-right:1px solid var(--line); }
+  #side.hide { display:none; }
+  #side h1 { font-size:13px; font-weight:normal; color:var(--mute); margin:0 4px 10px; word-break:break-all; }
+  #side a { display:block; padding:5px 8px; border-radius:6px; color:var(--fg); text-decoration:none; font-size:14px; word-break:break-all; }
+  #side a:hover { background:var(--line); }
+  #side a.cur { background:#2f334d; color:var(--blue); }
+  #main { flex:1; position:relative; }
+  #stage { position:absolute; inset:0; cursor:grab; }
+  #stage.drag { cursor:grabbing; }
+  #stage svg { width:100%; height:100%; display:block; }
+  #bar { position:absolute; top:10px; left:12px; right:12px; display:flex; gap:12px; align-items:center; pointer-events:none; }
+  #bar > * { pointer-events:auto; }
+  #title { font-size:16px; color:var(--blue); }
+  #q { background:var(--panel); border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:4px 8px;
+       font:inherit; font-size:14px; width:200px; outline:none; }
+  #q:focus { border-color:var(--blue); }
+  #help { margin-left:auto; font-size:12px; color:var(--mute); text-align:right; }
+  #info { position:absolute; right:12px; bottom:12px; max-width:420px; padding:12px 14px; border-radius:8px;
+          background:var(--panel); border:1px solid var(--line); font-size:14px; line-height:1.7; display:none; }
+  #info b { color:var(--yellow); font-weight:normal; font-size:16px; }
+  #info .up { color:var(--green); } #info .down { color:var(--orange); } #info .tip { color:var(--mute); font-size:12px; }
+  #info button { font:inherit; font-size:13px; background:#2f334d; color:var(--fg); border:1px solid var(--line);
+                 border-radius:6px; padding:2px 8px; margin:4px 6px 0 0; cursor:pointer; }
+  #info button:hover { border-color:var(--blue); }
+  #err { position:absolute; left:12px; bottom:12px; max-width:60%; white-space:pre-wrap; font-family:monospace; font-size:12px;
+         color:var(--red); background:var(--panel); border:1px solid var(--red); border-radius:8px; padding:10px; display:none; }
+  #toast { position:absolute; left:50%; top:52px; transform:translateX(-50%); background:var(--panel); border:1px solid var(--line);
+           border-radius:6px; padding:4px 12px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  #toast.show { opacity:1; }
+  /* 高亮：选中=黄，上游（谁指向它）=绿，下游（它指向谁）=橙，搜索命中=紫 */
+  /* 节点 .label-container 里第一条 path 是手绘斜线填充，其余是轮廓。发光只加在轮廓上，
+     斜线淡下去 —— 整个节点加 drop-shadow 会让每根斜线都发光，压住文字 */
+  .dim { opacity:.13; }
+  :is(.hl-sel,.hl-up,.hl-down,.hl-match) .label-container > path:first-child { opacity:.25; }
+  :is(.hl-sel,.hl-up,.hl-down,.hl-match) .label-container > path:not(:first-child) { stroke-width:2.4px !important; }
+  .hl-sel .label-container > path:not(:first-child) { stroke:var(--yellow) !important; filter:drop-shadow(0 0 4px var(--yellow)); }
+  .hl-up .label-container > path:not(:first-child) { stroke:var(--green) !important; filter:drop-shadow(0 0 4px var(--green)); }
+  .hl-down .label-container > path:not(:first-child) { stroke:var(--orange) !important; filter:drop-shadow(0 0 4px var(--orange)); }
+  .hl-match .label-container > path:not(:first-child) { stroke:var(--purple) !important; filter:drop-shadow(0 0 4px var(--purple)); }
+  path.e-up { stroke:var(--green) !important; stroke-width:2.5px !important; }
+  path.e-down { stroke:var(--orange) !important; stroke-width:2.5px !important; }
+  .meta { cursor:pointer; }
+  .note-dot { fill:var(--yellow); stroke:var(--bg); stroke-width:2px; }
+  #info textarea { width:100%; min-height:72px; margin-top:6px; resize:vertical; user-select:text; font:inherit; font-size:13px;
+                   background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; outline:none; }
+  #info textarea:focus { border-color:var(--yellow); }
+  #notesBtn { font:inherit; font-size:13px; background:var(--panel); color:var(--fg); border:1px solid var(--line);
+              border-radius:6px; padding:3px 10px; cursor:pointer; }
+  #notesBtn.has { color:var(--yellow); border-color:var(--yellow); }
+</style>
+</head>
+<body>
+<nav id="side"><h1 id="root"></h1><div id="list"></div></nav>
+<div id="main">
+  <div id="stage"></div>
+  <div id="bar">
+    <span id="title"></span>
+    <input id="q" placeholder="/ 搜节点" autocomplete="off">
+    <button id="notesBtn" title="整张图的备注（n）">本图备注</button>
+    <span id="help">滚轮缩放 · 拖动平移 · 点节点看上下游（再点一次展开整条链）· 双击跳源码 / 细节图<br>
+      / 搜索 · n 备注 · f 适应窗口 · b 侧栏 · Esc 取消 · Alt+← 返回上一张图</span>
+  </div>
+  <div id="info"></div>
+  <div id="err"></div>
+  <div id="toast"></div>
+</div>
+<script src="/mermaid.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const stage = $('#stage');
+let files = [], cur = null, seq = 0;
+let svg = null, vb0 = null, view = null;
+let meta = { src: {}, link: {}, notes: {} };
+let nodes = new Map(), edges = [], labels = new Map();   // 节点 id → <g>；边 {start,end,el,label}
+let sel = null, deep = false, matches = [], matchIdx = -1;
+
+const toast = (msg, ms = 1800) => {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms);
+};
+const showErr = msg => { const e = $('#err'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; };
+
+async function init() {
+  const cfg = await (await fetch('/config.json')).json();
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', ...cfg });
+  await loadList();
+  addEventListener('hashchange', route);
+  const es = new EventSource('/api/events');
+  es.onmessage = ev => {
+    const f = JSON.parse(ev.data);
+    if (f === '\0list') loadList();
+    else if (f === cur) show(cur, true).then(ok => ok && toast('已刷新：' + cur));
+  };
+  route();
+}
+
+async function loadList() {
+  const r = await (await fetch('/api/files')).json();
+  files = r.files;
+  $('#root').textContent = r.root.replace(/^\/home\/[^/]+/, '~');
+  $('#list').innerHTML = '';
+  for (const f of files) {
+    const a = document.createElement('a');
+    a.href = '#f=' + encodeURIComponent(f); a.textContent = f.replace(/\.(mmd|mermaid)$/, '');
+    if (f === cur) a.className = 'cur';
+    $('#list').append(a);
+  }
+  if (files.length <= 1) $('#side').classList.add('hide');
+}
+
+function route() {
+  const f = new URLSearchParams(location.hash.slice(1)).get('f') || files[0];
+  if (f) show(f, false); else showErr('这个目录下没有 .mmd 文件');
+}
+
+function parseMeta(text) {
+  const m = { src: {}, link: {}, notes: {} };
+  for (const line of text.split('\n')) {
+    const n = line.match(/^\s*%%\s*@note\s+(\S+)\s+(.*\S)/);
+    if (n) { (m.notes[n[1]] ||= []).push(n[2]); continue; }
+    // @src <id> <路径> <锚点文字…>（推荐，代码挪动不会指错）或 @src <id> <路径>:<行号>
+    const r = line.match(/^\s*%%\s*@(src|link)\s+(\S+)\s+(\S+)(?:\s+(.*\S))?/);
+    if (!r) continue;
+    if (r[1] === 'src') {
+      const s = r[3].match(/^(.*?)(?::(\d+))?$/);
+      m.src[r[2]] = { path: s[1], line: s[2] || '', anchor: r[4] || '' };
+    } else m.link[r[2]] = r[3];
+  }
+  return m;
+}
+
+async function show(f, keepView) {
+  const same = f === cur;
+  const res = await fetch('/api/src?f=' + encodeURIComponent(f));
+  if (!res.ok) return showErr('打不开：' + f);
+  const text = await res.text();
+  const id = 'mmd' + (++seq);
+  let out;
+  try {
+    out = await mermaid.render(id, text);
+  } catch (e) {
+    document.getElementById('d' + id)?.remove(); document.getElementById(id)?.remove();
+    return showErr(f + '\n' + (e.message || e));   // 语法错：留着上一版图，只报错
+  }
+  showErr('');
+  cur = f;
+  document.title = f + ' — mmd-view';
+  $('#title').textContent = f;
+  for (const a of document.querySelectorAll('#list a')) a.classList.toggle('cur', a.getAttribute('href') === '#f=' + encodeURIComponent(f));
+  stage.innerHTML = out.svg;
+  out.bindFunctions?.(stage);
+  svg = stage.querySelector('svg');
+  svg.removeAttribute('style'); svg.removeAttribute('width'); svg.removeAttribute('height');
+  const b = svg.viewBox.baseVal, pad = 30;
+  vb0 = { x: b.x - pad, y: b.y - pad, w: b.width + 2 * pad, h: b.height + 2 * pad };
+  if (!(keepView && same && view)) view = { ...vb0 };
+  apply();
+  meta = parseMeta(text);
+  const dn = meta.notes['*'];
+  $('#notesBtn').classList.toggle('has', !!dn);
+  $('#notesBtn').textContent = dn ? `本图备注 ${dn.length}` : '本图备注';
+  await buildGraph(text, id);
+  if (same && sel && nodes.has(sel)) highlight(); else clearSel();
+  return true;
+}
+
+// 只有流程图能拿到边的起止：从 Mermaid 的解析结果取，再按 id 对回 SVG 元素
+async function buildGraph(text, id) {
+  nodes = new Map(); edges = []; labels = new Map();
+  let d;
+  try { d = await mermaid.mermaidAPI.getDiagramFromText(text); } catch { return; }
+  if (!d.db?.getEdges || !d.db?.getVertices) return;
+  const re = new RegExp('^' + id + '-flowchart-(.+)-\\d+$');
+  for (const g of svg.querySelectorAll('g[id]')) {
+    const m = g.id.match(re);
+    if (m) nodes.set(m[1], g);
+  }
+  for (const [k, v] of d.db.getVertices()) labels.set(k, (v.text || k).replace(/<[^>]+>/g, ' ').trim());
+  for (const e of d.db.getEdges()) {
+    const el = svg.querySelector(`path[data-id="${CSS.escape(e.id)}"]`);
+    const label = svg.querySelector(`g.label[data-id="${CSS.escape(e.id)}"]`)?.closest('.edgeLabel');
+    edges.push({ start: e.start, end: e.end, el, label });
+  }
+  for (const [n, g] of nodes) {
+    const s = meta.src[n], l = meta.link[n], notes = meta.notes[n];
+    if (!s && !l && !notes) continue;
+    if (s || l) g.classList.add('meta');
+    const t = document.createElementNS(SVGNS, 'title');
+    t.textContent = [l && '双击进入：' + l, s && srcText(s), notes && '备注：' + notes.join(' / ')].filter(Boolean).join('\n');
+    g.prepend(t);
+    if (notes) {
+      const b = (g.querySelector('.label-container') || g).getBBox();
+      const dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('class', 'note-dot'); dot.setAttribute('r', 6);
+      dot.setAttribute('cx', b.x + b.width - 2); dot.setAttribute('cy', b.y + 2);
+      g.append(dot);
+    }
+  }
+}
+
+function reach(from, dir) {   // dir: 'down' 沿边方向，'up' 逆向；deep=false 只走一步
+  const seen = new Set(), queue = [from];
+  while (queue.length) {
+    const n = queue.shift();
+    for (const e of edges) {
+      const [a, b] = dir === 'down' ? [e.start, e.end] : [e.end, e.start];
+      if (a === n && !seen.has(b) && b !== from) { seen.add(b); if (deep) queue.push(b); }
+    }
+  }
+  return seen;
+}
+
+function resetClasses() {
+  for (const g of nodes.values()) g.classList.remove('dim', 'hl-sel', 'hl-up', 'hl-down', 'hl-match');
+  for (const e of edges) {
+    for (const x of [e.el, e.label]) x?.classList.remove('dim', 'e-up', 'e-down');
+  }
+}
+
+function highlight() {
+  resetClasses();
+  const up = reach(sel, 'up'), down = reach(sel, 'down');
+  for (const [n, g] of nodes) {
+    if (n === sel) g.classList.add('hl-sel');
+    else if (up.has(n)) g.classList.add('hl-up');
+    else if (down.has(n)) g.classList.add('hl-down');
+    else g.classList.add('dim');
+  }
+  for (const e of edges) {
+    let cls = null;
+    if (deep) {
+      if ((e.start === sel || down.has(e.start)) && down.has(e.end)) cls = 'e-down';
+      else if ((e.end === sel || up.has(e.end)) && up.has(e.start)) cls = 'e-up';
+    } else {
+      if (e.start === sel && down.has(e.end)) cls = 'e-down';
+      else if (e.end === sel && up.has(e.start)) cls = 'e-up';
+    }
+    if (cls) e.el?.classList.add(cls); else { e.el?.classList.add('dim'); e.label?.classList.add('dim'); }
+  }
+  const name = n => labels.get(n) || n;
+  const s = meta.src[sel], l = meta.link[sel];
+  $('#info').innerHTML = '';
+  const add = (html, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.innerHTML = html; $('#info').append(d); return d; };
+  const esc = x => x.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  add(`<b>${esc(name(sel))}</b>`);
+  add(`↑ 上游 ${up.size}：${[...up].map(n => esc(name(n))).join('、') || '无'}`, 'up');
+  add(`↓ 下游 ${down.size}：${[...down].map(n => esc(name(n))).join('、') || '无'}`, 'down');
+  const btns = add('');
+  if (s) { const b = document.createElement('button'); b.textContent = '在 nvim 打开 ' + srcText(s); b.onclick = () => openSrc(sel); btns.append(b); }
+  if (l) { const b = document.createElement('button'); b.textContent = '进入细节图 ' + l; b.onclick = () => follow(sel); btns.append(b); }
+  add(deep ? '已展开整条链 · 再点一次收回' : '再点一次：展开整条调用链', 'tip');
+  $('#info').append(notesBox(sel));
+  $('#info').style.display = 'block';
+}
+
+// 备注：一行一条，存进 .mmd 的 `%% @note <id|*> …`；id 为 * 是整张图的备注。arch-map 更新时会读、不会删
+function notesBox(id) {
+  const ta = document.createElement('textarea');
+  ta.value = (meta.notes[id] || []).join('\n');
+  ta.placeholder = id === '*' ? '整张图的备注 / 新需求，一行一条 · Ctrl+Enter 保存' : '这个节点的备注 / 新需求，一行一条 · Ctrl+Enter 保存';
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); saveNote(id, ta.value); }
+    if (e.key === 'Escape') ta.blur();
+  });
+  const b = document.createElement('button'); b.textContent = '保存备注'; b.onclick = () => saveNote(id, ta.value);
+  const box = document.createElement('div'); box.append(ta, b);
+  return box;
+}
+
+async function saveNote(id, text) {
+  const r = await fetch('/api/note', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                       body: JSON.stringify({ f: cur, id, text }) });
+  toast(r.ok ? '备注已保存' : await r.text());
+}
+
+function showDiagramNotes() {
+  clearSel();
+  $('#info').innerHTML = '<b>本图备注</b>';
+  $('#info').append(notesBox('*'));
+  $('#info').style.display = 'block';
+  $('#info textarea').focus();
+}
+
+const srcText = s => s.path + (s.anchor ? ' · ' + s.anchor : s.line ? ':' + s.line : '');
+
+function clearSel() { sel = null; deep = false; resetClasses(); $('#info').style.display = 'none'; }
+
+async function openSrc(n) {
+  const s = meta.src[n]; if (!s) return;
+  const r = await fetch(`/api/open?f=${encodeURIComponent(s.path)}&l=${s.line}&a=${encodeURIComponent(s.anchor)}`);
+  toast(await r.text(), 2500);
+}
+
+function follow(n) {
+  const l = meta.link[n]; if (!l) return;
+  const parts = cur.split('/').slice(0, -1);
+  for (const p of l.split('/')) { if (p === '..') parts.pop(); else if (p !== '.') parts.push(p); }
+  location.hash = '#f=' + encodeURIComponent(parts.join('/'));
+}
+
+// —— 视图：直接改 viewBox，任何缩放倍数下文字都是矢量清晰的 ——
+function apply() { svg?.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`); }
+function toSvg(cx, cy) { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function zoomAt(cx, cy, f) {
+  const p = toSvg(cx, cy);
+  view.x = p.x - (p.x - view.x) * f; view.y = p.y - (p.y - view.y) * f; view.w *= f; view.h *= f; apply();
+}
+function center(g) {
+  const b = g.getBBox(), m = svg.getScreenCTM().inverse().multiply(g.getScreenCTM());
+  const p = svg.createSVGPoint(); p.x = b.x + b.width / 2; p.y = b.y + b.height / 2;
+  const c = p.matrixTransform(m);
+  view.x = c.x - view.w / 2; view.y = c.y - view.h / 2; apply();
+}
+
+stage.addEventListener('wheel', e => { if (!svg) return; e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(e.deltaY * 0.0015)); }, { passive: false });
+
+let drag = null, moved = false;
+stage.addEventListener('mousedown', e => { if (e.button === 0 && svg) { drag = { x: e.clientX, y: e.clientY }; moved = false; } });
+addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) { moved = true; stage.classList.add('drag'); }
+  const k = svg.getScreenCTM().a;
+  view.x -= dx / k; view.y -= dy / k; drag = { x: e.clientX, y: e.clientY }; apply();
+});
+addEventListener('mouseup', () => { drag = null; stage.classList.remove('drag'); });
+
+const nodeOf = t => { for (const [n, g] of nodes) if (g.contains(t)) return n; return null; };
+stage.addEventListener('click', e => {
+  if (moved) return;
+  const n = nodeOf(e.target);
+  if (!n) return clearSel();
+  if (n === sel) deep = !deep; else { sel = n; deep = false; }
+  highlight();
+});
+stage.addEventListener('dblclick', e => {
+  const n = nodeOf(e.target); if (!n) return;
+  if (meta.link[n]) follow(n); else if (meta.src[n]) openSrc(n); else toast('这个节点没有标 @src / @link');
+});
+
+// —— 搜索 ——
+$('#q').addEventListener('input', () => {
+  const q = $('#q').value.trim().toLowerCase();
+  clearSel(); matches = []; matchIdx = -1;
+  if (!q) return;
+  for (const [n, g] of nodes) {
+    const hit = (labels.get(n) || n).toLowerCase().includes(q) || n.toLowerCase().includes(q);
+    g.classList.add(hit ? 'hl-match' : 'dim');
+    if (hit) matches.push(g);
+  }
+  for (const e of edges) { e.el?.classList.add('dim'); e.label?.classList.add('dim'); }
+});
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && matches.length) { matchIdx = (matchIdx + 1) % matches.length; center(matches[matchIdx]); toast(`${matchIdx + 1} / ${matches.length}`); }
+  if (e.key === 'Escape') { $('#q').value = ''; $('#q').dispatchEvent(new Event('input')); $('#q').blur(); }
+});
+
+addEventListener('keydown', e => {
+  if (['INPUT', 'TEXTAREA'].includes(e.target.tagName) || e.ctrlKey || e.altKey || e.metaKey) return;
+  const r = stage.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  if (e.key === 'f' || e.key === '0') { view = { ...vb0 }; apply(); }
+  else if (e.key === '+' || e.key === '=') zoomAt(cx, cy, 0.8);
+  else if (e.key === '-') zoomAt(cx, cy, 1.25);
+  else if (e.key === '/') { e.preventDefault(); $('#q').focus(); }
+  else if (e.key === 'b') $('#side').classList.toggle('hide');
+  else if (e.key === 'n') { e.preventDefault(); if (sel) $('#info textarea')?.focus(); else showDiagramNotes(); }
+  else if (e.key === 'Escape') clearSel();
+});
+addEventListener('resize', apply);
+$('#notesBtn').onclick = showDiagramNotes;
+
+init();
+</script>
+</body>
+</html>

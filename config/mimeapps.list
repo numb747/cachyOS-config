@@ -149,3 +149,4 @@ video/x-theora+ogg=mpv.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 x-scheme-handler/http=firefox.desktop;
 x-scheme-handler/https=firefox.desktop;
+text/vnd.mermaid=mmd-view.desktop

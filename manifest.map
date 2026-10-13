@@ -121,6 +121,22 @@ share/icons/hicolor/scalable/apps/excalidraw.svg  ~/.local/share/icons/hicolor/s
 # 见 docs/05-theme-ui.md「ADB 无线连接」。
 bin/adb-wifi                              ~/.local/bin/adb-wifi
 share/applications/adb-wifi.desktop       ~/.local/share/applications/adb-wifi.desktop
+# 手绘风 Mermaid 出图：`mmd` 是 mmdc 的包装，默认带 handDrawn + Excalifont/小赖字体 + Tokyo Night 配色，
+# 用系统 chrome 渲染。字体和 mermaid-cli 不入包，装法见 docs/05-theme-ui.md「手绘风 Mermaid 出图」。
+bin/mmd                                   ~/.local/bin/mmd
+config/mermaid/config.json                ~/.config/mermaid/config.json
+config/mermaid/puppeteer.json             ~/.config/mermaid/puppeteer.json
+# mmd-view：交互式看 .mmd（缩放、点节点高亮上下游、跳源码、改了自动刷新），Chrome --app 独立窗口。
+# 自定义 MIME 类型 text/vnd.mermaid 让 Dolphin 双击 .mmd 走它（系统默认把 .mmd 当 text/plain），
+# mimeapps.list 里的默认关联随上面的 config/mimeapps.list 一起走。见 docs/05「手绘风 Mermaid 出图」。
+bin/mmd-view                              ~/.local/bin/mmd-view
+share/mmd-view/viewer.html                ~/.local/share/mmd-view/viewer.html
+share/applications/mmd-view.desktop       ~/.local/share/applications/mmd-view.desktop
+share/icons/hicolor/scalable/apps/mmd-view.svg  ~/.local/share/icons/hicolor/scalable/apps/mmd-view.svg
+share/mime/packages/mermaid.xml           ~/.local/share/mime/packages/mermaid.xml
+# Dolphin 右键文件夹 →「生成 / 更新架构地图」：kitty 里起 claude 跑 /arch-map（cc 模块的 skill）。
+# KF6 要求用户目录下的 servicemenu 文件带可执行位，否则菜单里不出现（mod_ui 会 chmod）。
+share/kio/servicemenus/arch-map.desktop   ~/.local/share/kio/servicemenus/arch-map.desktop
 config/fcitx5/profile                     ~/.config/fcitx5/profile
 config/fcitx5/config                      ~/.config/fcitx5/config
 config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf
@@ -163,6 +179,13 @@ claude/agents/reviewer.md                 ~/.claude/agents/reviewer.md
 claude/agents/docs-reader.md              ~/.claude/agents/docs-reader.md
 claude/agents/tester.md                   ~/.claude/agents/tester.md
 claude/team-log.sh                        ~/.claude/team-log.sh
+# arch-map skill（2026-10-13 加）：给 git 项目生成 / 增量更新 docs/arch/ 下的分层手绘 Mermaid「架构地图」，
+# 产物用 ui 模块的 mmd-view 看。只纳管这一个 skill —— ~/.claude/skills/ 下其余的是第三方装的，不归本包。见 docs/08 第 8 节。
+claude/skills/arch-map/SKILL.md           ~/.claude/skills/arch-map/SKILL.md
+claude/skills/arch-map/scripts/check.py   ~/.claude/skills/arch-map/scripts/check.py
+claude/skills/arch-map/FORMAT.md          ~/.claude/skills/arch-map/FORMAT.md
+# arch-design：先和用户讨论、画 planned 地图，定稿后照图拆步骤写代码。格式和 arch-map 共用 FORMAT.md。
+claude/skills/arch-design/SKILL.md        ~/.claude/skills/arch-design/SKILL.md
 
 #@module wall
 # ⚠ D-ASCII 成品（wallpaper/ascii/*，含 settings.toml 默认指向的 a1-紫调少女.png）

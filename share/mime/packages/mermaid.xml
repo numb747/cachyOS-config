@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- .mmd 系统默认识别成 text/plain，单独定义一个类型，好让双击走 mmd-view 而不影响别的纯文本 -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="text/vnd.mermaid">
+    <comment>Mermaid diagram</comment>
+    <comment xml:lang="zh_CN">Mermaid 图</comment>
+    <sub-class-of type="text/plain"/>
+    <glob pattern="*.mmd"/>
+    <glob pattern="*.mermaid"/>
+  </mime-type>
+</mime-info>

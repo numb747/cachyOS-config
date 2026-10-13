@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+MimeType=inode/directory;
+Actions=archMap;
+X-KDE-Priority=TopLevel
+
+# 在 kitty 里起交互式 claude 跑 /arch-map（首次生成或增量更新由 skill 自己判断）。
+# 走 zsh -ic 是为了拿到 .zshrc 里的 PATH（~/.local/bin 下的 claude / mmd / mmd-view）；
+# claude 退出后留一个 shell，窗口不会一闪而过。
+[Desktop Action archMap]
+Name=生成 / 更新架构地图
+Icon=mmd-view
+Exec=/usr/bin/kitty --directory %f /usr/bin/zsh -ic "claude /arch-map; exec zsh"

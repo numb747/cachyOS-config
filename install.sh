@@ -247,6 +247,19 @@ mod_ui() {
     { command -v adb >/dev/null 2>&1 && command -v avahi-browse >/dev/null 2>&1; } \
         || inf "「ADB 无线连接」要 android-tools + avahi（且 avahi-daemon 在跑），缺了点了只会报没找到设备"
 
+    # 手绘风 Mermaid：mmd 只是包装，mermaid-cli 和两款手写字体都不入包
+    [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/mmd" "$HOME/.local/bin/mmd-view" \
+        "$HOME/.local/share/kio/servicemenus/arch-map.desktop" 2>/dev/null
+    # mmd-view：.mmd 的 MIME 类型是自定义的，不重建 mime 库则 Dolphin 仍当 text/plain、双击走文本编辑器。
+    # 图标缓存由上面 Excalidraw 那段的 gtk-update-icon-cache 一并刷新
+    rewrite_home "$HOME/.local/share/applications/mmd-view.desktop"
+    [ $DRY -eq 0 ] && update-mime-database "$HOME/.local/share/mime" >/dev/null 2>&1 && ok "mime 库已刷新（.mmd → text/vnd.mermaid）"
+    [ -x "$HOME/.local/bin/mmdc" ] \
+        || inf "mmd 要 mermaid-cli：PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli"
+    # 同下方更纱那条：pipefail 下 grep -q 提前退出会让管道返回 141，只能用命令替换取输出
+    { [ -n "$(fc-list 2>/dev/null | grep -m1 Excalifont)" ] && [ -n "$(fc-list 2>/dev/null | grep -m1 Xiaolai)" ]; } \
+        || inf "mmd 出图缺手写字体（Excalifont / 小赖），会退回黑体。装法见 docs/05「手绘风 Mermaid 出图」"
+
     [ -d /usr/share/icons/Bibata-Modern-Ice ] \
         || inf "未装 Bibata 光标（gtk/uwsm 配置引用了它）。要一致就 yay -S bibata-cursor-theme；不装则回退 Adwaita，无报错"
 

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Mermaid 图查看器
+GenericName=架构图 / 流程图
+Comment=交互式看 .mmd 图：缩放、点节点高亮上下游、跳源码、改了自动刷新
+Keywords=mermaid;mmd;diagram;架构图;流程图;图;
+Exec=/home/david/.local/bin/mmd-view %f
+Icon=mmd-view
+Terminal=false
+MimeType=text/vnd.mermaid;inode/directory;
+Categories=Graphics;Development;
+StartupWMClass=chrome-localhost__-Default

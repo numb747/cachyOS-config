@@ -735,6 +735,148 @@ Excalidraw 用不到 cookie 和密码，画布在 localStorage 里，Chrome 本�
 升级镜像：`docker pull excalidraw/excalidraw && docker rm excalidraw`，下次点图标会用新镜像重建。
 画布数据在 chrome profile 里，不在容器里，删容器不丢图。
 
+## 手绘风 Mermaid 出图（2026-10-13）
+
+用途：让 AI 给项目生成架构图、流程图，帮自己跟上迭代。选 Mermaid 而不是 Excalidraw/D2，原因有三：
+它是 AI 写得最稳的图表语言；纯文本，能放进项目跟 git 一起 diff；GitHub/Obsidian 都能直接渲染。
+想要 Excalidraw 那种手绘观感，Mermaid v11 起官方就有 `look: handDrawn`，底层同样是 rough.js。
+
+```bash
+mmd -i flow.mmd -o flow.png     # 用法同 mmdc，-c/-p/-b/-s 显式传了就覆盖默认
+```
+
+`bin/mmd` 自动补上的默认参数：`-c ~/.config/mermaid/config.json`（手绘 + 字体 + Tokyo Night 配色）、
+`-p ~/.config/mermaid/puppeteer.json`（用系统 `google-chrome-stable`）、`-b '#1a1b26'`、`-s 2`。
+`handDrawnSeed` 固定为 1：同一份源码每次画出来的抖动一样，重新生成不会产生无意义的 diff。
+`flowchart.wrappingWidth` 从默认 200 调到 320：默认值下代码名会在连字符处被折断（`claude agents -` / `-json`），
+320 刚好放得下一行中文说明或一个路径。config.json 不能写注释，原因记在这里。
+
+**字体 = 英文 Excalifont + 中文小赖（Xiaolai）**，和 Excalidraw 自己的搭配一样。
+`fontFamily: "Excalifont, Xiaolai"` 按字回退，英文落 Excalifont、汉字落小赖。
+两款都装在 `~/.local/share/fonts/handwriting/`，**不入包**（小赖 22 MB），新机器照下面装：
+
+```bash
+d=~/.local/share/fonts/handwriting; mkdir -p $d && cd $d
+# 小赖：上游 release 有完整 ttf
+curl -fLO https://github.com/lxgw/kose-font/releases/download/v3.126/Xiaolai-Regular.ttf
+# Excalifont：没有发布 ttf，Excalidraw 仓库里只有按字符范围切开的 7 个 woff2 分片，要合并
+api=https://api.github.com/repos/excalidraw/excalidraw/contents/packages/excalidraw/fonts/Excalifont
+raw=https://raw.githubusercontent.com/excalidraw/excalidraw/master/packages/excalidraw/fonts/Excalifont
+t=$(mktemp -d); for n in $(curl -s $api | grep -o 'Excalifont-Regular-[0-9a-f]*\.woff2' | sort -u); do curl -sfL $raw/$n -o $t/$n; done
+python - $t <<'EOF'
+import glob, sys
+from fontTools.ttLib import TTFont
+from fontTools.merge import Merger
+fs = []
+for f in sorted(glob.glob(sys.argv[1] + "/*.woff2")):
+    t = TTFont(f); t.flavor = None; t.save(f[:-6] + ".ttf"); fs.append(f[:-6] + ".ttf")
+Merger().merge(fs).save("Excalifont-Regular.ttf")
+EOF
+fc-cache -f $d && fc-list | grep -iE 'excalifont|xiaolai'
+# mermaid-cli：跳过 puppeteer 自带的 ~150 MB 浏览器，puppeteer.json 已指向系统 chrome
+PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli
+```
+
+合并要 `python-fonttools` + `python-brotli`（读 woff2）。2026-10-13 合并结果为 561 个字符，大小写字母和数字齐全。
+
+### 三个要知道的
+
+**1. 装了小赖不会抢系统中文字体。** `fonts.conf` 用 `prepend_first` 钉死了更纱，
+小赖不在任何规则里，只有被点名时才用。装完验过：`fc-match 'sans-serif:lang=zh-cn'` 仍是 Sarasa Gothic SC。
+
+**2. 手绘线条只有部分图类型支持。** 流程图实测是手绘的；时序图的线框仍然是直线，
+只有字体是手写的（2026-10-13，mermaid-cli 12.0.0）。这是上游的支持范围，不是配置问题。
+
+**3. SVG 不嵌入字体，只记字体名。** 在没装这两款字体的机器上打开会退回默认字体。要发给别人就导出 PNG。
+
+### 交互式看图：`mmd-view`（2026-10-13）
+
+静态图读大项目不够用，所以另写了一个查看器。在 Dolphin 里**双击 `.mmd`** 就会打开；
+对文件夹右键 →「打开方式」→「Mermaid 图查看器」，可以把整个目录的图列在侧栏里。
+从启动器点开会弹出目录选择框。命令行用 `mmd-view [文件|目录]`。
+
+| 操作 | 效果 |
+|---|---|
+| 滚轮 / 拖动 | 缩放 / 平移（改的是 viewBox，放多大文字都是矢量清晰的） |
+| 单击节点 | 高亮直接上下游：上游绿、下游橙、其余变暗；右下角面板列出名字 |
+| 再点一次 | 展开整条调用链（传递闭包） |
+| 双击节点 | 有 `@link` 就进入细节图，有 `@src` 就在 nvim 里跳到定义处（优先复用已开着的，见下） |
+| `/` | 搜节点，回车逐个居中 |
+| `n` | 写备注：选中节点时是这个节点的，没选中时是整张图的（顶栏「本图备注」按钮同） |
+| `f` · `b` · `Esc` · `Alt+←` | 适应窗口 · 侧栏 · 取消高亮 · 回上一张图 |
+
+**备注**存成 `.mmd` 末尾的 `%% @note <节点id|*> <一行>`，一行一条，`Ctrl+Enter` 保存。有备注的节点右上角有个黄点。
+它跟着 git 走，arch-map / arch-design 都会读：arch-map 只保留不删，arch-design 会把它当作反馈来改图，你确认后再清掉。
+
+`.mmd` 改了会自动重画，并保留当前的缩放位置。有语法错误时**留着上一版图**，只在左下角报错，
+所以可以一边让 AI 改、一边盯着看。
+
+节点和源码的对应关系写成 Mermaid 注释，静态出图（`mmd`）不受影响：
+
+```
+%% @src  api  src/order.py def create_order   ← 路径相对 git 仓库根，后面是锚点
+%% @link api  order-detail.mmd                ← 路径相对当前 .mmd
+```
+
+**锚点而不是行号**：锚点是定义那一行里的一段文字，打开时现场找行号。2026-10-13 实测，
+代码顶部加一行 import，用行号写的 `@src` 就全部错位了，而且大多落在非空行上，看不出错。
+旧写法 `路径:行号` 仍然认，但 arch-map 的 check.py 会把它当错误报出来。
+
+**跳源码时复用已开着的 nvim**：每个 nvim 都会在 `$XDG_RUNTIME_DIR/nvim.<pid>.0` 自动开 socket。
+mmd-view 逐个问 `getcwd()`，找工作目录在本项目里的那个，用 `--remote-expr luaeval(...)` 让它在一个
+「普通文件、非浮动」的窗口里打开，不会占掉终端或浮动窗。然后顺着进程树找到它所在的终端窗口，
+用 `hl.dsp.focus({ window = hl.get_window("address:…") })` 切到前台。nvim 在 tmux 里的话，先 `select-window` / `select-pane`，
+再切 tmux 客户端所在的 kitty。找不到才新开 `kitty nvim`，它的工作目录就是项目根，下次就会被复用。
+**挑哪个 nvim**（2026-10-13 定）：① 工作目录在本项目里的；② 没有的话，就用开在终端窗口里的那个 nvim，
+不管它的工作目录在哪；③ 都没有才新开。用户的用法是平时只开一个 kitty，里面就是 `kitty.conf` 里 `shell nvim` 起的那个 LazyVim，
+图上点代码就该在它里面打开。② 要求开在终端窗口里，是为了排除插件、脚本起的无头 nvim。
+（曾误以为用户要 kitty 的 `--single-instance` 模式并改了 `TERMINAL = "kitty -1"` 和远程控制，当天就撤回了：
+用户说的「单实例」是「只开一个 kitty 窗口」，用不上这两样。那次顺带实测到的两件事留作参考：单实例下 swallow
+吞的仍是当前聚焦的窗口；新窗口用的是启动它那一刻的环境变量和目录。）
+文件落在第一个「普通文件、非浮动」的窗口里。用户的三个 tab 按角色分（Claude Code / 代码 / shell），
+只有「代码」tab 有普通文件窗口，所以会自然跳到那里，不会占掉终端。
+同一档里有多个候选时，依次比：已经打开了这个文件 > 工作目录更深 > 所在窗口最近用过（`focusHistoryID`）。
+本机 kitty 没开 `single_instance`，每个 kitty 都是独立进程，顺着进程树找到的窗口是唯一的。
+
+**为什么 ② 可行：LSP 按文件路径找项目根，不看 nvim 的工作目录。** 实测在工作目录是 `~` 的 nvim 里打开
+`~/ccmon/app.py`，pyright 的 root 是 `/home/david/ccmon`。对 `Board.build` 做 call hierarchy，
+incoming 得到 `run`，outgoing 跨文件得到 `ccstatus.py` 里的 `refresh_from_files` / `group_agents` 等，
+和架构地图里的那张流程图一致。于是跳过去之后：`gai` / `gao` 看调用方 / 被调用方（LazyVim snacks picker 自带），
+`gd` / `gr` 看定义 / 引用，`<leader>ss` 看本文件符号，`<leader>fm` 在这个文件所在的目录里开 mini.files。
+⚠ `<leader>e` 开的是 nvim 工作目录（`~`），跨项目时要用 `<leader>fm`。
+⚠ 已知限制：nvim 在某个 kitty 的**后台标签页**里时，切到那个窗口后标签页不会跟着切，
+因为切 kitty 标签页要开 kitty 远程控制（`allow_remote_control` + `listen_on`），本机没开。
+⚠ `luaeval` 只收表达式，多行 Lua 要包成 `(function() … end)()`，不然报 `unexpected symbol near 'local'`。
+
+**选中时只让轮廓发光**：手绘节点的 `.label-container` 里，第一条 path 是斜线填充，其余是轮廓。
+早先给整个节点加 `drop-shadow`，每根斜线都跟着发光，压住文字（用户反馈「好看但影响视线」）。
+现在选中时斜线淡到 25%，只给轮廓变色、发光。
+
+结构：`bin/mmd-view` 是 Python 标准库写的小服务（只绑 127.0.0.1，端口随机），
+页面在 `~/.local/share/mmd-view/viewer.html`，用的是 mermaid-cli 自带的那份 `mermaid.min.js`（12.1），
+配置复用 `~/.config/mermaid/config.json`，所以和 `mmd` 出的静态图长得一样。
+Chrome 用独立 profile `~/.local/share/mmd-view/chrome-profile`，要带 `--password-store=basic`，原因同 Excalidraw 坑 00。
+
+**三个坑：**
+
+**1. URL 用 `localhost`，不用 `127.0.0.1`。** `--app` 窗口的 class 由主机名决定，不含端口。
+用 127.0.0.1 会和 Excalidraw 撞成同一个 `chrome-127.0.0.1__-Default`，任务栏图标会认错。
+现在的 class 是 `chrome-localhost__-Default`（2026-10-13 用 `hyprctl clients` 实测）。
+
+**2. 「窗口关了服务就退」靠 SSE 长连接判断，不靠心跳。** Chrome 会把后台窗口的定时器限流到一分钟一次，
+靠心跳判断的话，图挂在别的桌面上服务就会误退。现在的做法是：页面一直开着一条 `/api/events` 连接（顺便用来推送刷新），
+服务每 2 秒写一次 ping，写失败就说明窗口关了，再等 8 秒（给刷新页面留余量）就退出。
+从没有页面连上来过的话，60 秒后退出。实测关窗约 12 秒后进程消失。
+不用 Excalidraw 那种「chrome 阻塞到关窗」的办法，因为同一 profile 开第二个窗口时 chrome 会立刻返回。
+
+**3. `.mmd` 系统默认识别成 `text/plain`**，直接关联的话会把所有纯文本都抢走。
+所以用 `share/mime/packages/mermaid.xml` 自定义了 `text/vnd.mermaid`（继承 text/plain，文本编辑器照样能打开），
+装完要 `update-mime-database ~/.local/share/mime`（`mod_ui` 已代劳）。
+验证用 `kmimetypefinder x.mmd` 或 `gio info -a standard::content-type x.mmd`。
+**别用 `xdg-mime query filetype`**：Hyprland 下它退回到 `file` 按内容猜，永远报 text/plain，和 Dolphin 实际看到的不一样。
+desktop 条目**不能写 `NoDisplay=true`**，否则 Dolphin 的「打开方式」里没有它（imv 踩过的同一个坑）。
+`MimeType` 里加了 `inode/directory` 只是为了出现在文件夹的「打开方式」里，默认打开文件夹的仍是 Dolphin。
+
 ## ADB 无线连接（2026-10-10）
 
 手机打开「开发者选项 → 无线调试」，在启动器里搜「ADB」/「无线调试」点一下，就会连上，

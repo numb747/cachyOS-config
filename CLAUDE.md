@@ -25,8 +25,8 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     15 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接）
-├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
+├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr；另有两个 elephant 补丁版已发布到 AUR，说明也在这
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
@@ -346,7 +346,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  14 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  18 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，
