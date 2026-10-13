@@ -804,6 +804,7 @@ PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli
 | `/` | 搜节点，回车逐个居中 |
 | `n` | 写备注：选中节点时是这个节点的，没选中时是整张图的（顶栏「本图备注」按钮同） |
 | `t` | 切字体：手写（Excalifont + 小赖，和 `mmd` 静态图一致）⇄ 等宽（Adwaita Mono + 更纱黑体，同 kitty 里的 LazyVim）；顶栏下拉框同，选择记在 localStorage |
+| `d` | 横竖互换；顶栏下拉框三档「按文件方向 / 横向 / 竖向」，选择记在 localStorage，**只影响显示、不改 `.mmd`**（见下） |
 | `f` · `b` · `Esc` · `Alt+←` | 适应窗口 · 侧栏 · 取消高亮 · 回上一张图 |
 
 **信息卡**（2026-10-13 改，原来固定在右下角）：贴着选中节点浮出，列上下游、源码 / 细节图按钮、已有备注。
@@ -816,6 +817,13 @@ PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli
 
 **等宽字体为什么要重画整张图**：mermaid 排版时按字体量字宽，只换 CSS 字体会让文字溢出框。所以切字体时先
 `document.fonts.load` 把字体备好，再用新字体重新 `mermaid.initialize` 并重画。
+
+**横向 / 竖向**（2026-10-13 加）：arch-map 出的图都是 `flowchart LR`，但有人习惯从上往下读，
+所以方向做成查看器里的个人偏好，而不是写死在图里——同一份 `.mmd` 各看各的，git 里不会来回改方向。
+实现是渲染前改写喂给 mermaid 的文本：找到 `flowchart` / `graph` 那一行（跳过 frontmatter 和 `%%` 行），
+和想要的方向不一致时整张图**转置**：顶层和每个 subgraph 的 `direction` 一起横竖互换（`LR↔TB`、`RL↔BT`），
+子图相对主轴的关系就不变。只换方向词、不增删行；选中的节点和备注草稿都保留，视图重新适应窗口。
+只对流程图有效，时序图等其他类型下拉框变灰、按 `d` 只提示。`mmd` 出的静态图不受影响，仍按文件写的方向。
 
 **备注**存成 `.mmd` 末尾的 `%% @note <节点id|*> <一行>`，一行一条，`Ctrl+Enter` 保存。有备注的节点右上角有个黄点。
 它跟着 git 走，arch-map / arch-design 都会读：arch-map 只保留不删，arch-design 会把它当作反馈来改图，你确认后再清掉。
