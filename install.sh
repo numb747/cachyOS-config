@@ -247,6 +247,14 @@ mod_ui() {
     { command -v adb >/dev/null 2>&1 && command -v avahi-browse >/dev/null 2>&1; } \
         || inf "「ADB 无线连接」要 android-tools + avahi（且 avahi-daemon 在跑），缺了点了只会报没找到设备"
 
+    # Dolphin 右键「发送到手机」：Dolphin 的 PATH 里没有 ~/.local/bin，Exec 只能写绝对路径；
+    # KF6 要求用户目录下的 servicemenu 带可执行位（同 arch-map）。配对要在手机上做，不在这里
+    rewrite_home "$HOME/.local/share/kio/servicemenus/send-to-phone.desktop"
+    [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/send-to-phone" \
+        "$HOME/.local/share/kio/servicemenus/send-to-phone.desktop" 2>/dev/null
+    command -v kdeconnect-cli >/dev/null 2>&1 \
+        || inf "「发送到手机」要 kdeconnect，且手机装 KDE Connect 后配对一次，见 docs/05「KDE Connect」"
+
     # 手绘风 Mermaid：mmd 只是包装，mermaid-cli 和两款手写字体都不入包
     [ $DRY -eq 0 ] && chmod +x "$HOME/.local/bin/mmd" "$HOME/.local/bin/mmd-view" \
         "$HOME/.local/share/kio/servicemenus/arch-map.desktop" 2>/dev/null

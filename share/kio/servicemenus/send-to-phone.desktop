@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/octet-stream;
+Actions=sendToPhone;
+X-KDE-Priority=TopLevel
+
+# 经 KDE Connect 推到已配对的手机（对方免确认），可多选。
+# 只挂在文件上（application/octet-stream 是所有文件类型的父类型），目录不显示这一项。
+# Exec 用绝对路径：Dolphin 的 PATH 里没有 ~/.local/bin（install.sh 会 rewrite_home）。
+[Desktop Action sendToPhone]
+Name=发送到手机
+Icon=kdeconnect
+Exec=/home/david/.local/bin/send-to-phone %F

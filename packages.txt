@@ -78,6 +78,8 @@ btop
 micro
 cachyos-micro-settings
 dolphin
+# 和手机免确认互传文件 + 剪贴板同步；bin/send-to-phone（Dolphin 右键「发送到手机」）靠它
+kdeconnect
 firefox
 satty
 jq

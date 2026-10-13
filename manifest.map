@@ -121,6 +121,10 @@ share/icons/hicolor/scalable/apps/excalidraw.svg  ~/.local/share/icons/hicolor/s
 # 见 docs/05-theme-ui.md「ADB 无线连接」。
 bin/adb-wifi                              ~/.local/bin/adb-wifi
 share/applications/adb-wifi.desktop       ~/.local/share/applications/adb-wifi.desktop
+# Dolphin 右键文件 →「发送到手机」：经 KDE Connect 推到已配对的手机，对方免确认直接收下。
+# 配对和插件开关（~/.config/kdeconnect/<设备ID>/）绑死设备 ID，不入包。见 docs/05-theme-ui.md「KDE Connect」。
+bin/send-to-phone                         ~/.local/bin/send-to-phone
+share/kio/servicemenus/send-to-phone.desktop  ~/.local/share/kio/servicemenus/send-to-phone.desktop
 # 手绘风 Mermaid 出图：`mmd` 是 mmdc 的包装，默认带 handDrawn + Excalifont/小赖字体 + Tokyo Night 配色，
 # 用系统 chrome 渲染。字体和 mermaid-cli 不入包，装法见 docs/05-theme-ui.md「手绘风 Mermaid 出图」。
 bin/mmd                                   ~/.local/bin/mmd

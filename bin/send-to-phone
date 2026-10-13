@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# send-to-phone — 把文件经 KDE Connect 推到已配对的手机,对方免确认直接收下
+#
+#   send-to-phone 文件...     Dolphin 右键「发送到手机」就是调它
+#
+# 只认「已配对且在线」的设备(kdeconnect-cli -a);不在线就弹通知,不排队。
+# KDE Connect 的 share 只能发单个文件,目录会被跳过并在通知里说明。
+set -uo pipefail
+
+notify() { notify-send -a "KDE Connect" -i kdeconnect "$1" "${2:-}"; }
+
+(( $# )) || { echo "用法: send-to-phone 文件..." >&2; exit 2; }
+
+mapfile -t devs < <(kdeconnect-cli -a --id-only 2>/dev/null)
+if (( ${#devs[@]} == 0 )); then
+    notify "手机不在线" "确认手机和电脑在同一个 Wi-Fi,且 KDE Connect 没被系统杀掉后台。"
+    exit 1
+fi
+dev=${devs[0]}
+name=$(kdeconnect-cli -d "$dev" --name 2>/dev/null || echo 手机)
+
+sent=0 skipped=()
+for f in "$@"; do
+    if [[ -f $f ]]; then
+        kdeconnect-cli -d "$dev" --share "$(realpath -- "$f")" >/dev/null && (( sent++ ))
+    else
+        skipped+=("$(basename -- "$f")")
+    fi
+done
+
+msg="已发送 $sent 个文件到 $name"
+(( ${#skipped[@]} )) && msg+=$'\n'"跳过(不是文件): ${skipped[*]}"
+notify "$msg"

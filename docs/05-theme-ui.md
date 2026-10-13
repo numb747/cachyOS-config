@@ -904,6 +904,57 @@ scope 不会因此被停掉，server 也就保住了。如果以后把启动方�
 （`app2unit -t service` 之类），主进程一退出 systemd 就会把 server 一起杀掉，
 表现是「通知显示连上了，转头 `adb devices` 是空的」。
 
+## KDE Connect：和手机免确认互传（2026-10-13）
+
+自己的手机和电脑之间互传文件、同步剪贴板，**两边都不用点确认**。
+给同事传东西照旧用 LocalSend（每次要对方点接受，这正是想要的）。
+
+- **电脑 → 手机**：Dolphin 里右键文件 →「发送到手机」（可多选）。走 `bin/send-to-phone`，
+  发完弹通知；手机不在线也弹通知，不排队。手机收到的文件在「下载」目录。
+- **手机 → 电脑**：任意 App 里「分享 → KDE Connect → 电脑」，直接落到 `~/Downloads`。
+- **剪贴板**：电脑复制完，手机上直接能粘贴。反方向见下面坑 1。
+
+配对只做一次（手机装 KDE Connect，同一 Wi-Fi 下双方确认）。之后这台设备一直被信任，
+这层「契约」就是 LocalSend 没有的东西。
+
+### 为什么是它
+
+比过 LocalSend、Valent、Warpinator、Syncthing 等。LocalSend 1.15+ 其实有「仅收藏设备快速保存」，
+能免掉接收确认，但发送端仍要选文件、选设备、点发送。**Valent**（GSConnect 作者写的 GTK 版，
+协议和 KDE Connect 兼容）是给 GNOME 用户准备的，放在这台机器上全是短板：只有 AUR、要编译，
+2026-10 时还是 alpha（最后一次发版 2025-11）；没有 Dolphin 集成；GTK 程序在非 GNOME 的
+Wayland 下不在前台就读不到剪贴板。KDE Connect 在官方仓库，Dolphin 本来就拉进了大半 KF6，
+剪贴板走 wlr data-control 协议，Hyprland 下后台也能同步。
+
+### 插件只留 5 个
+
+电脑端 `~/.config/kdeconnect/<设备ID>/config` 的 `[Plugins]` 段里，只开
+`share`（互传）、`clipboard`、`sftp`（在 Dolphin 里浏览手机存储）、`ping`、`findmyphone`，
+其余全部写 `false`。尤其是 `runcommand` / `remotecommands` / `mousepad` / `remotekeyboard` /
+`lockdevice` 这几个，开着等于让手机能远程操作电脑。改完要重启 `kdeconnectd`
+（`kill` 掉，任意一次 D-Bus 调用会把它重新拉起，比如 `kdeconnect-cli -l`），
+并且**先关掉 `kdeconnect-app` 设置窗口**，否则它可能把旧状态写回去。
+这份配置绑死设备 ID，**不入包**，新机器重新配对后照这段手工关。
+手机端 App 里也有一份插件开关，同样只留对应的几个，不然手机一直推电池、信号、媒体包，
+电脑全部丢弃，纯属白耗电。
+
+### 四个坑
+
+**1. 手机 → 电脑的剪贴板做不到全自动。** Android 10 起后台 App 读不到剪贴板，所有同类软件都一样。
+只能在手机上手动推：KDE Connect 常驻通知里的「发送剪贴板」，或下拉快捷开关里的 KDE Connect 磁贴。
+
+**2. 自启靠 uwsm，不用自己写 `exec-once`。** 包里带了 `/etc/xdg/autostart/org.kde.kdeconnect.daemon.desktop`，
+uwsm 会把它生成为 `app-org.kde.kdeconnect.daemon@autostart.service`。刚装完的那次会话里还没有这个 unit
+（`daemon-reload` 之后才生成），当时的 `kdeconnectd` 是被 `kdeconnect-app` 经 D-Bus 顺带拉起的，
+所以别拿「没开 App 时手机发不过来」当作故障，重新登录就好。
+
+**3. servicemenu 的 Exec 必须写绝对路径，文件必须带可执行位。** Dolphin 的 PATH 里没有
+`~/.local/bin`；KF6 不认没有可执行位的用户目录 servicemenu（同 `arch-map.desktop`）。
+这两件事 `mod_ui` 都会处理（`rewrite_home` + `chmod +x`）。
+
+**4. 手机端会被杀后台。** iQOO 这类国产 ROM 后台管理很激进，手机端要给 KDE Connect 开「允许后台高耗电」和自启动，
+不然过一阵就「手机不在线」。
+
 ## 已删掉的死配置
 
 `~/.config/qt5ct/` 和 `~/.config/xsettingsd/` 在原机器上存在，但 `qt5ct` 和
