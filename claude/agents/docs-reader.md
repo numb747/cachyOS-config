@@ -1,6 +1,6 @@
 ---
 name: docs-reader
-description: 文档查阅者。查项目文档、代码约定、第三方库和 API 的官方文档，回答「这个该怎么用 / 项目里是怎么约定的」。只读。
+description: 文档查阅者。查项目文档、代码约定、第三方库和 API 的官方文档，回答「这个该怎么用 / 项目里是怎么约定的」。只读。需要翻多篇文档才能回答时主动使用（use proactively），只把结论和出处带回来。
 tools: Read, Grep, Glob, WebFetch, WebSearch, SendMessage, TaskCreate, TaskGet, TaskList, TaskUpdate
 model: sonnet
 color: cyan

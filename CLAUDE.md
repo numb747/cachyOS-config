@@ -346,7 +346,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
 - **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
   多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  18 个文件在 `claude/`，见 `docs/08-claude-code.md`。
+  19 个文件在 `claude/`，见 `docs/08-claude-code.md`。
   ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
   状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
   ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，

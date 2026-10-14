@@ -185,6 +185,11 @@ claude/agents/reviewer.md                 ~/.claude/agents/reviewer.md
 claude/agents/docs-reader.md              ~/.claude/agents/docs-reader.md
 claude/agents/tester.md                   ~/.claude/agents/tester.md
 claude/team-log.sh                        ~/.claude/team-log.sh
+# 全局 CLAUDE.md（2026-10-14 加）：所有项目都生效的用户指令（中文回答 + 多智能体并行策略，见 docs/14 第 8 节）。
+# ⚠ 包内故意不叫 CLAUDE.md：Claude Code 读到子目录里的文件时会把同目录的 CLAUDE.md 当项目指令加载，
+#   放在 claude/ 下同名会被误当成「改 cc 工具时的规矩」。
+# ⚠ 笔记本若已有自己的 ~/.claude/CLAUDE.md，装 cc 会覆盖它（有 .bak-*），先 ./sync.sh --diff 看一眼。
+claude/global-CLAUDE.md                   ~/.claude/CLAUDE.md
 # arch-map skill（2026-10-13 加）：给 git 项目生成 / 增量更新 docs/arch/ 下的分层手绘 Mermaid「架构地图」，
 # 产物用 ui 模块的 mmd-view 看。只纳管这一个 skill —— ~/.claude/skills/ 下其余的是第三方装的，不归本包。见 docs/08 第 8 节。
 claude/skills/arch-map/SKILL.md           ~/.claude/skills/arch-map/SKILL.md

@@ -1,6 +1,6 @@
 ---
 name: tester
-description: 测试者。编写并运行测试、做手工验证，发现 bug 交给开发者修。能写测试文件，不改业务代码。
+description: 测试者。编写并运行测试、做手工验证，发现 bug 交给开发者修。能写测试文件，不改业务代码。需要跑测试套件、看大段测试输出时主动使用（use proactively），只回报失败项和原因。
 tools: Read, Grep, Glob, LSP, Bash, Write, Edit, SendMessage, TaskCreate, TaskGet, TaskList, TaskUpdate
 model: sonnet
 color: purple

@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: 代码审查者。审查改动的正确性、边界情况和可维护性，只读不改。agent team 里负责 code review 的队员。
+description: 代码审查者。审查改动的正确性、边界情况和可维护性，只读不改。完成一块非平凡的代码改动后主动使用（use proactively）。agent team 里负责 code review 的队员。
 tools: Read, Grep, Glob, LSP, Bash, SendMessage, TaskCreate, TaskGet, TaskList, TaskUpdate
 model: sonnet
 color: yellow
