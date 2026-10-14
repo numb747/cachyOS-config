@@ -335,6 +335,8 @@ skill 写法遵循本机 `~/.claude/skills/writing-great-skills`：每步一个�
 | systemd 单元 | `~/.config/systemd/user/claude-discord-sync.service` | 由向导生成，里面写死了当时的 `PATH`，换机器重跑向导即可 |
 
 `~/.local/bin/ccd` 是向导建的符号链接，指向检出里的 `bin/ccd`。
+⚠ 检出**不一定**在 `~/src/claude-discord-sync`：笔记本上是 `~/.claude-discord-sync-2`（2026-10-14）。
+要改哪份源码，以 systemd 单元为准：`grep ExecStart ~/.config/systemd/user/claude-discord-sync.service`。
 
 ### 新机器上装
 
@@ -368,6 +370,30 @@ fork 改成默认 `"channels": false`，换两条路：
   直接用 `claude` 启动的会话，对话框超过几秒没人答，会发终端截图过去，选项变成按钮。
 
 所以日常在 tmux 里用 **`ccd` 代替 `claude`**，参数原样透传（`ccd --resume`、`ccd --model opus`）。
+
+### 默认 bypass 模式（2026-10-14，fork 提交 968c81c）
+
+fork 的 `bin/ccd` 启动 `claude` 时带上了 `--dangerously-skip-permissions`，所以 Discord 的
+`/new`、`/resume` 和终端里的 `ccd` 开的会话，**一启动就是 bypass permissions**，底栏显示
+`bypass permissions on`。
+
+为什么要改代码，而不是用 `/mode` 切过去：
+
+- **bypass 只能在启动时打开**。启动时没带 `--dangerously-skip-permissions` 或
+  `--allow-dangerously-skip-permissions`，Shift+Tab 的切换列表里就没有它。Discord 的 `/mode` 其实就是
+  一直按 Shift+Tab，所以切一圈也找不到（bot 会回「所有模式都切了一轮，还是没有 bypass permissions」）。
+- **Discord 上没有地方传启动参数**。`/new <目录> [提示词]` 只传提示词，`/resume` 只传
+  `--resume <id>`，`config.json` 也没有「额外 claude 参数」这种选项。所以只能写进 `bin/ccd`。
+
+改了之后：
+
+- **Discord 上不再有权限卡片**，所有命令都直接执行。选择题和计划审批照常走卡片。
+- `bin/ccd` 每次开会话时才执行，**改它不用重启服务**；在这之前就开着的会话不受影响，要退出再 `/resume`。
+- 同一个提交还在 `src/daemon.ts` 的 `STARTUP_PROMPTS` 里加了 bypass 警告框（自动选「Yes, I accept」）。
+  **新机器才用得上**：这个警告默认选「No, exit」，没接受过的机器上 `/new` 会卡在这里，直到 45 秒超时。
+  笔记本以前接受过，实测不弹。警告的匹配文字没实测过，到时候真卡住了，看一眼屏幕再改正则。
+- 想换回「默认普通模式、需要时再切 bypass」：把 `bin/ccd` 里那个参数换成
+  `--allow-dangerously-skip-permissions`，之后在会话频道里发 `/mode bypassPermissions`。
 
 ### 坑
 
