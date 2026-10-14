@@ -18,7 +18,7 @@ background_opacity          0.6
 cursor_trail                1
 window_padding_width        25
 
-shell nvim -c terminal -c startinsert
+shell nvim -c terminal -c startinsert -c 'tnoremap <Esc><Esc> <C-\><C-n>'
 
 include themes/noctalia.conf
 ```
@@ -52,46 +52,37 @@ Mono 版把每个图标强制缩进一格宽，`󰲡` 这类「方框套数字�
 ### `shell` 那行是核心
 
 **开终端 = 开 nvim，且光标已经在内置终端里等着打字。**
-（旧机 wezterm `default_prog` 的等价物。）两个 `-c` 分别是：
+（旧机 wezterm `default_prog` 的等价物。）三个 `-c` 分别是：
 
 | 参数 | 作用 |
 |---|---|
 | `-c terminal` | 开内置终端 |
 | `-c startinsert` | 直接进插入模式，可以立刻打字 |
+| `-c 'tnoremap <Esc><Esc> <C-\><C-n>'` | 双击 Esc 退回普通模式 |
 
-### 双击 Esc 退回普通模式（tmux 里单下 Esc 不延迟）
+### 单下 Esc 有 300ms 延迟 —— 已知、有意保留
 
-原来这里还有第三个参数 `-c 'tnoremap <Esc><Esc> <C-\><C-n>'`，2026-10-14 撤掉了，
-因为它让 **tmux 复制模式里按 Esc 取消选择要慢 300ms**。原因：映射了 `<Esc><Esc>`，
-nvim 收到单下 Esc 时分不清你还会不会按第二下，只能扣留一个 `timeoutlen`（LazyVim 设的 300ms）
-再放给程序。tmux 自己的 `escape-time` 是 10ms，跟它无关。
-同样的 `<Esc><Esc>` 当时一共有**三份**（这里、`autocmds.lua` 的 TermOpen、`toggleterm.lua`），
-buffer 级的也一样会让单下 Esc 被扣留，只删一份没用。
+映射了 `<Esc><Esc>`，nvim 收到单下 Esc 时分不清还有没有第二下，只能扣留一个
+`timeoutlen`（LazyVim 设的 300ms）再放给程序。tmux 复制模式里按 Esc 取消选择时最明显。
+tmux 自己的 `escape-time` 是 10ms，跟它无关。同样的 `<Esc><Esc>` 一共有**三份**
+（这里、`autocmds.lua` 的 TermOpen、`toggleterm.lua`），buffer 级的也会造成等待，
+想改的话三处都要动。
 
-现在三份都去掉了，统一换成 `lua/util/term.lua` 第 4 块里的一个**全局单键** `<Esc>` 映射。
-每按一下，先读 `/proc/<shell pid>/stat` 的 tpgid（终端**前台**进程组），再看它的 `comm`：
+**2026-10-14 试过一版「看前台放行」，当天就撤回了**（`e636ab0` 及其 revert）：
+做法是把三份 `<Esc><Esc>` 都换成一个全局的单键 `<Esc>`，按下时读 `/proc/<shell pid>/stat`
+的 tpgid（终端前台进程组）：前台是 tmux / nvim 就立刻放行，其余照旧等第二下。
+实测延迟确实没了，但**tmux 里双击 Esc 也回不了 nvim 普通模式**，而平时要靠它在 tmux 里
+直接回普通模式、切 LazyVim 的 tab，只剩 `Ctrl+\ Ctrl+n` 太别扭。
+**这个取舍没有两全的解**：nvim 要想不等，就只能在还不知道有没有第二下的时候先把第一下放出去，
+这样第一下 Esc 就会漏给程序。tmux 里如果跑的是正在回答的 Claude，这一下就会把它打断。
+所以选择保留延迟、保住双击。别再往「去掉延迟」这个方向试了，除非能接受上面的代价，
+或者改用不以 Esc 开头的键来切模式。
 
-| 前台是 | 单下 Esc | 双击 Esc |
-|---|---|---|
-| `tmux` / `nvim` / `vim` | **立刻**放行 | 两下都给程序，**不**回 nvim 普通模式 |
-| 其他（zsh、Claude Code……） | 等 `timeoutlen`，没有第二下再放行（和以前一样） | 回 nvim 普通模式 |
-
-- **为什么不干脆「第一下立刻放行、第二下再切模式」**：第一下会漏给程序。直接跑在
-  nvim 终端里的 Claude Code 收到 Esc 就**打断当前回答**，想双击回普通模式翻屏就变成了误打断。
-- **前台是 tmux 时怎么回 nvim 普通模式**：用 nvim 原生的 `Ctrl+\ Ctrl+n`。平时用不上，
-  tmux 有自己的复制模式（`Alt+v`）。顺带的好处：Claude Code 的「双击 Esc 回退对话」在 tmux 里能用了，
-  以前第二下 Esc 会被外层 nvim 吃掉。
-- 判断依据用 tpgid，**不用** `term_prog()`：`term_prog()` 看的是 shell 的第一个子进程，还缓存 1 秒，
-  被 `Ctrl+Z` 挂到后台的 tmux 也会被它当成「在跑」。
-- ⚠ **以后别再加任何以 `<Esc>` 开头的终端模式映射**，buffer 级的也不行，否则单下 Esc 又要被扣留 300ms。
-  验证方法：`:tmap <Esc>` 应该只有一条。
-
-### ⚠️ `shell` 的值有引号时必须用单引号
+### ⚠️ 必须用单引号
 
 kitty 对 `shell` 的值走 `shlex_split` 再做 `$` 变量展开（`kitty/utils.py` 的
 `resolved_shell`）。**单引号内的 `\` 原样保留**；换成双引号就得写成 `<C-\\><C-n>`。
-这一条在上面那个 tnoremap 参数上踩过一次，写错了表现为 nvim 启动报映射错误。
-现在的 `shell` 行已经不带引号，以后加带 `\` 的参数时还要注意。
+这一条踩过一次，写错了表现为 nvim 启动报映射错误。
 
 ### 想开纯 shell 窗口
 

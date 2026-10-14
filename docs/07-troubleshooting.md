@@ -151,8 +151,6 @@ ans = list(map(expand, shlex_split(q)))
 | `"tnoremap <Esc><Esc> <C-\\><C-n>"` | ⚠️ 双引号必须写两个反斜杠 |
 
 **用单引号。** 值里若含 `$` 会被展开，也要注意。
-（2026-10-14 起 `shell` 行已经不带这个 tnoremap 参数了，双击 Esc 改由 nvim 配置接管，
-见 [03](03-terminal.md)「双击 Esc 退回普通模式」。引号规则本身仍然成立。）
 
 验证解析结果：
 

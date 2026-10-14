@@ -16,8 +16,17 @@ vim.api.nvim_create_autocmd("InsertLeave", {
   pattern = "*",
   command = "silent! write",
 })
--- 终端体验补丁：自动命名、让 picker 认得终端窗口、清理 toggleterm 陈旧窗口引用、
--- 双击 Esc 回普通模式（原先这里的 <Esc><Esc> 映射也搬过去了，见 util/term.lua 第 4 块）。
+vim.api.nvim_create_autocmd("TermOpen", {
+  pattern = "*",
+  callback = function()
+    -- 双Esc退出terminal模式
+    vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { buffer = true })
+    -- 或者如果你更喜欢单Esc（可能会有输入延迟）
+    -- vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { buffer = true })
+  end,
+})
+
+-- 终端体验补丁：自动命名、让 picker 认得终端窗口、清理 toggleterm 陈旧窗口引用。
 -- 放这里而不是 toggleterm 的 config：原生 :terminal 也要覆盖，而 toggleterm 是
 -- VeryLazy 懒加载的，在它加载之前开的终端就漏掉了。
 require("util.term").setup()
