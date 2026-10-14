@@ -8,6 +8,8 @@ Agent Teams（一个队长 claude 指挥几个队员、tmux 分屏、团队日�
 
 `arch-map` skill（给 git 项目画架构地图）也归 cc 模块，见第 8 节。
 
+用手机 Discord 远程驱动本机 Claude Code（claude-discord-sync）**不在 cc 模块里**，只是记在这，见第 9 节。
+
 全部实测于 **Claude Code 2.1.246**。凡是写「实测」的结论，都跟直觉相反过，改之前先看第 4 节。
 
 ---
@@ -317,3 +319,66 @@ check.py 是每次生成的硬性完成标准：要能渲染、节点不超上�
 
 skill 写法遵循本机 `~/.claude/skills/writing-great-skills`：每步一个可检查的完成标准；**地图**、**证据**、**锚点**是贯穿全文的关键词。
 
+
+## 9 · Discord 远程驱动：claude-discord-sync（2026-10-14）
+
+用途：人不在电脑前时，用手机 Discord 接着驱动本机 tmux 里**一直开着**的 Claude Code：
+看输出、发消息、批准权限、答选择题、审计划、开新会话或恢复旧会话。
+每个会话对应服务器里的一个频道，另有一个「控制台」频道显示所有会话的状态。
+
+**不是 install.sh 模块**。本包只记了 `packages.txt` 里的 `bun`，其余三样都不入包：
+
+| 东西 | 在哪 | 为什么不入包 |
+|---|---|---|
+| 代码 | `~/src/claude-discord-sync`（fork：`github.com/numb747/claude-discord-sync`，`origin` 是 fork，`upstream` 是原作者 Cnyn0403） | 自己有 git 仓库，守护进程直接跑检出的源码 |
+| 配置和 bot token | `~/.claude/channels/discord-sync/`：`config.json` + `.env`（权限 600） | `.env` 是凭据；`config.json` 里的服务器 ID 换台机器就不同（一台机器一个服务器） |
+| systemd 单元 | `~/.config/systemd/user/claude-discord-sync.service` | 由向导生成，里面写死了当时的 `PATH`，换机器重跑向导即可 |
+
+`~/.local/bin/ccd` 是向导建的符号链接，指向检出里的 `bin/ccd`。
+
+### 新机器上装
+
+```bash
+sudo pacman -S --needed bun tmux git
+git clone https://github.com/numb747/claude-discord-sync.git ~/src/claude-discord-sync
+cd ~/src/claude-discord-sync
+git remote add upstream https://github.com/Cnyn0403/claude-discord-sync.git
+bun install --frozen-lockfile   # 别 bun update，见下面「坑」
+bun src/cli.ts setup            # 语言选 3（简体中文）；bot 要新建一个，或者重置原来那个的 token
+```
+
+向导跑完后，往 `config.json` 里补上本机用的两项：`"language": "zh-CN"`（向导选过就有）和
+`"deleteEndedAfterDays": 7`（已结束的会话频道 7 天后删掉，不然频道越堆越多）。改完重启服务。
+完整用法（命令、按钮、每种卡片）看 fork 里的 `docs/guide.zh-CN.md`。
+
+### 为什么用 fork、为什么不走 channels
+
+原项目靠 Claude Code 的 **channels**（`--dangerously-load-development-channels`）把消息送进会话。
+**本机用不了**：本机走第三方中转（`settings.json` 的 `ANTHROPIC_BASE_URL`），没有 claude.ai 登录，
+channels 的服务端开关拿不到，启动时提示 `Channels are not currently available`。官方的 Remote Control
+也是同样原因用不了。**别去绕这个开关。**
+
+fork 改成默认 `"channels": false`，换两条路：
+
+- **Discord 发的消息**：用 tmux 的 bracketed paste 粘进会话输入行再回车。终端正开着对话框、
+  或者输入行里有没发出去的草稿时，拒绝发送，不会把字打进错的地方。
+- **权限 / 选择题 / 计划**：`ccd` 启动时用 `--settings` 挂一个 `PermissionRequest` hook，
+  把对话框转成 Discord 上带按钮的卡片。终端里同时显示同一个对话框，哪边先答以哪边为准。
+  这个 hook **不写进 `~/.claude/settings.json`**，所以只有用 `ccd` 启动的会话才有卡片；
+  直接用 `claude` 启动的会话，对话框超过几秒没人答，会发终端截图过去，选项变成按钮。
+
+所以日常在 tmux 里用 **`ccd` 代替 `claude`**，参数原样透传（`ccd --resume`、`ccd --model opus`）。
+
+### 坑
+
+- **改了 fork 的源码要重启服务**：`systemctl --user restart claude-discord-sync`，
+  日志 `journalctl --user -u claude-discord-sync -f`。
+- **别 `bun update`**：锁定的 MCP SDK 1.32.1 协商的协议版本和当前 Claude Code 对得上，升级可能对不上。
+- **连 Discord 靠 sing-box 的 TUN**：代码里没有代理设置，`HTTPS_PROXY` 对 discord.js 无效。TUN 一关就断。
+- **测试会话里别用 `/model`**：它会把模型写进 `~/.claude/settings.json` 变成全局默认。要换模型用 `ccd --model …`。
+- **计划只能在终端批准**：hook 对 ExitPlanMode 返回「允许」不生效（实测，Claude Code 2.1.273），
+  Discord 上的「批准」按钮其实是往终端按数字键；「打回修改」走 hook，正常。
+- **Discord 的限额**：频道话题 10 分钟只能改 2 次（连续重启几次服务，频道名和话题会晚一会儿才更新）；
+  每个分类最多 50 个频道，整个服务器最多 500 个，剩 10 个时会先删最早结束的。
+- **想从头来过**：停服务 → 删掉两个 Claude 分类下的所有频道 → `state.json` 写成 `{}` → 启动。
+  正在运行的会话会重建频道，带最近 15 条记录。2026-10-14 做过一次。
