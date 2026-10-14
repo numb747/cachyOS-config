@@ -69,7 +69,7 @@ Wayland 剪贴板，`tmux load-buffer -w` 实测能进 `wl-paste`。现在的配
 | **Hyprland** | `Alt+` `9 [ ] T S W E G Z Tab Space Enter` 及 `Alt+Shift+[ ] T S G Enter`；`Ctrl+1~4`；`Ctrl+Alt+HJKL`（加 Shift） | 这些按了根本到不了终端。网上常见的 `Alt+[ ]` 切标签、`Ctrl+Alt` 方向键切窗格在本机都不能用 |
 | Hyprland（已让出） | 原 `Alt+\` / `Ctrl+Alt+\` / `Alt+Shift+\`（分屏终端） | 2026-10-11 从 `mykeys.lua` 第 5 节删掉，`Alt+\` 给了 tmux（见 [02](02-hyprland.md)） |
 | **fcitx5** | `Ctrl+Space` 切输入法、`Super+Space`、单按左 Shift、`Ctrl+Alt+P` | 所以前缀**不能**用社区流行的 `C-Space` |
-| **外层 nvim**（kitty 起的那层） | 连按两下 `Esc`、`Ctrl+/`；**转发 `Alt+Shift+标点` 时丢掉 Shift** | 见下面坑 1 |
+| **外层 nvim**（kitty 起的那层） | `Ctrl+/`（连按两下 `Esc` 2026-10-14 起已还给 tmux）；**转发 `Alt+Shift+标点` 时丢掉 Shift** | 见下面坑 1 |
 | zsh（emacs 模式 + fzf） | `Alt+c` fzf 跳目录、`Alt+.` 上条末参数、`Alt+b/f/d` 按词、`Alt+n/p` 历史搜索、`Alt+h` run-help、`Alt+l` ls、`Alt+m`、`Alt+q`、`Alt+数字`、`Alt+a` accept-and-hold（2026-10-13 给了窗格总览） | 被 Alt 层盖掉的这几个用户都确认不用（有 zoxide 就不需要 `Alt+c`）。**不去 `.zshrc` 里删**：tmux 在外层，绑了里面就收不到，效果一样，还少维护一处 |
 | Claude Code 2.1.296 | `Alt+o` fast mode、`Alt+p` 选模型、`Alt+t` 思考、`Alt+j` 终端面板；`Ctrl+B` 命令转后台、`Ctrl+G` 外部编辑器、`Ctrl+S` 暂存 | `Alt+o` 被占（用 `/fast` 代替），`Alt+j` 被占（`Alt+0` 锁定后可用）；`Alt+t` 本来就被 Hyprland 吃掉；**`Ctrl+B` 因为前缀改成 `C-q` 还回去了** |
 | LazyVim | `Alt+j/k` 上下移动行 | 被占，用户不用 |
@@ -219,12 +219,16 @@ Claude Code 对窗口尺寸变化敏感，要先实测。
 3.7 起复制模式可以显示**行号**：`:set copy-mode-line-numbers relative`，
 跟 nvim 的相对行号一个意思，`10j` 这种跳法就不用数了。
 
-### ⚠ 别在 tmux 里连按两下 Esc
+### Esc 不经过外层 nvim 的等待
 
-kitty 起 nvim 时带了 `tnoremap <Esc><Esc> <C-\><C-n>`（[03](03-terminal.md)），
-**两下 Esc 会被外层 nvim 吃掉**，切进 nvim 的普通模式，tmux 根本收不到。
-复制模式里取消选择按**一下** `Esc` 就行；按多了发现「终端不动了」，按 `i` 回到 nvim 的终端模式。
-同理，单独一下 `Esc` 也会被 nvim 扣留一个 `timeoutlen` 才放行（它在等第二下），有一点延迟是正常的。
+2026-10-14 之前，外层 nvim 有 `<Esc><Esc>` 映射：tmux 里**单下 Esc 要被扣留 300ms**
+（nvim 在等第二下），复制模式里取消选择每次都慢半拍；**连按两下还会被 nvim 吃掉**，切进
+nvim 的普通模式，tmux 根本收不到。
+
+现在外层 nvim 会看终端前台是谁，**前台是 tmux 就把 Esc 立刻放过去**，按几下 tmux 就收到几下
+（原理和撤掉的三处映射见 [03](03-terminal.md)「双击 Esc 退回普通模式」）。
+tmux 里要回外层 nvim 的普通模式，按 nvim 原生的 `Ctrl+\ Ctrl+n`。
+⚠ 如果哪天 tmux 里 Esc 又变慢，先 `:tmap <Esc>` 看是不是又冒出了以 `<Esc>` 开头的映射。
 
 ---
 

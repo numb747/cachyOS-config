@@ -1,8 +1,9 @@
--- 终端体验补丁。四块互相独立，哪块出问题都可以单独摘掉：
+-- 终端体验补丁。五块互相独立，哪块出问题都可以单独摘掉：
 --   0. 认出终端里【真正在跑】的程序（与 plugins/tabby.lua 共用同一份实现）
 --   1. 终端手动命名 —— <leader>fb 里一排 term://...:/usr/bin/zsh 只有 pid 不同
 --   2. picker 选中的文件不落在当前终端窗口，跑去别的窗口打乱布局
 --   3. 终端窗口被文件顶掉后 toggleterm 仍记着旧窗口，下次召回会把那个文件挤走
+--   4. 双击 Esc 回普通模式，但前台是 tmux / nvim 时单下 Esc 立刻放行、不等 timeoutlen
 local M = {}
 
 --------------------------------------------------------------------------------
@@ -344,9 +345,80 @@ function M.clear_stale_window(buf, wins)
 end
 
 --------------------------------------------------------------------------------
+-- 4. 终端里的 Esc
+--------------------------------------------------------------------------------
+
+-- 原来是 tnoremap <Esc><Esc> <C-\><C-n>：单下 Esc 要被扣留一个 timeoutlen（300ms）
+-- 等第二下，才放给程序。tmux 复制模式里 Esc 取消选择，每次都慢半拍。
+-- 现在只映射单个 <Esc>，按下时问内核终端前台是谁：
+--   · tmux / nvim / vim —— 它们自己有 Esc 语义，也有自己的「回普通模式」，立刻放行
+--   · 其他（shell、Claude Code……）—— 照旧等第二下，双击回普通模式
+-- ★ 不用「第一下立刻放行、第二下再切模式」这种更简单的写法：第一下会漏给程序，
+--   直接跑在终端里的 Claude Code 会被它打断（Esc = 中断当前回答）。
+-- ★ 判据是终端前台进程组（/proc/<pid>/stat 第 8 字段 tpgid），不是 term_prog()：
+--   后者看的是 shell 的第一个子进程且缓存 1 秒，后台挂起的 job 也会被它当成「在跑」。
+-- ⚠ 这里不能再有任何以 <Esc> 开头的终端模式映射（含 buffer 级），否则 nvim 又要等。
+local esc_passthrough = { tmux = true, nvim = true, vim = true }
+
+---@param buf integer
+---@return boolean
+local function fg_wants_esc(buf)
+  local pid = vim.b[buf].terminal_job_pid
+  if not pid then
+    return false
+  end
+  local f = io.open(("/proc/%d/stat"):format(pid), "r")
+  if not f then
+    return false
+  end
+  local stat = f:read("*l") or ""
+  f:close()
+  -- comm 字段可能带空格和括号，从最后一个 ")" 之后数：state ppid pgrp session tty_nr tpgid
+  local tpgid = stat:match("%)%s+%S+%s+%S+%s+%S+%s+%S+%s+%S+%s+(%-?%d+)")
+  if not tpgid or tpgid == "-1" then
+    return false
+  end
+  local cf = io.open(("/proc/%s/comm"):format(tpgid), "r")
+  if not cf then
+    return false
+  end
+  local comm = cf:read("*l") or ""
+  cf:close()
+  -- tmux 客户端把自己改名成「tmux: client」，取第一个词
+  return esc_passthrough[comm:match("^[%w_.-]+") or ""] == true
+end
+
+function M.esc()
+  local buf = vim.api.nvim_get_current_buf()
+  local chan = vim.bo[buf].channel
+  if fg_wants_esc(buf) then
+    vim.api.nvim_chan_send(chan, "\27")
+    return
+  end
+  -- 等第二下。getchar(1) 只探不取；nvim_input 是 fast API，vim.wait 期间照样进得来
+  if vim.wait(vim.o.timeoutlen, function()
+    return vim.fn.getchar(1) ~= 0
+  end, 5) then
+    local key = vim.fn.getcharstr()
+    if key == "\27" then
+      vim.api.nvim_feedkeys(vim.keycode([[<C-\><C-n>]]), "n", false)
+      return
+    end
+    -- 不是 Esc：先补发这下 Esc，再把那个键塞回队首（"i"），照常走映射（"m"）
+    vim.api.nvim_chan_send(chan, "\27")
+    vim.api.nvim_feedkeys(key, "mi", false)
+    return
+  end
+  vim.api.nvim_chan_send(chan, "\27")
+end
+
+--------------------------------------------------------------------------------
 
 function M.setup()
   local group = vim.api.nvim_create_augroup("term_ux", { clear = true })
+
+  -- 全局而非 TermOpen 里按 buffer 设：kitty 外层那个 nvim 的首个终端在 VeryLazy 之前就开了
+  vim.keymap.set("t", "<Esc>", M.esc, { desc = "双击 Esc 回普通模式（tmux/nvim 前台时直接放行）" })
 
   vim.api.nvim_create_autocmd("TermOpen", {
     group = group,

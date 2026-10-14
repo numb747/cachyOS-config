@@ -30,7 +30,7 @@ lua/config/
 ├── lazy.lua                lazy.nvim 引导 + LazyVim 挂载
 ├── options.lua             编码、swapfile、内置终端 shell、python provider
 ├── keymaps.lua             只有一条：禁用 q 录制宏
-└── autocmds.lua            自动保存、终端双 Esc
+└── autocmds.lua            自动保存、拉起 util/term.lua（终端补丁，含双 Esc）
 lua/plugins/
 ├── colorscheme.lua         tokyonight，透明
 ├── disabled.lua            关掉 bufferline
@@ -95,7 +95,7 @@ Ctrl+/          开/关浮动终端（normal 和 terminal 模式都能按）
 <leader>tn      给终端命名     Ctrl+r（终端内）
 <leader>tl      列出并切换终端  Ctrl+f（终端内）
 <leader>tt      一次开 4 个终端
-Esc Esc         从终端模式回普通模式
+Esc Esc         从终端模式回普通模式（前台是 tmux / nvim 时不拦，见 docs/03）
 Alt+=           浮窗在「阅读档 / 大档」之间切换（终端内，normal 和 terminal 模式都能按）
 ```
 

@@ -18,7 +18,7 @@ background_opacity          0.6
 cursor_trail                1
 window_padding_width        25
 
-shell nvim -c terminal -c startinsert -c 'tnoremap <Esc><Esc> <C-\><C-n>'
+shell nvim -c terminal -c startinsert
 
 include themes/noctalia.conf
 ```
@@ -52,19 +52,46 @@ Mono 版把每个图标强制缩进一格宽，`󰲡` 这类「方框套数字�
 ### `shell` 那行是核心
 
 **开终端 = 开 nvim，且光标已经在内置终端里等着打字。**
-（旧机 wezterm `default_prog` 的等价物。）三个 `-c` 分别是：
+（旧机 wezterm `default_prog` 的等价物。）两个 `-c` 分别是：
 
 | 参数 | 作用 |
 |---|---|
 | `-c terminal` | 开内置终端 |
 | `-c startinsert` | 直接进插入模式，可以立刻打字 |
-| `-c 'tnoremap <Esc><Esc> <C-\><C-n>'` | 双击 Esc 退回普通模式 |
 
-### ⚠️ 必须用单引号
+### 双击 Esc 退回普通模式（tmux 里单下 Esc 不延迟）
+
+原来这里还有第三个参数 `-c 'tnoremap <Esc><Esc> <C-\><C-n>'`，2026-10-14 撤掉了，
+因为它让 **tmux 复制模式里按 Esc 取消选择要慢 300ms**。原因：映射了 `<Esc><Esc>`，
+nvim 收到单下 Esc 时分不清你还会不会按第二下，只能扣留一个 `timeoutlen`（LazyVim 设的 300ms）
+再放给程序。tmux 自己的 `escape-time` 是 10ms，跟它无关。
+同样的 `<Esc><Esc>` 当时一共有**三份**（这里、`autocmds.lua` 的 TermOpen、`toggleterm.lua`），
+buffer 级的也一样会让单下 Esc 被扣留，只删一份没用。
+
+现在三份都去掉了，统一换成 `lua/util/term.lua` 第 4 块里的一个**全局单键** `<Esc>` 映射。
+每按一下，先读 `/proc/<shell pid>/stat` 的 tpgid（终端**前台**进程组），再看它的 `comm`：
+
+| 前台是 | 单下 Esc | 双击 Esc |
+|---|---|---|
+| `tmux` / `nvim` / `vim` | **立刻**放行 | 两下都给程序，**不**回 nvim 普通模式 |
+| 其他（zsh、Claude Code……） | 等 `timeoutlen`，没有第二下再放行（和以前一样） | 回 nvim 普通模式 |
+
+- **为什么不干脆「第一下立刻放行、第二下再切模式」**：第一下会漏给程序。直接跑在
+  nvim 终端里的 Claude Code 收到 Esc 就**打断当前回答**，想双击回普通模式翻屏就变成了误打断。
+- **前台是 tmux 时怎么回 nvim 普通模式**：用 nvim 原生的 `Ctrl+\ Ctrl+n`。平时用不上，
+  tmux 有自己的复制模式（`Alt+v`）。顺带的好处：Claude Code 的「双击 Esc 回退对话」在 tmux 里能用了，
+  以前第二下 Esc 会被外层 nvim 吃掉。
+- 判断依据用 tpgid，**不用** `term_prog()`：`term_prog()` 看的是 shell 的第一个子进程，还缓存 1 秒，
+  被 `Ctrl+Z` 挂到后台的 tmux 也会被它当成「在跑」。
+- ⚠ **以后别再加任何以 `<Esc>` 开头的终端模式映射**，buffer 级的也不行，否则单下 Esc 又要被扣留 300ms。
+  验证方法：`:tmap <Esc>` 应该只有一条。
+
+### ⚠️ `shell` 的值有引号时必须用单引号
 
 kitty 对 `shell` 的值走 `shlex_split` 再做 `$` 变量展开（`kitty/utils.py` 的
 `resolved_shell`）。**单引号内的 `\` 原样保留**；换成双引号就得写成 `<C-\\><C-n>`。
-这一条踩过一次，写错了表现为 nvim 启动报映射错误。
+这一条在上面那个 tnoremap 参数上踩过一次，写错了表现为 nvim 启动报映射错误。
+现在的 `shell` 行已经不带引号，以后加带 `\` 的参数时还要注意。
 
 ### 想开纯 shell 窗口
 

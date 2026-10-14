@@ -134,8 +134,8 @@ return {
     -- 设置快捷键
     local function set_terminal_keymaps()
       local opts = { buffer = 0, silent = true }
-      -- 双击 Esc 退出终端模式
-      vim.keymap.set("t", "<esc><esc>", [[<C-\><C-n>]], opts)
+      -- 双击 Esc 退出终端模式：在 util/term.lua 里全局设了。这里别再设 <esc><esc>，
+      -- buffer 级的前缀映射会让单下 Esc 重新被扣留 timeoutlen（tmux 里取消选择变慢）
       -- Ctrl+f 列出终端（只列 toggleterm 的终端，所以留在这里）
       -- ⚠ 终端模式下会盖掉 shell 的 Ctrl+F。想要回来就把 mode 里的 "t" 去掉。
       vim.keymap.set({ "t", "n" }, "<C-f>", function()
