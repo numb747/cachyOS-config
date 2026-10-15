@@ -14,8 +14,8 @@ nvim        # 自动 clone lazy.nvim，然后按 lazy-lock.json 装 47 个插件
 等 lazy 界面跑完再操作。**不要**把旧机的 `~/.local/share/nvim/lazy/` 拷过来——
 版本由 `lazy-lock.json` 锁定，拷实体反而容易和 git 状态冲突。
 
-> 54 装 / 55 锁不是 bug：`bufferline.nvim` 在锁文件里，但被
-> `lua/plugins/disabled.lua` 设成 `enabled = false`，属预期。
+> 51 装 / 55 锁不是 bug：`bufferline.nvim` 和三个 dadbod 插件在锁文件里，但被
+> `lua/plugins/disabled.lua` 设成 `enabled = false`，属预期（lazy 对禁用的插件也保留锁条目）。
 
 ---
 
@@ -33,7 +33,7 @@ lua/config/
 └── autocmds.lua            自动保存、终端双 Esc
 lua/plugins/
 ├── colorscheme.lua         tokyonight，透明
-├── disabled.lua            关掉 bufferline
+├── disabled.lua            关掉 bufferline，以及 lang.sql 扩展自带的 dadbod 数据库客户端
 ├── image.lua               image.nvim：打开图片文件 + molten 出图，走 magick_cli 免 luarock
 ├── lualine.lua             状态栏
 ├── mini.lua                mini.files 文件管理器（替代 snacks explorer）
@@ -704,6 +704,25 @@ icons = {} }`，于是标题只剩颜色、`#` 原样保留。`render-markdown.l
 - **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，scratchPad 存在 `~/doc/`。
   它和 `<leader>uz`（snacks.zen）是两层关系，另有一个「在 zen 里按 `<leader>z`
   会闪退」的上游补丁 —— 都在上面「专注模式」一节。
+- **dadbod 数据库客户端已关**（2026-10-15，`disabled.lua`）：`lang.sql` 扩展会顺带装
+  `vim-dadbod` / `vim-dadbod-ui`（`<leader>D` 的 DBUI）/ `vim-dadbod-completion`，用不上。
+  只关这三个、**扩展本身留着**——SQL 的 treesitter 高亮和 sqlfluff 检查/格式化还要。
+  ⚠ 光 `enabled = false` 不够：扩展把 `dadbod` 写进了 blink 的**全局** `sources.default`，
+  插件关了这项不摘，**所有文件**的补全都会报找不到 `vim_dadbod_completion.blink`。
+  所以 `disabled.lua` 里还有一段 blink 的 `opts` 函数把它滤掉。
+  验证看合并后的 opts，别看 `require("blink.cmp.config")`——blink 没 setup 前那是默认值，
+  有没有 dadbod 都一样：
+  `require("lazy.core.plugin").values(require("lazy.core.config").plugins["blink.cmp"], "opts", false).sources.default`
+- **`<leader>D` 现在空着**（2026-10-15）：DBUI 关掉后让出来，一度绑成在 nvim tab 里跑 discordo
+  （终端版 Discord），当天又整套撤了，改用 Equibop + system24 主题（见 `docs/15-discord.md`）。
+  留两条通用教训：
+  ① **nvim 进程的 `PATH` 里没有 `~/.local/bin`**——kitty 直接起 nvim、不经过 zsh，这个目录只在
+  `.zshrc` 里加。nvim 里调 `~/.local/bin` 下的东西要写死路径兜底；在别的 shell 里无头测试测不出来，
+  要按 `/proc/<nvim pid>/environ` 的 PATH 用 `env PATH=...` 模拟。
+  ② **nvim 的 `:terminal` 吞 kitty 图形协议**（[neovim#32189](https://github.com/neovim/neovim/issues/32189)），
+  在内置终端里跑的 TUI 图片只有半格像素；套 tmux 也绕不过。实测可行的绕法是：图片数据沿进程树找到
+  nvim UI 写的那个 `/dev/pts` 直接写给 kitty，Unicode 占位字符照常经过 nvim，图片 id 编进**真彩色**前景色
+  （256 色索引会被开着 termguicolors 的 nvim 转成 RGB，对不上）。需要改 TUI 程序本身，没留下。
 
 ---
 

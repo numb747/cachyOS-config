@@ -92,6 +92,15 @@ kitty zsh        # 命令行给了程序就会覆盖 shell 那一行
 
 或者进 nvim 后 `:q` 退出——因为内置终端跑的就是 zsh，`:q` 之后终端窗口还在。
 
+### 远程控制：开过又撤了（2026-10-15）
+
+为了在当前 kitty 开新标签页跑终端版 Discord（discordo），一度开了
+`allow_remote_control socket-only` + `listen_on unix:${XDG_RUNTIME_DIR}/kitty-{kitty_pid}`。
+kitty 标签页和 nvim 的 tab 是**两套**，新标签页整个盖住 nvim，不合用；discordo 后来也整套换成了
+Equibop（见 `docs/15-discord.md`），远程控制随之撤掉。以后真要开，记住两点：用 `socket-only` 不用 `yes`
+（后者让终端里打印的转义序列就能控制 kitty）；套接字放 `$XDG_RUNTIME_DIR`，别用 `unix:@名字`
+（Linux 抽象套接字不受文件权限保护）。
+
 ### 主题从哪来
 
 末行 `include themes/noctalia.conf` 里那个文件是 **noctalia 生成的**，不是手写的。

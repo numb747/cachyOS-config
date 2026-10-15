@@ -316,7 +316,8 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
   `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
   比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **54 装 / 55 锁**（差的 `bufferline.nvim` 是 `disabled.lua` 里主动关的，属预期。
+- nvim **51 装 / 55 锁**（差的 `bufferline.nvim` 和三个 dadbod 插件是 `disabled.lua` 里主动关的，属预期；
+  dadbod 是 2026-10-15 关的，lang.sql 扩展本身保留，坑见 `docs/04`「其他小项」。
   2026-09-18 加 tabby.nvim：46/47 → 47/48。2026-10-10 起这两个数**进了** `sync.sh` 的
   对账表（锁 = `lazy-lock.json` 条数，装 = 锁 − `disabled.lua` 里的 `enabled = false`），
   进表时一查 lockfile 已是 55 条，文档落后了 7 个插件没人发现）
