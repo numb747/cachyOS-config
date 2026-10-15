@@ -256,6 +256,16 @@ bin/clip-paste                            ~/.local/bin/clip-paste
 config/systemd/user/elephant.service      ~/.config/systemd/user/elephant.service
 config/systemd/user/walker.service        ~/.config/systemd/user/walker.service
 
+#@module discord
+# Equibop（cachyos 仓库的 Discord 客户端，自带 Equicord）+ system24 主题 tokyo-night 配色，见 docs/15-discord.md。
+# 外层 settings.json 是 Equibop 程序本身（托盘、标题栏、启动画面配色）；settings/ 下是 Equicord 的插件开关与启用的主题。
+# ⚠ 装之前先完全退出 Equibop（含托盘）：Equicord 在内存里持有设置，运行中改文件可能被它写回。
+# ⚠ Equicord 运行时会改写 settings/settings.json（自动更新带来的新插件条目、时间戳），sync.sh 报它不一致多半是这个，看 --diff 再决定收不收。
+config/equibop/settings.json              ~/.config/equibop/settings.json
+config/equibop/settings/settings.json     ~/.config/equibop/settings/settings.json
+config/equibop/settings/quickCss.css      ~/.config/equibop/settings/quickCss.css
+config/equibop/themes/system24-tokyo-night.theme.css  ~/.config/equibop/themes/system24-tokyo-night.theme.css
+
 # ── 不在同步范围内（有意）────────────────────────────────────────────────
 # wallpaper/ascii/*.png                    _ascii.py 的产出，确定性生成，不会自己变。
 #                                          由 install.sh 的 wall 模块直接铺开。

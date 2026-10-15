@@ -16,6 +16,10 @@
 # 完整边界见 CLAUDE.md「边界：不进这个包的东西」。
 storage.key
 settings.json
+# 例外：Equibop / Equicord 的两份 settings.json 只有插件开关和界面选项，无 token
+# （登录态在 ~/.config/equibop/sessionData/，不入包）。逐个列路径，别写成通配。
+!config/equibop/settings.json
+!config/equibop/settings/settings.json
 *.pem
 *.key
 id_rsa*

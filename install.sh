@@ -490,9 +490,22 @@ mod_launcher() {
     return 0
 }
 
+mod_discord() {
+    head_ "discord —— Equibop 客户端 + system24 主题（tokyo night）"
+    # Equicord 在内存里持有设置、改动时整份写回，运行中覆盖文件可能被它冲掉（docs/15）。
+    if pgrep -x equibop >/dev/null 2>&1; then
+        err "Equibop 正在运行 —— 先完全退出（含托盘）再装 discord 模块"; return 1
+    fi
+    put_module discord
+    pacman -Q equibop >/dev/null 2>&1 || \
+        { warn "没装 equibop —— 配置已就位，客户端要另装"; inf "  sudo pacman -S equibop    （cachyos 仓库，不用 AUR）"; }
+    inf "消息「紧凑」显示是 Discord 账号设置，不在本包里：设置 → 外观 → 消息显示"
+    return 0
+}
+
 # ─── 参数解析 ───────────────────────────────────────────────────────────────
 
-ALL=(hypr term nvim ui cc wall ocr launcher)
+ALL=(hypr term nvim ui cc wall ocr launcher discord)
 declare -A DESC=(
     [hypr]="Hyprland 键位、鼠标行为、动态工作区"
     [term]="kitty / alacritty / zsh / powerlevel10k / tmux"
@@ -502,6 +515,7 @@ declare -A DESC=(
     [wall]="壁纸与壁纸库脚本"
     [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
     [launcher]="Walker + Elephant 应用启动器（Alt+Space，g␣ 谷歌搜索）"
+    [discord]="Equibop（Discord 客户端）+ system24 TUI 风主题、IrcColors"
 )
 
 SELECTED=()

@@ -84,6 +84,14 @@
 > `8caafb7` 已经修掉**：`sync.sh` 从裸 `find` 改成跟着 `git ls-files` 走，现在只收入库文件。
 > 所以不用再手工滤 `.git/` / `.snapshots/`，直接 `sha256sum -c` 即可（前提是 MANIFEST 是新的）。
 
+### 反方向：笔记本先有、源机器还没装的模块（2026-10-15 起）
+
+**discord 模块**（Equibop + system24 主题，`docs/15-discord.md`）是在笔记本上配好后**手工逐文件**收进包的
+（照上面的禁令，没跑 `--pull`：`cp ~/.config/equibop/... config/equibop/...` → `git add` → `./sync.sh --manifest`）。
+它的 4 个文件**不在**上面那张「永远不一致」表里 —— 两台机器装出来应该逐字节相同，没有本机路径和分辨率相关的值。
+源机器 `git pull` 后没装 Equibop 时，`./sync.sh` 报这 4 个「系统上不存在」，无害；以后在笔记本改了 Discord 配置，
+还是逐文件 `cp` 回包里。
+
 ---
 
 ## 笔记本已补齐的、以及还缺的

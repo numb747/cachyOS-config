@@ -23,7 +23,7 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     15 篇，见下表（配图在 docs/img/）
+├── docs/                     16 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
@@ -114,6 +114,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
 | tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
+| 改 Discord 客户端（Equibop）/ system24 主题开关 / 为什么不用圆角和 midnight / 换机器搬 Discord 配置 | `docs/15-discord.md` |
 
 ---
 
@@ -449,5 +450,12 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ **Claude 状态读 `~/.claude/sessions/<pid>.json`，没用钩子**（钩子在 Esc 打断时不触发，会卡在「干活中」），
   settings.json 没动；队员没有会话文件，靠屏幕转圈行推断，Claude Code 升级后可能要改正则。
   shell 那半边靠 `.zshrc` 的 preexec/precmd，**之前就开着的 shell 要 `exec zsh` 才开始记**。见 `docs/14-tmux.md` 第 9 节
+- **discord 模块**（2026-10-15 新增，第 10 个，**笔记本先有、源机器还没装**）：Equibop（cachyos 仓库，自带 Equicord）
+  + system24 主题 tokyo night 配色，相对上游只改 `--animations: off`、`--remove-pfp-decor: on`；开了 IrcColors 插件。
+  ⚠ 两份 `settings.json` 能入库靠 `.gitignore` 里逐路径的 `!` 例外（兜底规则 `settings.json` 没放宽）；
+  主题样式是运行时从 GitHub Pages `@import` 的、没钉版本；装前必须退出 Equibop（`mod_discord` 会检查）。
+  圆角 / 去面板标签都试过、评价是「不像 TUI 了」，别再往那调。见 `docs/15-discord.md`
+- ~~**作战大屏 `warboard`**~~（2026-10-15 加、同日撤回 `1b0955c`）：只读 tmux 实时看板。用户评价「很差劲，不要」，
+  **别再加回来**；原实现在 `c08c1c0`，真要看 `git show c08c1c0`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）

@@ -59,6 +59,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
 | **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
 | **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |
+| **discord** | Discord 客户端：Equibop（自带 Equicord）+ TUI 风格的 [system24](https://github.com/refact0r/system24) 主题 tokyo night 配色，IRC 式用户名着色 | [15](docs/15-discord.md) |
 
 还没装系统？先看 [docs/00-install-os.md](docs/00-install-os.md)（Ventoy 制盘、镜像、CachyOS 取舍）。
 设计原则、模块之间怎么咬合，看 [docs/01-architecture.md](docs/01-architecture.md)。
@@ -112,7 +113,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  15 篇说明，见上表
+├── docs/                  16 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh  .tmux.conf
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它

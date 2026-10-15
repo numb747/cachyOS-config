@@ -200,6 +200,7 @@ mpv --vo=gpu --no-audio --frames=90 --msg-level=vd=v <某个视频> 2>&1 | grep 
 - [ ] 鼠标移到屏幕顶边，noctalia 顶栏浮出（默认自动隐藏）
 - [ ] `Alt+9` 手动开合顶栏
 - [ ] `Alt+Space` 打开应用启动器（Walker），配色和顶栏同一套；**指针放在框外**也不会自己关（见 [docs/13](docs/13-launcher.md)）
+- [ ] （装了 discord 模块）打开 Equibop：直角方框、面板边框上有标签、等宽字体、tokyo night 配色；用户名各有颜色（IrcColors）（见 [docs/15](docs/15-discord.md)）
 - [ ] 启动器里敲 `g 天气` 只出一条 Google，回车开浏览器；敲 `fire` 时已开的 Firefox 窗口在列表里
 - [ ] `Super+.` 打开 emoji，选中后 `Ctrl+V` 能粘出来
 - [ ] 终端 / btop / dolphin 的配色是同一套 Tokyo Night 冷蓝紫调
