@@ -143,6 +143,11 @@ share/mime/packages/mermaid.xml           ~/.local/share/mime/packages/mermaid.x
 # Dolphin 右键文件夹 →「生成 / 更新架构地图」：kitty 里起 claude 跑 /arch-map（cc 模块的 skill）。
 # KF6 要求用户目录下的 servicemenu 文件带可执行位，否则菜单里不出现（mod_ui 会 chmod）。
 share/kio/servicemenus/arch-map.desktop   ~/.local/share/kio/servicemenus/arch-map.desktop
+# 启动器里的「作战大屏」：只读 tmux 会话 warboard，四格实时滚动 —— 所有 Claude 会话的工具调用、活跃仓库的未提交改动、
+# 自建服务日志、今日节奏。给人看「在干活」，自己也用来盯后台会话。依赖 term 模块的 tmux。见 docs/14-tmux.md 第 10 节。
+bin/warboard                              ~/.local/bin/warboard
+share/applications/warboard.desktop       ~/.local/share/applications/warboard.desktop
+share/icons/hicolor/scalable/apps/warboard.svg  ~/.local/share/icons/hicolor/scalable/apps/warboard.svg
 config/fcitx5/profile                     ~/.config/fcitx5/profile
 config/fcitx5/config                      ~/.config/fcitx5/config
 config/fcitx5/conf/notifications.conf     ~/.config/fcitx5/conf/notifications.conf

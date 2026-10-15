@@ -1,4 +1,4 @@
-# 14 · tmux：免前缀 Alt 键位、3.x 新东西、遥控 Claude Code、Agent Teams 分屏、窗格总览
+# 14 · tmux：免前缀 Alt 键位、3.x 新东西、遥控 Claude Code、Agent Teams 分屏、窗格总览、作战大屏
 
 > 配置文件是 `~/.tmux.conf`（包内 `home/.tmux.conf`），外加 `Alt+Shift+O` 用的小脚本
 > `~/.local/bin/tmux-proj`（包内 `bin/tmux-proj`）和 `Alt+a` 用的 `~/.local/bin/tmux-panes`
@@ -7,7 +7,8 @@
 > 其余一半是温习老功能，一半是 3.6–3.8 新加的东西。第 5 节是「用 tmux 给 Claude Code
 > 打字、回车、等它答完、读答案」，第 7 节是「一个队长 claude 指挥几个队员 claude、
 > 每个队员一个 tmux 窗格」，第 8 节是「什么活该并行、什么活该一条线做下去」，
-> 第 9 节是「好几个会话里散着一堆 Claude 和 npm，`Alt+a` 一张表看全、回车直达」。第 5、7 节的结论**全部实测过**（2026-10-11，tmux 3.8 +
+> 第 9 节是「好几个会话里散着一堆 Claude 和 npm，`Alt+a` 一张表看全、回车直达」，
+> 第 10 节是「作战大屏」—— 一个只读 tmux 会话，实时滚动所有 Claude 的工具调用、仓库改动和服务日志（`bin/warboard`，ui 模块）。第 5、7 节的结论**全部实测过**（2026-10-11，tmux 3.8 +
 > Claude Code 2.1.296）。
 
 ---
@@ -900,6 +901,77 @@ Claude Code 会在同一个会话里把它拉起来、恢复它保存的对话�
 - 提醒阈值：`tmux-panes` 顶部 `LONG_CMD = 10`。
 - 不想要底栏计数：删掉 `status-right` 开头那段 `#(~/.local/bin/tmux-panes --status)`，`Alt+a` 不受影响。
 - 只想看 Claude：在列表里输入 `claude`（队员那几行要输 `队员`）。
+
+---
+
+## 10 · 作战大屏 `warboard`：只看不动的实时看板（2026-10-15）
+
+### 为什么有它
+
+用手机 Discord 驱动 Claude（[08](08-claude-code.md) 第 9 节）之后，活是在 tmux 后台某个窗格里干的，
+屏幕上未必看得到 —— 别人路过看你屏幕，只见一个不动的终端。与其放 `genact` / `hollywood` 那种循环播放的假输出
+（懂行的人看几秒就穿帮，内容也和你的项目无关），不如把**本来就在发生的事**摆出来：
+内容全是真的，凑近看也经得起，自己也拿它盯后台会话。
+
+### 用法
+
+启动器搜「作战大屏」（或 `zuozhan` / `warboard`）。它开一个 `kitty --class warboard`，接上 tmux 会话 `warboard`；
+会话不存在才新建，**关掉窗口只是 detach**，几个 Python 循环留在后台（空闲时几乎不占 CPU），下次打开秒接上。
+命令行：`warboard`（在 tmux 里就 `switch-client` 过去）· `warboard --rebuild`（改了脚本/布局后用）· `warboard --kill`。
+
+```
+┌ Claude 活动流 ───────────────────────────┬ 仓库 ─────────────────────────┐
+│ 09:35:28 tradition-medi Read  .work/…jpeg │ tradition-medi  main ● 1 +0 -0 │
+│ 09:36:24 bin            Write warboard +642│   ?? docs/arch.tar.gz          │
+│ 09:36:34 bin          ✗ Edit  String to … │   5216df2  1h 台账补第 10 批…  │
+├ 服务日志 ─────────────────────────────────┤ special  feat/liveness-web ● 9 │
+│ 09:11:10 discord  logged in as claudeSync │ ├ 状态 ───────────────────────┤
+│ 09:19:26 discord  channel #david-dd60 …   │ 会话 ● 2 干活中  0 等确认 ○ 0 │
+│                                           │ 节奏 ▁▂▅▇█▃▁▁▂▅▆▇              │
+└───────────────────────────────────────────┴───────────────────────────────┘
+```
+
+| 格子 | 内容 | 数据源 |
+|---|---|---|
+| Claude 活动流 | 所有会话（含子代理，标 `·sub`）的每次工具调用一行：时间、项目、工具、摘要（Bash 是命令首行，Edit 带 `+N -M`）；工具报错红色 `✗`；隔了 2 分钟以上插一条时间分隔线 | `~/.claude/projects/**/*.jsonl` 按字节偏移追尾，启动时回填 2 小时内的最后一屏 |
+| 仓库 | 近 3 小时有会话活动的 git 仓库：分支、ahead/behind、未提交文件和增删行数、最近 3 次提交；按最近活动排序，放不下的不显示 | 活着的会话 cwd + transcript 尾部的 `cwd`；每 3 秒一次 `git status` |
+| 服务日志 | 自建服务的 `journalctl -f`，error/fail 标红、warn 标黄 | `LOG_UNITS`：discord-sync、ccmon、feedback、tcm-web、docker |
+| 状态 | 会话忙/等/闲计数、今日工具调用数和输出 tokens、近一小时每分钟的工具调用柱状图、CPU/内存/负载/网速 | 会话文件 + 今天的 transcript + `/proc` |
+
+### 刻意不显示的东西 —— 大屏是给别人看的
+
+- **你发给 Claude 的话、Claude 的回复正文一律不显示**，只露「在做什么」不露「在聊什么」。
+  `AskUserQuestion` / `ExitPlanMode` 只显示「等待确认」，问题内容不上屏。
+- **命令和 URL 里的凭据打码**（`mask()`）：`token=` / `password=` / `api_key:` / `Authorization: Bearer xxx`
+  的值，以及 40 位以上的长串（JWT、base64 密钥）都换成 `•••`。日志行也过一遍。
+  这是启发式的，**不保证兜住所有凭据** —— 真敏感的活别开着大屏干。
+- **不跟 elephant（Walker 后端）的日志**：它会记下你从启动器打开了哪个应用（`activated=xxx.desktop`）。
+- 四个格子都 `select-pane -d` 禁了输入：谁在键盘上乱按都传不进去；tmux 自己的键（`Alt+a` 等）照常。
+  会话关了底栏（`status off`），只剩窗格顶上的标题胶囊。
+
+### 实测踩到的（2026-10-15）
+
+- **建会话的尺寸要等于真实终端**：一开始写死 `-x 240 -y 60` 建好再 attach，活动流回填的那一屏按旧宽度印出来，
+  缩窄后整屏折行，状态格被等比挤成 4 行。但光按「当前终端尺寸」建也不够 —— kitty 先按默认尺寸起，
+  Hyprland 随后才把它铺开。最终做法是**滚动格子（活动流、日志）把最近 400 行存成「宽度 → 一行」的函数，
+  收到 SIGWINCH 就按新宽度整屏重印**；仓库、状态两格本来就是整屏重画。挪到别的屏、切全屏也不会花。
+- **整屏重画的最后一行不能带换行**：正好满屏时那个换行会让终端滚一行，第一行就被顶没了。
+- **systemd 给 user 单元写的「Started / Failed」**，`_SYSTEMD_USER_UNIT` 是 `init.scope`，真正的单元名在 `USER_UNIT`，
+  所以 journalctl 的匹配两个字段都要加，取单元名时 `USER_UNIT` 优先，否则日志格里来源显示成 `init.scope`。
+- **git 一律 `-c core.quotePath=false` + `GIT_OPTIONAL_LOCKS=0`**：前者让中文文件名不变成 `\345\256…`，
+  后者让每 3 秒一次的 `git status` 不去抢 `index.lock`，不干扰 Claude 自己的 git 操作。
+- **Nerd Font 图标写转义**（理由同「底栏」那段）：第一版直接写字符，落盘后果然全被吃成空串。
+- **新图标要 `gtk-update-icon-cache`**：`~/.local/share/icons/hicolor` 已有 `icon-theme.cache`，
+  不刷新启动器里图标是空白（ui 模块的安装步骤会刷）。
+- ⚠ 测试时别用 `pkill -f 'kitty --class warboard'` 关窗口：模式会匹配到正在执行它的 shell 自己（退出码 144，
+  和 [CLAUDE.md](../CLAUDE.md) 坑 14 一样）。按 `hyprctl clients -j` 里 `class == "warboard"` 的 pid 去 kill。
+
+### 想调的话
+
+- 跟哪些服务的日志：`warboard` 顶部 `LOG_UNITS`。
+- 工具配色：`TOOL_COLOR`；项目标签的颜色按名字哈希，从 `LABEL_COLORS` 里挑。
+- 格子比例：`build()` 里几个 `split-window -l`，改完 `warboard --rebuild`。
+- 打码规则：`SECRET` 正则。
 
 ---
 

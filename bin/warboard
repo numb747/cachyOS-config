@@ -1,0 +1,708 @@
+#!/usr/bin/env python3
+"""
+作战大屏：一个只读的 tmux 会话，四个格子实时滚动本机真实发生的事 —— 给人看「在干活」，自己也用得上。
+
+  ┌ Claude 活动流 ─────────────┬ 仓库 ──────────┐
+  │ 所有 Claude 会话（含子代理）  │ 活跃项目的分支、│
+  │ 的工具调用，一行一条          │ 未提交改动、提交 │
+  ├ 服务日志 ──────────────────┤                │
+  │ journalctl -f（几个自建服务） ├ 状态 ──────────┤
+  │                            │ 会话/今日/系统   │
+  └────────────────────────────┴────────────────┘
+
+用法:
+  warboard            起（或接上）tmux 会话 warboard；在 tmux 里就切过去
+  warboard --rebuild  杀掉重建（改了布局/脚本后用）
+  warboard --kill     关掉
+  warboard feed | repos | stats | logs    单个格子（布局里调，也能单跑调试）
+
+数据源 —— 全是只读:
+  活动流 / 状态   ~/.claude/projects/**/*.jsonl（按字节偏移追尾，子代理在 */subagents/ 下）
+  会话状态        ~/.claude/sessions/<pid>.json 的 status（同 tmux-panes）
+  仓库            活着的会话的 cwd + 近 3 小时有记录的项目 cwd，git 跑时带 GIT_OPTIONAL_LOCKS=0，
+                  不跟 Claude 自己的 git 抢 index.lock
+  日志            journalctl -f -o json，单元见 LOG_UNITS
+
+刻意不显示：你发给 Claude 的话、Claude 的回复正文 —— 大屏是给别人看的，只露「在做什么」不露「在聊什么」。
+格子都用 select-pane -d 禁了输入：谁在键盘上乱按都不会传进去；tmux 自己的键位（Alt+a 等）照常。
+"""
+from __future__ import annotations
+
+import glob
+import json
+import os
+import re
+import selectors
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import unicodedata
+from collections import Counter, deque
+from datetime import datetime
+from pathlib import Path
+
+HOME = str(Path.home())
+PROJECTS = Path.home() / ".claude" / "projects"
+SESSIONS = Path.home() / ".claude" / "sessions"
+SESSION = "warboard"
+SELF = os.path.realpath(__file__)
+
+# 日志格子跟哪些单元：(匹配字段, 单元名, 显示名)。user 单元要同时匹配 USER_UNIT —— systemd 自己
+# 写的「Started / Failed」那几行只有 USER_UNIT，没有 _SYSTEMD_USER_UNIT。
+# 刻意不放 elephant（Walker 后端）：它的日志会记下你从启动器打开了哪个应用
+LOG_UNITS = [
+    ("user", "claude-discord-sync.service", "discord"),
+    ("user", "ccmon.service", "ccmon"),
+    ("user", "feedback.service", "feedback"),
+    ("user", "tradition-medi-web.service", "tcm-web"),
+    ("system", "docker.service", "docker"),
+]
+
+# 配色同 ~/.tmux.conf / tmux-panes（tokyonight）
+HEX = {"blue": "#7a88cf", "cyan": "#7bb0c0", "mag": "#d7729f", "yel": "#e6c384",
+       "grn": "#9cd58a", "red": "#f7768e", "fg": "#c0caf5", "sub": "#737aa2", "dim": "#545c7e",
+       "org": "#ff9e64", "teal": "#73daca"}
+LABEL_COLORS = ["blue", "cyan", "mag", "yel", "grn", "org", "teal"]
+
+
+def fg(name: str) -> str:
+    h = HEX[name]
+    return f"\033[38;2;{int(h[1:3], 16)};{int(h[3:5], 16)};{int(h[5:7], 16)}m"
+
+
+R, B = "\033[0m", "\033[1m"
+HIDE_CURSOR, ALT_ON = "\033[?25l", "\033[?1049h"
+
+# Nerd Font 图标一律写转义：AI 生成文件时私用区字符会被静默吃掉（见 docs/14-tmux.md「底栏」）
+I_BRANCH, I_CHECK, I_CROSS, I_BELL = "\ue0a0", "\uf00c", "\uf00d", "\uf0f3"
+
+
+# ---------------------------------------------------------------- 文本宽度（CJK 占两格）
+
+def cw(c: str) -> int:
+    if unicodedata.combining(c):
+        return 0
+    return 2 if unicodedata.east_asian_width(c) in "WF" else 1
+
+
+def render(segs: list[tuple[str, str]], width: int) -> str:
+    """segs = [(颜色名, 文本)]，颜色名前加 * 是粗体，"" 是默认色。按显示宽度截到 width，
+    超了末尾放 …（不换行：换行在窄格子里很难看）"""
+    segs = [(c, t.replace("\n", " ").replace("\t", " ")) for c, t in segs]
+    fits = sum(cw(ch) for _, t in segs for ch in t) <= width
+    budget = width if fits else width - 1
+    out, used = [], 0
+    for color, text in segs:
+        style = (B if color.startswith("*") else "") + (fg(color.lstrip("*")) if color.strip("*") else "")
+        piece = []
+        for ch in text:
+            if used + cw(ch) > budget:
+                break
+            piece.append(ch)
+            used += cw(ch)
+        out.append(style + "".join(piece) + R)
+        if used >= budget or len(piece) < len(text):
+            break
+    return "".join(out) + ("" if fits else fg("dim") + "…" + R)
+
+
+def paint(lines: list[str]):
+    """整屏重画（repos / stats 用）。最后一行不带换行：正好满屏时换行会把第一行顶出去"""
+    sys.stdout.write("\033[H" + "\033[K\n".join(lines) + "\033[K\033[J")
+    sys.stdout.flush()
+
+
+class Scroll:
+    """滚动格子（feed / logs）：每行存成「宽度 → 一行字」的函数，窗口尺寸一变（SIGWINCH）就按新宽度整屏重印。
+    不这样的话，kitty 先按默认尺寸起、Hyprland 再铺开，或者挪到别的屏 / 全屏，之前印的行全都折行或留白"""
+
+    def __init__(self):
+        self.rows: deque = deque(maxlen=400)
+        self.resized = False
+        signal.signal(signal.SIGWINCH, lambda *_: setattr(self, "resized", True))
+
+    def add(self, row):
+        self.rows.append(row)
+        print(row(term_width()), flush=True)
+
+    def redraw_if_resized(self):
+        if not self.resized:
+            return
+        self.resized = False
+        w, h = term_width(), term_height()
+        sys.stdout.write("\033[2J\033[H" + "".join(r(w) + "\n" for r in list(self.rows)[-(h - 1):]))
+        sys.stdout.flush()
+
+
+def term_width() -> int:
+    return shutil.get_terminal_size((100, 30)).columns
+
+
+def term_height() -> int:
+    return shutil.get_terminal_size((100, 30)).lines
+
+
+def label_color(label: str) -> str:
+    return LABEL_COLORS[sum(map(ord, label)) % len(LABEL_COLORS)]
+
+
+def short_path(p: str, cwd: str | None) -> str:
+    if cwd and p.startswith(cwd.rstrip("/") + "/"):
+        return p[len(cwd.rstrip("/")) + 1:]
+    return "~" + p[len(HOME):] if p.startswith(HOME) else p
+
+
+def proj_label(cwd: str | None) -> str:
+    if not cwd:
+        return "?"
+    return "~" if cwd.rstrip("/") == HOME else os.path.basename(cwd.rstrip("/"))
+
+
+def local_ts(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return None
+
+
+# ---------------------------------------------------------------- transcript 追尾
+
+class Tailer:
+    """按字节偏移追所有 transcript；只看 max_age 秒内动过的文件。新文件第一次见到时从 start_at(path, size) 开始读。"""
+
+    def __init__(self, max_age: float, start_at):
+        self.max_age = max_age
+        self.start_at = start_at
+        self.pos: dict[str, int] = {}
+        self.partial: dict[str, bytes] = {}
+        self.files: list[str] = []
+        self.last_glob = 0.0
+
+    def _glob(self):
+        now = time.time()
+        if now - self.last_glob < 3:
+            return
+        self.last_glob = now
+        found = glob.glob(str(PROJECTS / "*" / "*.jsonl")) + glob.glob(str(PROJECTS / "*" / "*" / "subagents" / "*.jsonl"))
+        self.files = []
+        for f in found:
+            try:
+                if now - os.path.getmtime(f) < self.max_age:
+                    self.files.append(f)
+            except OSError:
+                pass
+
+    def poll(self):
+        """产出 (path, record)"""
+        self._glob()
+        for f in self.files:
+            try:
+                size = os.path.getsize(f)
+            except OSError:
+                continue
+            if f not in self.pos:
+                start = self.start_at(f, size)
+                self.pos[f] = start
+                self.partial[f] = b"" if start == 0 else b"\0skip"
+            if size < self.pos[f]:          # 被截断/重写了
+                self.pos[f], self.partial[f] = 0, b""
+            if size == self.pos[f]:
+                continue
+            with open(f, "rb") as fh:
+                fh.seek(self.pos[f])
+                data = fh.read(size - self.pos[f])
+            self.pos[f] = size
+            buf = self.partial[f] + data
+            lines = buf.split(b"\n")
+            self.partial[f] = lines.pop()
+            if lines and lines[0].startswith(b"\0skip"):   # 从文件中间开始读，第一行是半截
+                lines.pop(0)
+            for line in lines:
+                if not line.strip():
+                    continue
+                try:
+                    yield f, json.loads(line)
+                except ValueError:
+                    pass
+
+
+def tool_events(path: str, rec: dict):
+    """一条 transcript 记录 → 若干 (kind, block)：kind = use（工具调用）| err（工具报错）"""
+    msg = rec.get("message")
+    if not isinstance(msg, dict) or not isinstance(msg.get("content"), list):
+        return
+    for b in msg["content"]:
+        if not isinstance(b, dict):
+            continue
+        if rec.get("type") == "assistant" and b.get("type") == "tool_use":
+            yield "use", b
+        elif rec.get("type") == "user" and b.get("type") == "tool_result" and b.get("is_error"):
+            yield "err", b
+
+
+# ---------------------------------------------------------------- ① 活动流
+
+TOOL_COLOR = {"Bash": "yel", "Read": "cyan", "Edit": "grn", "MultiEdit": "grn", "Write": "grn",
+              "NotebookEdit": "grn", "Grep": "blue", "Glob": "blue", "Agent": "mag", "Task": "mag",
+              "WebFetch": "teal", "WebSearch": "teal", "Skill": "org"}
+
+
+# 命令里的凭据打码：大屏是给别人看的。key=值 / Bearer xxx / 长串十六进制或 base64
+SECRET = re.compile(r"(?i)((?:token|secret|passw(?:or)?d|api[_-]?key|auth(?:orization)?)[\"']?\s*[=:]\s*[\"']?(?:bearer\s+)?)[^\s\"'&]+"
+                    r"|(bearer\s+)[^\s\"']+"
+                    r"|\b[A-Za-z0-9_\-+/]{40,}={0,2}")
+
+
+def mask(s: str) -> str:
+    return SECRET.sub(lambda m: (m.group(1) or m.group(2) or "") + "•••", s)
+
+
+def summarize(name: str, inp: dict, cwd: str | None) -> list[tuple[str, str]]:
+    """工具调用 → 一段人看得懂的摘要（不含你和 Claude 的对话内容）"""
+    g = inp.get
+    if name == "Bash":
+        cmd = (g("command") or "").strip().splitlines()
+        return [("dim", "$ "), ("fg", mask(cmd[0] if cmd else "") + (" …" if len(cmd) > 1 else ""))]
+    if name in ("Read", "NotebookEdit"):
+        return [("fg", short_path(g("file_path") or g("notebook_path") or "", cwd))]
+    if name in ("Edit", "MultiEdit"):
+        edits = g("edits") or [inp]
+        add = sum(len((e.get("new_string") or "").splitlines()) for e in edits)
+        rm = sum(len((e.get("old_string") or "").splitlines()) for e in edits)
+        return [("fg", short_path(g("file_path") or "", cwd) + "  "), ("grn", f"+{add}"), ("", " "), ("red", f"-{rm}")]
+    if name == "Write":
+        n = len((g("content") or "").splitlines())
+        return [("fg", short_path(g("file_path") or "", cwd) + "  "), ("grn", f"+{n}")]
+    if name == "Grep":
+        where = short_path(g("path"), cwd) if g("path") else ""
+        return [("fg", f"/{g('pattern') or ''}/"), ("sub", f"  {where}" if where else "")]
+    if name == "Glob":
+        return [("fg", g("pattern") or "")]
+    if name in ("Agent", "Task"):
+        return [("fg", g("description") or ""), ("sub", f"  ({g('subagent_type') or 'agent'})")]
+    if name == "WebFetch":
+        return [("fg", mask(g("url") or ""))]
+    if name == "WebSearch":
+        return [("fg", g("query") or "")]
+    if name == "Skill":
+        return [("fg", g("skill") or "")]
+    if name in ("AskUserQuestion", "ExitPlanMode"):
+        return [("yel", "等待确认")]
+    if name.startswith("mcp__"):
+        first = next((str(v) for v in inp.values() if isinstance(v, (str, int))), "")
+        return [("fg", first)]
+    for k in ("subject", "description", "summary", "file_path", "path", "query", "url"):
+        if isinstance(g(k), str):
+            return [("fg", g(k))]
+    return [("sub", "")]
+
+
+def tool_name(name: str) -> str:
+    if name.startswith("mcp__"):
+        parts = name.split("__")
+        return f"{parts[1].split('_')[-1]}:{parts[-1]}" if len(parts) >= 3 else name
+    return name
+
+
+def cmd_feed():
+    sys.stdout.write(HIDE_CURSOR)
+    names: dict[str, tuple[str, str]] = {}      # tool_use_id → (工具名, 项目标签)
+    last_t = [None]
+
+    def line_for(path, rec, kind, b):
+        cwd = rec.get("cwd")
+        label = proj_label(cwd) + ("·sub" if "/subagents/" in path else "")
+        t = local_ts(rec.get("timestamp"))
+        if kind == "use":
+            name = b.get("name") or "?"
+            names[b.get("id")] = (name, label)
+            segs = [(label_color(label.split("·")[0]), f"{label:<14.14} "),
+                    (TOOL_COLOR.get(name, "sub"), f"{tool_name(name):<10.10} ")]
+            segs += summarize(name, b.get("input") or {}, cwd)
+        else:
+            name, label = names.get(b.get("tool_use_id"), ("?", label))
+            content = b.get("content")
+            if isinstance(content, list):
+                content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+            first = next((l.strip() for l in str(content or "").splitlines() if l.strip()), "")
+            first = re.sub(r"</?tool_use_error>", "", first)
+            segs = [(label_color(label.split("·")[0]), f"{label:<14.14} "),
+                    ("red", f"{I_CROSS} {tool_name(name):<8.8} "), ("red", first)]
+        return t, segs
+
+    scroll = Scroll()
+
+    def emit(t, segs):
+        if t and last_t[0] and (t - last_t[0]).total_seconds() > 120:
+            scroll.add(lambda w, t=t: render([("dim", "─" * 3 + f" {t:%H:%M} " + "─" * (w - 10))], w))
+        if t:
+            last_t[0] = t
+        scroll.add(lambda w: render([("dim", f"{t:%H:%M:%S} " if t else " " * 9)] + segs, w))
+
+    # 回填：每个 2 小时内动过的文件读最后 256KB，排序后印最后一屏
+    back = Tailer(7200, lambda f, size: max(0, size - 256 * 1024))
+    rows = []
+    for path, rec in back.poll():
+        for kind, b in tool_events(path, rec):
+            t, segs = line_for(path, rec, kind, b)
+            if t:
+                rows.append((t, segs))
+    rows.sort(key=lambda r: r[0])
+    for t, segs in rows[-400:]:
+        emit(t, segs)
+    if not rows:
+        print(render([("dim", "等待 Claude 会话的动作…")], term_width()), flush=True)
+
+    # 回填之后才出现的文件（新会话、新子代理）从头读；回填没覆盖的老文件从末尾开始
+    started = time.time()
+    live = Tailer(6 * 3600, lambda f, size: 0 if os.path.getctime(f) >= started else size)
+    live.pos = dict(back.pos)
+    live.partial = dict(back.partial)
+    while True:
+        for path, rec in live.poll():
+            for kind, b in tool_events(path, rec):
+                emit(*line_for(path, rec, kind, b))
+        scroll.redraw_if_resized()
+        time.sleep(0.5)
+
+
+# ---------------------------------------------------------------- 会话状态（同 tmux-panes 的做法）
+
+def live_sessions() -> list[dict]:
+    out = []
+    for f in SESSIONS.glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if os.path.exists(f"/proc/{d.get('pid')}"):
+            out.append(d)
+    return out
+
+
+# ---------------------------------------------------------------- ② 仓库
+
+def git(repo: str, *args: str) -> str:
+    try:
+        return subprocess.run(["git", "-C", repo, "-c", "core.quotePath=false", *args], capture_output=True, text=True, timeout=4,
+                              env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return ""
+
+
+def ago(sec: float) -> str:
+    sec = max(0, int(sec))
+    if sec < 60:
+        return f"{sec}s"
+    if sec < 3600:
+        return f"{sec // 60}m"
+    if sec < 86400:
+        return f"{sec // 3600}h"
+    return f"{sec // 86400}d"
+
+
+def recent_cwds(max_age: float) -> dict[str, float]:
+    """近 max_age 秒有记录的项目 → 最近活动时间。cwd 从 transcript 尾部读（目录名把 / 换成了 -，还原不回来）"""
+    now, out = time.time(), {}
+    for f in glob.glob(str(PROJECTS / "*" / "*.jsonl")):
+        try:
+            mt = os.path.getmtime(f)
+            if now - mt > max_age:
+                continue
+            with open(f, "rb") as fh:
+                fh.seek(max(0, os.path.getsize(f) - 32768))
+                tail = fh.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        m = re.findall(r'"cwd":"([^"]+)"', tail)
+        if m:
+            out[m[-1]] = max(out.get(m[-1], 0), mt)
+    for s in live_sessions():
+        if s.get("cwd"):
+            out[s["cwd"]] = max(out.get(s["cwd"], 0), (s.get("statusUpdatedAt") or 0) / 1000)
+    return out
+
+
+def repo_block(repo: str, width: int) -> list[str]:
+    st = git(repo, "status", "--porcelain=v1", "-b").splitlines()
+    head = st[0][3:] if st and st[0].startswith("## ") else "?"
+    branch, _, track = head.partition("...")
+    ahead = re.search(r"ahead (\d+)", track)
+    behind = re.search(r"behind (\d+)", track)
+    files = st[1:]
+    num = {}
+    for l in git(repo, "diff", "--numstat", "HEAD").splitlines():
+        p = l.split("\t")
+        if len(p) == 3:
+            num[p[2]] = (p[0], p[1])
+    tot_a = sum(int(a) for a, _ in num.values() if a.isdigit())
+    tot_d = sum(int(d) for _, d in num.values() if d.isdigit())
+
+    name = os.path.basename(repo)
+    segs = [("*" + label_color(name), name), ("", "  "), ("mag", f"{I_BRANCH} {branch}")]
+    if ahead:
+        segs.append(("grn", f" ↑{ahead.group(1)}"))
+    if behind:
+        segs.append(("red", f" ↓{behind.group(1)}"))
+    if files:
+        segs += [("", "  "), ("yel", f"● {len(files)}"), ("", " "), ("grn", f"+{tot_a}"), ("", " "), ("red", f"-{tot_d}")]
+    else:
+        segs += [("", "  "), ("grn", f"{I_CHECK} clean")]
+    lines = [render(segs, width)]
+
+    st_color = {"M": "yel", "A": "grn", "D": "red", "R": "cyan", "?": "sub"}
+    for l in files[:6]:
+        code, path = l[:2], l[3:]
+        a, d = num.get(path.split(" -> ")[-1], ("", ""))
+        c = st_color.get(code.strip()[:1] or "M", "fg")
+        ln = [("", "  "), (c, f"{code.strip() or 'M':<2} "), ("fg", path)]
+        if a.isdigit() or d.isdigit():
+            ln += [("", "  "), ("grn", f"+{a}"), ("", " "), ("red", f"-{d}")]
+        lines.append(render(ln, width))
+    if len(files) > 6:
+        lines.append(render([("dim", f"  … 还有 {len(files) - 6} 个")], width))
+
+    now = time.time()
+    for l in git(repo, "log", "-3", "--format=%h\t%ct\t%s").splitlines():
+        h, ct, subj = (l.split("\t", 2) + ["", ""])[:3]
+        lines.append(render([("", "  "), ("blue", h), ("dim", f" {ago(now - int(ct or now)):>3} "), ("sub", subj)], width))
+    return lines
+
+
+def cmd_repos():
+    sys.stdout.write(ALT_ON + HIDE_CURSOR)
+    while True:
+        width, height = term_width(), term_height()
+        repos: dict[str, float] = {}
+        for cwd, t in recent_cwds(3 * 3600).items():
+            top = git(cwd, "rev-parse", "--show-toplevel").strip() if os.path.isdir(cwd) else ""
+            if top:
+                repos[top] = max(repos.get(top, 0), t)
+        lines = []
+        for repo in sorted(repos, key=repos.get, reverse=True):
+            block = repo_block(repo, width)
+            if lines and len(lines) + 1 + len(block) > height:
+                break
+            if lines:
+                lines.append("")
+            lines += block
+        if not lines:
+            lines = [render([("dim", "近 3 小时没有在 git 仓库里干活的会话")], width)]
+        paint(lines[:height])
+        sys.stdout.flush()
+        time.sleep(3)
+
+
+# ---------------------------------------------------------------- ③ 状态
+
+SPARK = " ▁▂▃▄▅▆▇█"
+
+
+def read_cpu():
+    with open("/proc/stat") as f:
+        v = list(map(int, f.readline().split()[1:]))
+    return sum(v), v[3] + v[4]
+
+
+def read_net():
+    rx = tx = 0
+    with open("/proc/net/dev") as f:
+        for l in f.readlines()[2:]:
+            name, data = l.split(":", 1)
+            if name.strip() == "lo" or name.strip().startswith(("veth", "docker", "br-", "tun", "waydroid")):
+                continue
+            d = data.split()
+            rx, tx = rx + int(d[0]), tx + int(d[8])
+    return rx, tx
+
+
+def human(n: float) -> str:
+    for u in ("B", "K", "M", "G"):
+        if n < 1024:
+            return f"{n:.0f}{u}" if u == "B" else f"{n:.1f}{u}"
+        n /= 1024
+    return f"{n:.1f}T"
+
+
+def cmd_stats():
+    sys.stdout.write(ALT_ON + HIDE_CURSOR)
+    midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    tail = Tailer(24 * 3600, lambda f, size: 0 if os.path.getmtime(f) >= midnight.timestamp() else size)
+    per_min: Counter = Counter()
+    tools_today = 0
+    msg_ids: set = set()
+    out_tokens = 0
+    sessions_today: set = set()
+    prev_cpu, prev_net, prev_t = read_cpu(), read_net(), time.time()
+    cpu_pct, rx_rate, tx_rate = 0.0, 0.0, 0.0
+    tick = 0
+
+    while True:
+        for path, rec in tail.poll():
+            t = local_ts(rec.get("timestamp"))
+            if not t or t < midnight:
+                continue
+            msg = rec.get("message")
+            if rec.get("type") == "assistant" and isinstance(msg, dict):
+                if rec.get("sessionId"):
+                    sessions_today.add(rec["sessionId"])
+                mid = msg.get("id")
+                if mid and mid not in msg_ids:
+                    msg_ids.add(mid)
+                    out_tokens += (msg.get("usage") or {}).get("output_tokens", 0) or 0
+            for kind, _ in tool_events(path, rec):
+                if kind == "use":
+                    tools_today += 1
+                    per_min[int(t.timestamp() // 60)] += 1
+
+        if tick % 2 == 0:
+            now = time.time()
+            cpu, net = read_cpu(), read_net()
+            dt = max(now - prev_t, 0.1)
+            if cpu[0] > prev_cpu[0]:
+                cpu_pct = 100 * (1 - (cpu[1] - prev_cpu[1]) / (cpu[0] - prev_cpu[0]))
+            rx_rate, tx_rate = (net[0] - prev_net[0]) / dt, (net[1] - prev_net[1]) / dt
+            prev_cpu, prev_net, prev_t = cpu, net, now
+
+            width = term_width()
+            st = Counter(s.get("status") for s in live_sessions())
+            mem = {}
+            with open("/proc/meminfo") as f:
+                for l in f:
+                    k, v = l.split(":")
+                    mem[k] = int(v.split()[0])
+            mem_pct = 100 * (1 - mem["MemAvailable"] / mem["MemTotal"])
+            load = os.getloadavg()[0]
+            with open("/proc/uptime") as f:
+                up = float(f.read().split()[0])
+
+            n = max(10, min(60, width - 9))
+            cur = int(now // 60)
+            vals = [per_min.get(cur - n + 1 + i, 0) for i in range(n)]
+            peak = max(vals) or 1
+            spark = "".join(SPARK[min(8, (v * 8 + peak - 1) // peak)] if v else "·" for v in vals)
+
+            lines = [
+                render([("blue", "会话    "), ("grn", f"● {st.get('busy', 0)} 干活中   "),
+                        ("yel", f"{I_BELL} {st.get('waiting', 0)} 等确认   "), ("sub", f"○ {st.get('idle', 0)} 空闲")], width),
+                render([("blue", "今日    "), ("fg", f"{tools_today} "), ("sub", "次工具调用   "),
+                        ("fg", f"{out_tokens / 1000:.1f}k "), ("sub", "输出 tokens   "),
+                        ("fg", f"{len(sessions_today)} "), ("sub", "个会话")], width),
+                render([("blue", "节奏    "), ("teal", spark)], width),
+                render([("blue", "        "), ("dim", f"近 {n} 分钟 · 每格 1 分钟 · 峰值 {max(vals)} 次/分")], width),
+                render([("blue", "系统    "), ("fg", f"CPU {cpu_pct:4.1f}%   MEM {mem_pct:4.1f}%   LOAD {load:.2f}")], width),
+                render([("blue", "网络    "), ("grn", f"↓ {human(rx_rate)}/s   "), ("org", f"↑ {human(tx_rate)}/s   "),
+                        ("sub", f"开机 {ago(up)}")], width),
+            ]
+            paint(lines)
+        tick += 1
+        time.sleep(0.5)
+
+
+# ---------------------------------------------------------------- ④ 服务日志
+
+LEADING_TS = re.compile(r"^\d{4}[-/]\d\d[-/]\d\d[T ][\d:.]+Z?\s*")
+
+
+def cmd_logs():
+    sys.stdout.write(HIDE_CURSOR)
+    args = ["journalctl", "-f", "-n", "60", "-o", "json", "--no-pager"]
+    short = {}
+    for i, (kind, unit, nick) in enumerate(LOG_UNITS):
+        short[unit] = nick
+        fields = ["_SYSTEMD_USER_UNIT", "USER_UNIT"] if kind == "user" else ["_SYSTEMD_UNIT"]
+        for j, field in enumerate(fields):
+            if i or j:
+                args.append("+")
+            args.append(f"{field}={unit}")
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+    sel = selectors.DefaultSelector()
+    sel.register(proc.stdout, selectors.EVENT_READ)
+    scroll, buf = Scroll(), b""
+    while True:
+        scroll.redraw_if_resized()
+        if not sel.select(timeout=0.5):
+            continue
+        chunk = os.read(proc.stdout.fileno(), 65536)
+        if not chunk:
+            return
+        *lines, buf = (buf + chunk).split(b"\n")
+        for line in lines:
+            add_log(scroll, line, short)
+
+
+def add_log(scroll: Scroll, line: bytes, short: dict):
+    try:
+        e = json.loads(line)
+    except ValueError:
+        return
+    # systemd 自己说「Started / Failed」时 _SYSTEMD_USER_UNIT 是 init.scope，真正的单元在 USER_UNIT
+    unit = e.get("USER_UNIT") or e.get("_SYSTEMD_USER_UNIT") or e.get("_SYSTEMD_UNIT") or "?"
+    nick = short.get(unit, unit.removesuffix(".service"))
+    msg = e.get("MESSAGE")
+    if isinstance(msg, list):                   # 二进制消息 journal 给的是字节数组
+        msg = bytes(msg).decode("utf-8", "replace")
+    msg = mask(LEADING_TS.sub("", str(msg or "")))
+    t = datetime.fromtimestamp(int(e.get("__REALTIME_TIMESTAMP", 0)) / 1e6)
+    prio = int(e.get("PRIORITY", 6))
+    low = msg.lower()
+    color = "red" if prio <= 3 or re.search(r"\b(error|fail(ed)?|panic|fatal)\b", low) else \
+            "yel" if prio == 4 or re.search(r"\bwarn(ing)?\b", low) else "fg"
+    scroll.add(lambda w: render([("dim", f"{t:%H:%M:%S} "), (label_color(nick), f"{nick:<9.9} "), (color, msg)], w))
+
+
+# ---------------------------------------------------------------- 布局
+
+def tmux(*args: str) -> str:
+    return subprocess.run(["tmux", *args], capture_output=True, text=True).stdout.strip()
+
+
+def build():
+    """按将要显示它的终端的尺寸建：先按默认尺寸建好再 attach 的话，活动流回填的那一屏是按旧宽度印的，
+    缩窄后全折行；状态格也会被等比挤扁"""
+    if os.environ.get("TMUX"):
+        cols, rows = (int(x) for x in tmux("display-message", "-p", "#{client_width} #{client_height}").split())
+    else:
+        cols, rows = shutil.get_terminal_size((200, 50))
+    run = lambda sub: f"exec {SELF} {sub}"
+    feed = tmux("new-session", "-d", "-s", SESSION, "-n", "board", "-x", str(cols), "-y", str(rows),
+                "-P", "-F", "#{pane_id}", run("feed"))
+    repos = tmux("split-window", "-h", "-t", feed, "-l", "38%", "-P", "-F", "#{pane_id}", run("repos"))
+    logs = tmux("split-window", "-v", "-t", feed, "-l", "35%", "-P", "-F", "#{pane_id}", run("logs"))
+    stats = tmux("split-window", "-v", "-t", repos, "-l", "8", "-P", "-F", "#{pane_id}", run("stats"))
+    for pane, title in ((feed, "Claude 活动流"), (repos, "仓库"), (logs, "服务日志"), (stats, "状态")):
+        tmux("select-pane", "-t", pane, "-T", title)
+        tmux("select-pane", "-t", pane, "-d")        # 禁输入：只看不动
+    tmux("set-option", "-t", SESSION, "status", "off")
+    tmux("set-option", "-w", "-t", f"{SESSION}:board", "allow-rename", "off")
+    tmux("select-pane", "-t", feed)
+
+
+def main():
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    cmds = {"feed": cmd_feed, "repos": cmd_repos, "stats": cmd_stats, "logs": cmd_logs}
+    if arg in cmds:
+        try:
+            cmds[arg]()
+        except KeyboardInterrupt:
+            pass
+        return
+    if arg in ("--kill", "--rebuild"):
+        tmux("kill-session", "-t", f"={SESSION}")
+        if arg == "--kill":
+            return
+    elif arg:
+        sys.exit(__doc__)
+    if subprocess.run(["tmux", "has-session", "-t", f"={SESSION}"], capture_output=True).returncode:
+        build()
+    if os.environ.get("TMUX"):
+        os.execvp("tmux", ["tmux", "switch-client", "-t", f"={SESSION}"])
+    os.execvp("tmux", ["tmux", "attach", "-t", f"={SESSION}"])
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=作战大屏
+GenericName=Claude 活动 / 仓库 / 日志看板
+Comment=只读 tmux 看板：所有 Claude 会话的工具调用、活跃仓库改动、服务日志、今日节奏（~/.local/bin/warboard）
+Exec=kitty --class warboard -e /home/david/.local/bin/warboard
+Icon=warboard
+Terminal=false
+Categories=Development;Monitor;
+Keywords=warboard;dashboard;board;monitor;作战;大屏;看板;监控;zuozhan;daping;kanban;
+StartupWMClass=warboard
