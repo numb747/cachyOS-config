@@ -455,7 +455,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   + system24 主题 tokyo night 配色，相对上游改了字体（`Adwaita Mono` 400）和 `--round-pfp: on`，
   外加自写补丁主题「圆形服务器图标」（另有两个自写备选主题入包但没开）。
   ★ **面板直角、头像和服务器图标圆，是用户有意的**（2026-10-16 两台机器两套风格合并时选的源机器这套）；
-  笔记本那套「关动画 / 去头像装饰 / IrcColors / 方头像」已弃，别改回去，也别为圆图标开全局 `--unrounding: off`。
+  笔记本那套「关动画 / 去头像装饰 / 方头像」已弃，别改回去；**IrcColors 插件要保留（开着）**，用户点名要的；也别为圆图标开全局 `--unrounding: off`。
   ⚠ 两份 `settings.json` 能入库靠 `.gitignore` 里逐路径的 `!` 例外（兜底规则 `settings.json` 没放宽）；
   主题样式是运行时从 GitHub Pages `@import` 的、没钉版本；装前必须退出 Equibop（`mod_discord` 会检查）。
   去面板标签试过、评价是「不像 TUI 了」，别往那调。见 `docs/15-discord.md`

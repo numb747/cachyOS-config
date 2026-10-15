@@ -242,7 +242,7 @@
             "enabled": false
         },
         "IrcColors": {
-            "enabled": false
+            "enabled": true
         },
         "KeepCurrentChannel": {
             "enabled": false
