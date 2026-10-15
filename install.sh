@@ -515,7 +515,7 @@ declare -A DESC=(
     [wall]="壁纸与壁纸库脚本"
     [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
     [launcher]="Walker + Elephant 应用启动器（Alt+Space，g␣ 谷歌搜索）"
-    [discord]="Equibop（Discord 客户端）+ system24 TUI 风主题、IrcColors"
+    [discord]="Equibop（Discord 客户端）+ system24 TUI 风主题（圆头像 / 圆服务器图标）"
 )
 
 SELECTED=()

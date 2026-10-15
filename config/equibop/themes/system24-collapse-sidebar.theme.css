@@ -1,0 +1,39 @@
+/**
+ * @name system24 · 侧栏悬停展开
+ * @description 左侧整组（服务器栏 + 频道栏 + 用户面板）平时收成一条窄边，鼠标移上去才展开，移开自动收起。展开宽度沿用你在 Discord 里拖出来的宽度。
+ * @author local
+*/
+
+/* Discord 的左侧是 grid：.base 定列宽为 min-content，.sidebar 用 subgrid，
+   列宽由里面的 .guilds（--custom-guild-list-width）和 .sidebarList（--custom-guild-sidebar-width 算出）撑开。
+   所以要压的是这两个子元素，压外层 .sidebar 的宽度没用（第一版就栽在这）。
+   只在【没悬停】时压，悬停时不写宽度，交还给 Discord 自己的（可拖动调整的）宽度。
+   选择器带 :not(:hover) 和后代组合，特异性高过 system24 的 overflow: visible !important。 */
+
+.guilds__5e434,
+.sidebarList__5e434 {
+    transition: width 0.15s ease, margin 0.15s ease;
+}
+
+.sidebar__5e434:not(:hover) .guilds__5e434 {
+    width: 0 !important;
+    margin-right: 0 !important;
+    border-width: 0 !important;
+    overflow: hidden !important;
+}
+
+/* 留一条窄边当悬停热区 */
+.sidebar__5e434:not(:hover) .sidebarList__5e434 {
+    width: 10px !important;
+    overflow: hidden !important;
+}
+
+/* 用户面板是绝对定位、宽度跟着侧栏走，收起时会挤成一团，直接藏掉 */
+.sidebar__5e434:not(:hover) .panels__5e434 {
+    display: none !important;
+}
+
+/* system24 的面板标签（nav / channels / user）收起时会浮在窄边上 */
+.sidebar__5e434:not(:hover) :is(.guilds__5e434, .sidebarList__5e434)::after {
+    display: none !important;
+}

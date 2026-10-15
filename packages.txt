@@ -157,7 +157,7 @@ bun
 
 # ── Discord 客户端（discord 模块）────────────────────────────────
 # equibop：自带 Equicord 的 Discord 桌面版，在 cachyos 仓库（不用 AUR）。
-# 主题 system24 的样式表和 DM Mono 字体都是运行时从网上 @import，不用装字体包。见 docs/15-discord.md。
+# 主题 system24 的样式表是运行时从网上 @import 的；字体用终端同款 Adwaita Mono，不用另装字体包。见 docs/15-discord.md。
 equibop
 
 # ── Android 容器（Waydroid，非 install.sh 模块）─────────────────

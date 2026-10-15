@@ -5,7 +5,8 @@
     "themeLinks": [],
     "eagerPatches": false,
     "enabledThemes": [
-        "system24-tokyo-night.theme.css"
+        "system24-tokyo-night.theme.css",
+        "system24-round-server-icons.theme.css"
     ],
     "enabledThemeLinks": [],
     "enableOnlineThemes": true,
@@ -241,7 +242,7 @@
             "enabled": false
         },
         "IrcColors": {
-            "enabled": true
+            "enabled": false
         },
         "KeepCurrentChannel": {
             "enabled": false
@@ -921,7 +922,8 @@
             "enabled": false
         },
         "Questify": {
-            "enabled": false
+            "enabled": false,
+            "migrationVersion": 1
         },
         "Quoter": {
             "enabled": false
@@ -1145,13 +1147,15 @@
             "noOnboarding": false,
             "enableAutoCorrect": false,
             "noBulletPoints": false,
-            "accountStandingButton": false,
-            "refreshSlashCommands": false
+            "accountStandingButton": false
         },
         "Settings": {
             "enabled": true,
             "settingsLocation": "aboveNitro",
             "includeVencordInfoWhenCopying": true
+        },
+        "SupportHelper": {
+            "enabled": true
         },
         "BadgeAPI": {
             "enabled": true
@@ -1169,9 +1173,6 @@
             "enabled": true
         },
         "NoticesAPI": {
-            "enabled": true
-        },
-        "SupportHelper": {
             "enabled": true
         },
         "WebContextMenus": {
@@ -1193,7 +1194,7 @@
         "authenticated": false,
         "url": "https://cloud.equicord.org/",
         "settingsSync": false,
-        "settingsSyncVersion": 1792066939223
+        "settingsSyncVersion": 1792104718525
     },
     "ignoreResetWarning": false
 }

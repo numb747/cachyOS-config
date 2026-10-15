@@ -1,0 +1,11 @@
+/**
+ * @name system24 · 隐藏服务器栏
+ * @description 去掉最左边那一列服务器图标。切服务器/频道改用 Ctrl+K 快速切换。
+ * @author local
+*/
+
+/* 第二个选择器是 BetterFolders 插件开的文件夹侧栏，一并藏掉 */
+.guilds__5e434,
+.guilds__5e434 + div:not(.sidebarList__5e434) {
+    display: none !important;
+}

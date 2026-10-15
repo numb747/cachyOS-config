@@ -1,0 +1,10 @@
+/**
+ * @name system24 · 圆形服务器图标
+ * @description system24 的 unrounding 连服务器图标的遮罩也去掉了（变方块）；这个把遮罩还回去，恢复 Discord 原生的圆形（悬停/选中时变圆角方形）。头像的圆形由主题文件的 --round-pfp 管。
+ * @author local
+*/
+
+/* system24 写的是 .svg_cc5dd2 > mask { display: none }，SVG 的 <mask> 被 display:none 后就不生效 */
+.svg_cc5dd2 > mask {
+    display: inline !important;
+}

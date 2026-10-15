@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 16 documents under
-> `docs/` — roughly 401 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 408 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -70,7 +70,7 @@ Installing only part of it:
 | **wall** | Tokyo Night wallpapers and palette, plus the script that generates the library | [05](docs/05-theme-ui.md#壁纸) |
 | **ocr** | Screen text grab on `Super+Shift/Alt+O`: a resident RapidOCR service replacing normcap, 0.33 s from selection to clipboard | [10](docs/10-ocr.md) |
 | **launcher** | App launcher on `Alt+Space`: Walker + Elephant replacing noctalia's built-in launcher; apps and open windows in one search, `g␣` Google / `b␣` Baidu prefixes, colors follow the wallpaper | [13](docs/13-launcher.md) |
-| **discord** | Discord client: Equibop (Equicord preinstalled) with the TUI-style [system24](https://github.com/refact0r/system24) theme in its Tokyo Night flavor, IRC-style username colors | [15](docs/15-discord.md) |
+| **discord** | Discord client: Equibop (Equicord preinstalled) with the TUI-style [system24](https://github.com/refact0r/system24) theme in its Tokyo Night flavor, with round avatars and server icons | [15](docs/15-discord.md) |
 
 Haven't installed the OS yet? Start with [docs/00-install-os.md](docs/00-install-os.md)
 (Ventoy, images, the CachyOS trade-offs).

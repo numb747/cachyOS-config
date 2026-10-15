@@ -265,6 +265,11 @@ config/equibop/settings.json              ~/.config/equibop/settings.json
 config/equibop/settings/settings.json     ~/.config/equibop/settings/settings.json
 config/equibop/settings/quickCss.css      ~/.config/equibop/settings/quickCss.css
 config/equibop/themes/system24-tokyo-night.theme.css  ~/.config/equibop/themes/system24-tokyo-night.theme.css
+# 自写的 system24 补丁主题（@author local），在 Equibop 主题列表里单独开关。启用哪几个由 settings/settings.json 的 enabledThemes 决定，
+# 现在只开了「圆形服务器图标」；另两个（侧栏悬停展开 / 隐藏服务器栏）是备选，文件留着、默认不开。
+config/equibop/themes/system24-round-server-icons.theme.css  ~/.config/equibop/themes/system24-round-server-icons.theme.css
+config/equibop/themes/system24-collapse-sidebar.theme.css    ~/.config/equibop/themes/system24-collapse-sidebar.theme.css
+config/equibop/themes/system24-hide-server-list.theme.css    ~/.config/equibop/themes/system24-hide-server-list.theme.css
 
 # ── 不在同步范围内（有意）────────────────────────────────────────────────
 # wallpaper/ascii/*.png                    _ascii.py 的产出，确定性生成，不会自己变。

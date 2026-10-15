@@ -1002,6 +1002,13 @@ uwsm 会把它生成为 `app-org.kde.kdeconnect.daemon@autostart.service`。刚�
 **4. 手机端会被杀后台。** iQOO 这类国产 ROM 后台管理很激进，手机端要给 KDE Connect 开「允许后台高耗电」和自启动，
 不然过一阵就「手机不在线」。
 
+## Discord：Equibop + system24 主题
+
+已独立成 `discord` 模块，全文在 `docs/15-discord.md`（选型、主题改了哪几处、自写补丁主题、两台机器怎么同步）。
+这里只记和本篇相关的一点：主题字体换成了终端同款 `Adwaita Mono`，中文同样按本篇的 fontconfig 规则回落到更纱黑体。
+
+---
+
 ## 已删掉的死配置
 
 `~/.config/qt5ct/` 和 `~/.config/xsettingsd/` 在原机器上存在，但 `qt5ct` 和
