@@ -25,7 +25,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     15 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、warboard 作战大屏）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr；另有两个 elephant 补丁版已发布到 AUR，说明也在这
@@ -113,7 +113,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
 | 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
-| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒）/ 作战大屏（只读实时看板：Claude 活动流、仓库改动、服务日志） | `docs/14-tmux.md` |
+| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
 
 ---
 
@@ -449,10 +449,5 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ **Claude 状态读 `~/.claude/sessions/<pid>.json`，没用钩子**（钩子在 Esc 打断时不触发，会卡在「干活中」），
   settings.json 没动；队员没有会话文件，靠屏幕转圈行推断，Claude Code 升级后可能要改正则。
   shell 那半边靠 `.zshrc` 的 preexec/precmd，**之前就开着的 shell 要 `exec zsh` 才开始记**。见 `docs/14-tmux.md` 第 9 节
-- **作战大屏 `warboard`**（2026-10-15，ui 模块，启动器「作战大屏」）：只读 tmux 会话，四格实时滚动 ——
-  所有 Claude 会话的工具调用、活跃仓库未提交改动、自建服务日志、今日节奏。起因是用 Discord 远程驱动后屏幕上看不出在干活，
-  所以选择摆真实活动而不是 genact 那类假输出。⚠ 它是给别人看的：**不显示对话内容**、命令里的凭据启发式打码、
-  不跟 elephant 日志（会暴露打开了哪些应用）；滚动格子靠 SIGWINCH 整屏重印，否则 kitty 先默认尺寸再被铺开会整屏折行。
-  见 `docs/14-tmux.md` 第 10 节
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
