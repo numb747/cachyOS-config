@@ -335,7 +335,7 @@ skill 写法遵循本机 `~/.claude/skills/writing-great-skills`：每步一个�
 | systemd 单元 | `~/.config/systemd/user/claude-discord-sync.service` | 由向导生成，里面写死了当时的 `PATH`，换机器重跑向导即可 |
 
 `~/.local/bin/ccd` 是向导建的符号链接，指向检出里的 `bin/ccd`。
-⚠ 检出**不一定**在 `~/src/claude-discord-sync`：笔记本上是 `~/.claude-discord-sync-2`（2026-10-14）。
+⚠ 检出**不一定**在 `~/src/claude-discord-sync`：笔记本上是 `~/claude-discord-sync`（2026-10-14）。
 要改哪份源码，以 systemd 单元为准：`grep ExecStart ~/.config/systemd/user/claude-discord-sync.service`。
 
 ### 新机器上装
