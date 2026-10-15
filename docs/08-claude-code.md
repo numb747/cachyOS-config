@@ -387,7 +387,14 @@ fork 的 `bin/ccd` 启动 `claude` 时带上了 `--dangerously-skip-permissions`
 
 改了之后：
 
-- **Discord 上不再有权限卡片**，所有命令都直接执行。选择题和计划审批照常走卡片。
+- **Discord 上基本不再有权限卡片**，命令直接执行。选择题和计划审批照常走卡片。
+  ⚠ **例外：bypass 也跳不过的安全检查**（2026-10-16 查明，CC 2.1.273）。命令里有 `rm`、同时结构复杂到
+  CC 分析不出会删什么（实测是 `rm -f dir/*` 和 `$(for …; do … "$(basename …)"; done)` 写在同一条里），
+  CC 的「灾难性删除」检查会强制人工确认，二进制里的提示是「too many to analyze for catastrophic removals.
+  This requires explicit approval」，同类规则注明「不能被权限规则自动放行」。权限卡片照样会出现在 Discord 上。
+  当时翻遍所有 bypass 会话，一百多条含 `rm` 的命令里只有这 2 条被拦。
+  **没让 `ccd` 的钩子自动放行它**（那等于拆掉 CC 特意留的最后一道防线），改在全局 `CLAUDE.md`
+  （`claude/global-CLAUDE.md`）里约束写法：`rm` 单独一条调用、参数串用数组不用嵌套 `$(for …)`。
 - `bin/ccd` 每次开会话时才执行，**改它不用重启服务**；在这之前就开着的会话不受影响，要退出再 `/resume`。
 - 同一个提交还在 `src/daemon.ts` 的 `STARTUP_PROMPTS` 里加了 bypass 警告框（自动选「Yes, I accept」）。
   **新机器才用得上**：这个警告默认选「No, exit」，没接受过的机器上 `/new` 会卡在这里，直到 45 秒超时。
