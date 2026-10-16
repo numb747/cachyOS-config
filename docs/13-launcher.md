@@ -210,9 +210,13 @@ emoji 选中后是**复制到剪贴板**（elephant-symbols 默认 `command = "w
 补丁版发布在 AUR：`elephant-clipboard-substring`，说明与维护流程见 [aur/README.md](../aur/README.md)。
 ⚠ 它写死了依赖同版本 elephant，上游发新版时 `-Syu` 会被卡住，要先把它更新到同版本。
 
-配置 `~/.config/elephant/clipboard.toml`：`max_items = 300`（和原 noctalia 设置对齐）、
+配置 `~/.config/elephant/clipboard.toml`：`max_items = 1000`（约一周）、
 `ocr = false`（它的 OCR 是 tesseract，中文差，用户明确不要；屏幕取字另有 RapidOCR，见 [10](10-ocr.md)）、
 `pinned_on_top = true`、`image_editor_cmd = "satty -f %FILE%"`、`command = "$HOME/.local/bin/clip-paste"`。
+
+保留只按条数算（另有按分钟清理的 `auto_cleanup`，没开），超了在存盘时删最旧的。
+原先是 300（和原 noctalia 设置对齐），2026-10-16 实测一天约 110 条，300 只够两天半 → 调到 1000。
+图片也占条数，每张约 1 MB 存在 `~/.cache/elephant/clipboardimages/`。
 
 ### 自动粘贴：`bin/clip-paste`
 
