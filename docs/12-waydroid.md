@@ -199,6 +199,39 @@ ALT+[ ←                                    → ALT+]
 默认 `wm density` 是 180（按 1265×705 时定的）。换成 2560×1440 后界面偏小，
 **口味问题，尚未定**。临时试：`sudo waydroid shell -- wm density 240`，还原：`wm density reset`。
 
+### 从启动器点单个 app：单应用窗口，默认桌面必须是 Launcher3
+
+启动器里的安卓 app 条目跑的是 `waydroid app launch <包名>`，它把 `waydroid.active_apps` 设成那个包名，
+合成器进入**单应用窗口模式**（不是整屏，也不是 `multi_windows`）。这时窗口 class 是 `waydroid.<包名>`。
+规则（上游 `hwcomposer/modes/single-window.cpp`）：**最上层是哪个任务，就显示哪个任务**；
+最上层若是黑名单里的 app，就关掉全部窗口，Android 退到后台。内置黑名单只有
+`com.android.launcher3` 和设置的 `FallbackHome`。
+
+**坑（2026-10-17）：默认桌面换成第三方的（当时是 Niagara `bitpit.launcher`），关窗就会反复弹窗。**
+症状：快捷键关掉 Acode 后弹出一个「手机桌面」窗口，再关它又弹，有时还弹回 Acode；冷启动时也会看到两个窗口。
+原因是关窗时合成器会 `removeTask` 掉这个任务，最上层变成桌面，而第三方桌面不在黑名单里，于是给它开一个新窗口。
+关掉这个窗口又会杀掉桌面任务，Android 立刻用**新的任务 ID** 重新拉起桌面，合成器不认识这个 ID，就再开一个窗口，循环下去。
+杀掉桌面后排在最前面的若是 Acode，弹回来的就是 Acode。
+
+修法：默认桌面改回 Launcher3（已做，关窗后实测两轮都不再弹窗）：
+
+```bash
+adb shell cmd package set-home-activity com.android.launcher3/.uioverrides.QuickstepLauncher
+```
+
+想继续用第三方桌面的话，另一条路是把它加进黑名单：在 `waydroid.cfg` 的 `[properties]` 里加上
+`waydroid.blacklist_apps = <包名>`（多个用 `:` 分隔），然后 `sudo waydroid upgrade --offline` 并重启会话。这条路没实测。
+
+**单应用窗口底部只有「返回」键，没有「主页」「最近任务」，这是有意的设计。** 上游
+[waydroid#637](https://github.com/waydroid/waydroid/issues/637) 在 `android_vendor_waydroid@41f3d3a` 里实现，
+只对官方 Android 13 镜像生效：这两个键在单应用窗口里一按就是上面那种乱象。要用完整导航栏，就从「Waydroid」图标开整屏界面。
+
+**adb 连不上（`unauthorized`）**：2026-10-16 起 Android 里的 `/data/misc/adb/adb_keys` 被清空了，原因不明。
+修法是把宿主机的公钥写回去：`install -m 0640 ~/.android/adbkey.pub ~/.local/share/waydroid/data/misc/adb/adb_keys`，
+这个目录属于本用户，不用 sudo。写完 adbd 会卡在 `offline`，要**重启会话**才认新公钥。
+⚠ 如果默认 adb 服务（5037 端口）上还挂着手机的长任务，别 `adb kill-server`，另起一个服务：
+`adb -P 5041 connect 192.168.240.112:5555`。
+
 ---
 
 ## 5. ARM 转译：libndk
