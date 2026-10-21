@@ -415,3 +415,48 @@ fork 的 `bin/ccd` 启动 `claude` 时带上了 `--dangerously-skip-permissions`
   每个分类最多 50 个频道，整个服务器最多 500 个，剩 10 个时会先删最早结束的。
 - **想从头来过**：停服务 → 删掉两个 Claude 分类下的所有频道 → `state.json` 写成 `{}` → 启动。
   正在运行的会话会重建频道，带最近 15 条记录。2026-10-14 做过一次。
+
+
+## 10 · 1 小时提示缓存（2026-10-21）
+
+`~/.claude/settings.json` 里加了一行 `"promptCacheTtl": "1h"`（CC 2.1.242 起支持）。这个文件含 token、不入包，
+换机器要手动加。
+
+**为什么要手动设**：不设时，用 Claude 订阅登录的主对话默认是 1 小时；本机走中转、用 API token，默认只有 **5 分钟**。
+停下来超过 5 分钟再接着聊（比如人在 Discord 上回消息），整段上下文要按写入价重算一遍。
+
+**实测过中转支持**（4router，Haiku，`claude -p` 加 `--output-format json` 看 `usage`）：
+两组各自先写一次缓存，7 分钟后再调用一次：
+
+| | 7 分钟后命中 | 7 分钟后写入 |
+|---|---|---|
+| 5m | 0 | 重写 32786 |
+| 1h | 27629 | 只重写每次都会变的约 5000 |
+
+当时那一次调用，CC 本地算的费用是 5m $0.041 对 1h $0.014。中转后台实际怎么扣费没核对。
+
+**代价**：1 小时缓存的写入价约是普通输入的 2 倍（5 分钟是 1.25 倍），读的价格一样。连续一问一答时反而略贵。
+
+**默认用 1h 还是 5m（2026-10-21 拿 30 天会话记录模拟过）**：234 个主会话，同一份调用记录分别按两套规则算钱。
+全用 5m ¥2181，全用 1h ¥1888（省 13%）。如果事先就猜对每个会话该用哪个，也只能再省 ¥65；
+按「短于 30 分钟的会话用 5m」来切，只省 ¥18。每周单独看都是 1h 更省。
+1h 更贵的那些会话都是短会话（时长中位 19 分钟），单个只多花约 ¥0.25；1h 更省的那些单个能省约 ¥0.92。
+**结论：默认 1h，不必按项目切换**。只有脚本里一次性的 `claude -p` 才值得用 5m，因为写进去的缓存不会再被读。
+本机只留 30 天的会话记录（`cleanupPeriodDays` 默认 30），想拿更长的数据得先调大这个值。考虑过调成 90，用户决定保持默认。
+
+**临时用 5m：`claude5m`**（`.zshrc` 里的 alias，term 模块），等于 `CLAUDE_CODE_PROMPT_CACHE_TTL=5m claude`，
+参数原样透传，比如 `claude5m --dangerously-skip-permissions`。环境变量比 settings 里的 `promptCacheTtl` 优先，
+实测写入的确实是 `ephemeral_5m_input_tokens`。⚠ 测试时别把命令名放进变量（`$c …`），zsh 不会展开 alias。
+
+**子代理没开**：`subagentPromptCacheTtl` 保持默认 5m，子代理、Workflow、后台请求一般跑得短，用 1h 不划算。
+
+几个相关开关（名字在 CC 二进制里核对过）：
+
+- `CLAUDE_CODE_PROMPT_CACHE_TTL` / `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`：环境变量版，比 settings 优先
+- `ENABLE_PROMPT_CACHING_1H=1`：主对话和子代理一起 1h
+- `FORCE_PROMPT_CACHING_5M=1`：强制 5m，优先级最高。想临时退回就用它
+
+**验证生效**：新会话里跑 `claude -p hi --output-format json </dev/null | jq .usage.cache_creation`，
+看 `ephemeral_1h_input_tokens` 不为 0。⚠ 测试时三个坑：不加 `</dev/null` 会往 stdout 混进一行 stdin 警告，jq 解析失败；
+工具定义那段约 2.7 万 token 的前缀在所有调用之间共享，换目录也隔离不开；
+「立刻重跑」只能证明能命中，要隔 5 分钟以上才能看出 TTL 有没有生效。
