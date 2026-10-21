@@ -1,6 +1,7 @@
 [Added Associations]
 application/json=org.gnome.TextEditor.desktop;
 application/pdf=libreoffice-draw.desktop;
+text/x-shellscript=org.gnome.TextEditor.desktop;
 
 [Default Applications]
 application/json=org.gnome.TextEditor.desktop;
@@ -107,6 +108,8 @@ image/x-farbfeld=imv-viewer.desktop
 image/x-png=imv-viewer.desktop
 inode/directory=org.kde.dolphin.desktop;
 text/plain=org.gnome.TextEditor.desktop;
+text/vnd.mermaid=mmd-view.desktop
+text/x-shellscript=org.gnome.TextEditor.desktop;
 video/3gp=mpv.desktop
 video/3gpp=mpv.desktop
 video/3gpp2=mpv.desktop
@@ -149,4 +152,3 @@ video/x-theora+ogg=mpv.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 x-scheme-handler/http=firefox.desktop;
 x-scheme-handler/https=firefox.desktop;
-text/vnd.mermaid=mmd-view.desktop
