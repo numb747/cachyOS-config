@@ -107,7 +107,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改配色 / 顶栏 / 字体 / 壁纸 / 输入法 | `docs/05-theme-ui.md` |
 | 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
-| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync） | `docs/08-claude-code.md`（Discord 在第 9 节） |
+| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节） |
 | wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
