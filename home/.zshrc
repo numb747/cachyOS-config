@@ -62,6 +62,8 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 alias ccw='~/.claude/cc-watch.py'          # 常驻看板
 alias ccs='~/.claude/cc-watch.py --once'   # 打一次快照
 alias ccp='~/.claude/cc-pet.py'            # 宠物版 TUI（可上下选择）
+# 全局是 1h 提示缓存；明确是不停顿的短会话时用这个走 5m，参数原样透传（见 docs/08 第 10 节）
+alias claude5m='CLAUDE_CODE_PROMPT_CACHE_TTL=5m claude'
 
 
 alias difft='/home/david/hacktools/difft/difft'
