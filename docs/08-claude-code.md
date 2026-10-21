@@ -450,7 +450,8 @@ fork 的 `bin/ccd` 启动 `claude` 时带上了 `--dangerously-skip-permissions`
 参数原样透传，比如 `claude5m --dangerously-skip-permissions`。环境变量比 settings 里的 `promptCacheTtl` 优先，
 实测写入的确实是 `ephemeral_5m_input_tokens`。⚠ 测试时别把命令名放进变量（`$c …`），zsh 不会展开 alias。
 
-**子代理没开**：`subagentPromptCacheTtl` 保持默认 5m，子代理、Workflow、后台请求一般跑得短，用 1h 不划算。
+**子代理没开**：`subagentPromptCacheTtl` 显式写成 `"5m"`（等于默认值，2026-10-22 补上，免得以为漏设），
+子代理、Workflow、后台请求一般跑得短，用 1h 不划算。换机器时和 `promptCacheTtl` 一起手动加。
 
 几个相关开关（名字在 CC 二进制里核对过）：
 
