@@ -61,6 +61,8 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |
 | **discord** | Discord 客户端：Equibop（自带 Equicord）+ TUI 风格的 [system24](https://github.com/refact0r/system24) 主题 tokyo night 配色，头像与服务器图标保持圆形，IRC 式用户名着色 | [15](docs/15-discord.md) |
 
+每周日自动安全体检（和人工确认过的基线比、只报变化；附 ufw 防火墙）是系统级的，不走上表的模块，见 [docs/16-security.md](docs/16-security.md)。
+
 还没装系统？先看 [docs/00-install-os.md](docs/00-install-os.md)（Ventoy 制盘、镜像、CachyOS 取舍）。
 设计原则、模块之间怎么咬合，看 [docs/01-architecture.md](docs/01-architecture.md)。
 装完出问题先翻 [docs/07-troubleshooting.md](docs/07-troubleshooting.md)——里面全是这套配置**实际踩过**的坑，不是通用 FAQ。
@@ -113,13 +115,14 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── uninstall.sh           还原
 ├── packages.txt           pacman 包清单
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
-├── docs/                  16 篇说明，见上表
+├── docs/                  17 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh  .tmux.conf
 ├── bin/                   → ~/.local/bin/
 │   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
 │   ├── ocr-server         屏幕取字的常驻识别服务（RapidOCR，systemd socket 激活）
 │   └── ocr-grab           取字客户端：截图 → 识别 → 剪贴板，Super+Shift/Alt+O 调它
 ├── aur/                   改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME）
+├── security/              每周安全体检（sudo ./setup.sh 装到 /usr/local、/etc，不装到 $HOME）
 ├── claude/                → ~/.claude/（状态栏 / 会话看板 / 宠物 TUI）
 ├── config/                → ~/.config/
 │   ├── hypr/              mykeys.lua + 5 个改过的官方文件 + 对应 .patch

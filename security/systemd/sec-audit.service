@@ -1,0 +1,13 @@
+[Unit]
+Description=每周安全体检（~/cachyOS-config/docs/16-security.md）
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sec-audit
+# 全盘 find / paccheck / lynis / clamscan 都是重活，让给前台
+Nice=19
+CPUSchedulingPolicy=batch
+IOSchedulingClass=idle
+TimeoutStartSec=3h

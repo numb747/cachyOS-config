@@ -23,11 +23,12 @@
 ├── uninstall.sh              回滚
 ├── packages.txt              pacman 包清单
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     16 篇，见下表（配图在 docs/img/）
+├── docs/                     17 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
+├── security/                 每周安全体检 sec-audit + ufw（`sudo ./setup.sh`，装到 /usr/local、/etc，**不走 manifest.map**，见 docs/16）
 ├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr；另有两个 elephant 补丁版已发布到 AUR，说明也在这
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
@@ -115,6 +116,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
 | tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
 | 改 Discord 客户端（Equibop）/ system24 主题开关 / 自写补丁主题 / 为什么面板直角而头像图标圆 / 换机器搬 Discord 配置 | `docs/15-discord.md` |
+| 每周安全体检报了 🔴/🟡 怎么复核、`--accept` / 查了什么、调噪音 / 防火墙放行了哪些 / 出事了怎么办 | `docs/16-security.md` |
 
 ---
 
@@ -461,5 +463,11 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   去面板标签试过、评价是「不像 TUI 了」，别往那调。见 `docs/15-discord.md`
 - ~~**作战大屏 `warboard`**~~（2026-10-15 加、同日撤回 `1b0955c`）：只读 tmux 实时看板。用户评价「很差劲，不要」，
   **别再加回来**；原实现在 `c08c1c0`，真要看 `git show c08c1c0`
+- **每周安全体检**（2026-10-27 新增，**不是** install.sh 模块）：`security/sec-audit` 每周日 20:17 由**系统级** timer
+  以 root 跑，和人 `--accept` 过的基线比，只报变化（snapper 快照对比 + paccheck + 持久化点指纹 + Claude hooks/MCP +
+  journal 事件 + rkhunter/lynis/arch-audit/clamav），桌面通知 🔴/🟡 数。同时开了 ufw（只放行 `192.168.1.0/24` 的在用服务）。
+  ⚠ 检查器必须 root 所有，所以装在 `/usr/local`、不进 manifest.map；**改了 `security/` 要重跑 `sudo ./setup.sh audit`**，
+  装完下次体检会把检查器本身的改动报 🔴，这是对的。⚠ v2rayN 以 root 跑家目录里的 sing-box 是用户**有意**的，别再提议改。
+  复核流程、取舍、调噪音全在 `docs/16-security.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）

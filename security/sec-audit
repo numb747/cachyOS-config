@@ -1,0 +1,756 @@
+#!/usr/bin/env bash
+# ============================================================================
+#  sec-audit —— 每周安全体检：和「人确认过的基线」比，只报变化
+#
+#  用法：
+#      sudo sec-audit                   跑一次体检（timer 每周日调这个），出报告
+#      sudo sec-audit --accept "备注"   复核完：把最近一次的采集结果提升为新基线
+#      sudo sec-audit --init            第一次：采集 + 直接当基线（setup.sh 调）
+#      sec-audit --show                 看最近一次报告（wheel 组可读，不用 sudo）
+#      sudo sec-audit --scan 路径…      clamav 按需扫描
+#
+#  报告   /var/log/sec-audit/<日期>.md（latest.md 指向最新）· 接受记录 accept.log
+#  状态   /var/lib/sec-audit/{base,cur}/   base = 人确认过的基线，cur = 最近一次采集
+#
+#  三条设计原则（来龙去脉见 ~/cachyOS-config/docs/16-security.md）：
+#  1. 只报「和基线比变了什么」。每周几百行的报告没人看，看不完等于没查。
+#  2. 本脚本装在 /usr/local/sbin（root 所有）、由系统级 timer 以 root 跑 ——
+#     放 ~/.local/bin 的话，用户级恶意程序改一行就能把自己藏起来。
+#  3. 基线只在人 --accept 时更新。自动更新等于把入侵痕迹当成新常态吸收掉。
+#
+#  🔴 R = 必须有结论   🟡 Y = 对照本周自己做过的事确认   🟢 G = 信息
+#  新增一类检查：写一个 chk_* 函数，加进 do_run 的列表。
+# ============================================================================
+set -uo pipefail
+shopt -s nullglob
+umask 027
+export LC_ALL=C PATH=/usr/local/sbin:/usr/local/bin:/usr/bin
+
+STATE=/var/lib/sec-audit
+BASE=$STATE/base CUR=$STATE/cur NEW=$STATE/new
+LOGDIR=/var/log/sec-audit
+NOW=$(date +%s) DATE=$(date +%F)
+
+die() { echo "sec-audit: $*" >&2; exit 1; }
+log() { echo "[sec-audit] $*" >&2; }
+
+# ── 检查范围（改清单只动这里）────────────────────────────────────────────────
+# 系统级持久化位置：开机/登录/提权/装包时会被执行或读取的东西。
+SYS_PERSIST=(
+    /etc/systemd/system /etc/systemd/user /etc/systemd/system.conf.d /etc/systemd/user.conf.d
+    /etc/xdg/autostart /etc/environment /etc/profile /etc/profile.d /etc/bash.bashrc /etc/zsh
+    /etc/ld.so.preload /etc/ld.so.conf /etc/ld.so.conf.d
+    /etc/pam.d /etc/security/pam_env.conf /etc/sudoers /etc/sudoers.d /etc/doas.conf /etc/polkit-1/rules.d
+    /etc/pacman.conf /etc/pacman.d/hooks /etc/makepkg.conf
+    /etc/udev/rules.d /etc/modules-load.d /etc/modprobe.d /etc/sysctl.conf /etc/sysctl.d
+    /etc/crontab /etc/anacrontab /etc/cron.d /etc/cron.hourly /etc/cron.daily /etc/cron.weekly
+    /etc/cron.monthly /var/spool/cron /var/spool/at
+    /etc/hosts /etc/nsswitch.conf /etc/resolv.conf /etc/NetworkManager/dispatcher.d
+    /etc/ssh /root/.ssh /root/.bashrc /root/.bash_profile /root/.profile /root/.zshrc /root/.zprofile
+    /etc/sddm.conf /etc/sddm.conf.d /etc/audit/rules.d
+    /usr/local/bin /usr/local/sbin /usr/local/lib /usr/local/etc
+    # 浏览器策略：广告软件爱用 ExtensionInstallForcelist 强装扩展，用户在浏览器里删不掉
+    /etc/opt/chrome /etc/chromium /etc/firefox /usr/lib/firefox/distribution
+)
+# 这些路径一变就是 🔴（其余 🟡）。下面几个 *_RED 都不带 ^，因为匹配的是「动作 路径」那种行
+SYS_RED='(/etc/ld\.so\.preload|/etc/pam\.d/|/etc/sudoers|/etc/doas\.conf|/root/\.ssh/|/etc/ssh/sshd_config|/usr/local/sbin/sec-audit|/usr/local/bin/sec-audit-notify)'
+
+# 用户级持久化位置（每个 UID≥1000 的用户各查一遍，$H = 家目录）
+user_persist() {
+    local H=$1
+    printf '%s\n' \
+        "$H/.config/systemd/user" "$H/.config/autostart" "$H/.config/environment.d" \
+        "$H/.config/hypr"/*.lua "$H/.config/hypr/config" "$H/.config/uwsm" \
+        "$H/.zshrc" "$H/.zshenv" "$H/.zprofile" "$H/.zlogin" "$H/.zlogout" "$H/.profile" \
+        "$H/.bashrc" "$H/.bash_profile" "$H/.bash_login" "$H/.xprofile" "$H/.xinitrc" "$H/.pam_environment" \
+        "$H/.ssh/authorized_keys" "$H/.ssh/authorized_keys2" "$H/.ssh/config" "$H/.ssh/rc" \
+        "$H/.gitconfig" "$H/.config/git" "$H/.local/bin" "$H/.local/share/applications" \
+        "$H/.claude"/*.sh "$H/.claude"/*.py "$H/.claude/hooks" "$H/.npmrc"
+}
+USER_RED='/\.ssh/(authorized_keys2?|rc)$'
+# 自更新得很勤、又不值得每周看一遍的
+PERSIST_SKIP='/\.local/bin/claude$'
+
+# snapper 快照对比：只看这些目录，且滤掉「不归包管、但本来就是生成出来的」缓存
+SNAP_KEEP='^/(etc|usr|opt|var/spool)(/|$)|^/[^/]+$'
+SNAP_SKIP='__pycache__/|^/etc/(ld\.so\.cache|\.pwd\.lock|\.updated|machine-id|adjtime|mtab|pacman\.d/(gnupg/|.*mirrorlist)|NetworkManager/system-connections/)|^/usr/\.updated|^/usr/lib/modules/[^/]+/modules\.|^/usr/lib/locale/locale-archive|^/usr/share/mime/|/mimeinfo\.cache$|/icon-theme\.cache$|/gschemas\.compiled$|^/usr/share/info/dir$|/loaders\.cache$|/giomodule\.cache$|/immodules\.cache$|/fonts\.(dir|scale)$|/\.uuid$'
+# 不归任何包、却出现在系统 bin/lib 顶层或提权/自启动配置里 —— 这种 🔴
+SNAP_RED='(/usr/(s?bin|lib(64)?)/[^/]+$|/etc/(ld\.so\.preload|pam\.d/|sudoers|profile\.d/|systemd/system/|cron))'
+# paccheck 里这些路径的不一致 🔴
+PKG_RED="'/usr/(s?bin|lib(64)?)/|'/etc/(pam\.d|sudoers)"
+
+# RustDesk 来源 IP 落在这些地区算「自己连的」🟢，其他 🟡。格式「国家码」或「国家码-省份英文名」。
+# 用户 2026-10-28：石家庄或美国的一般都是自己。离线库对国内移动网络只准到省，所以写河北而不是石家庄
+RUSTDESK_HOME='^(LAN|CN-Hebei|US)'
+# 离线 IP 归属地库：DB-IP 每月免费发布的城市库（CC BY 4.0），查询全在本地，不把 IP 发给任何人
+GEO_DB=$STATE/dbip-city-lite.mmdb
+
+# ── 小工具 ─────────────────────────────────────────────────────────────────
+# 一条发现 = 级别 \t 分类 \t 文字（文字可多行，所以记录用 NUL 分隔）
+add() { printf '%s\t%s\t%s\0' "$1" "$2" "$3" >> "$FIND"; }
+
+# 把文件的每一行做成 markdown 子列表，太长截断
+items() {
+    local f=$1 max=${2:-25} n
+    n=$(wc -l < "$f")
+    awk -v max="$max" 'NR<=max { gsub(/`/, "'"'"'"); printf "\n    - `%s`", $0 }' "$f"
+    [ "$n" -gt "$max" ] && printf '\n    - …还有 %d 条（全量在 %s/）' $((n-max)) "$CUR"
+    return 0
+}
+
+# 采集结果落盘：普通集合 / 「路径 \t 指纹」两种
+save()      { sort -u > "$NEW/$1.txt"; }
+save_hash() { sort -t $'\t' -k1,1 -u > "$NEW/$1.txt"; }
+# 只增不减的集合（见过的 USB 设备、加载过的模块）：本次 ∪ 基线，这样 diff 只剩「第一次见」
+save_union() { { cat; cat "$BASE/$1.txt" 2>/dev/null; } | save "$1"; }
+
+# 有基线才比；新加的检查项第一次跑时基线里没有，只提示一句
+has_base() {
+    [ "$FIRST" = 1 ] && return 1
+    [ -f "$BASE/$1.txt" ] && return 0
+    add G "$2" "「$1」是新加的检查项，基线里还没有，本次只采集，--accept 后开始比对"
+    return 1
+}
+
+# 逐行集合差。$1 名字 $2 级别 $3 分类 $4 标题 [$5 升 🔴 的正则] [$6=add 只看新增]
+diff_lines() {
+    local n=$1 lv=$2 c=$3 t=$4 re=${5:-} mode=${6:-both}
+    has_base "$n" "$c" || return 0
+    comm -13 "$BASE/$n.txt" "$NEW/$n.txt" > "$TMP/d.add"
+    [ "$mode" = add ] && : > "$TMP/d.del" || comm -23 "$BASE/$n.txt" "$NEW/$n.txt" > "$TMP/d.del"
+    _emit "$TMP/d.add" "$lv" "$c" "$t —— 新增" "$re"
+    _emit "$TMP/d.del" "$lv" "$c" "$t —— 消失" "$re"
+}
+
+# 「路径 \t 指纹」两份清单比：新增 / 删除 / 改动
+diff_hash() {
+    local n=$1 lv=$2 c=$3 t=$4 re=${5:-}
+    has_base "$n" "$c" || return 0
+    join -t $'\t' -a1 -a2 -e '∅' -o 0,1.2,2.2 "$BASE/$n.txt" "$NEW/$n.txt" |
+        awk -F'\t' '$2=="∅"{print "新增 " $1; next} $3=="∅"{print "删除 " $1; next} $2!=$3{print "改动 " $1}' \
+        > "$TMP/h"
+    _emit "$TMP/h" "$lv" "$c" "$t" "$re"
+}
+
+# 把一份清单按正则拆成 🔴 / 默认级别两条发现
+_emit() {
+    local f=$1 lv=$2 c=$3 t=$4 re=${5:-}
+    [ -s "$f" ] || return 0
+    if [ -n "$re" ]; then
+        grep -E -- "$re" "$f" > "$f.r"; grep -Ev -- "$re" "$f" > "$f.o"
+    else
+        : > "$f.r"; cp "$f" "$f.o"
+    fi
+    [ -s "$f.r" ] && add R "$c" "$t $(wc -l < "$f.r") 条$(items "$f.r")"
+    [ -s "$f.o" ] && add "$lv" "$c" "$t $(wc -l < "$f.o") 条$(items "$f.o")"
+    return 0
+}
+
+# 给一串路径做指纹：目录递归（限深 4），符号链接记指向，普通文件记 sha256 前 16 位
+hashlist() {
+    local p
+    for p in "$@"; do
+        [ -e "$p" ] || [ -L "$p" ] || continue
+        find "$p" -maxdepth 4 \( -type f -o -type l \) -print0 2>/dev/null
+    done | while IFS= read -r -d '' f; do
+        if [ -L "$f" ]; then printf '%s\t->%s\n' "$f" "$(readlink "$f")"
+        else printf '%s\t%s\n' "$f" "$(sha256sum < "$f" 2>/dev/null | cut -c1-16)"; fi
+    done | grep -Ev -- "$PERSIST_SKIP"
+}
+
+since_fmt() { date -d "@$SINCE" "+$1"; }
+# 计数排行：「14× xxx」
+tally() { sort | uniq -c | sort -rn | sed 's/^ *\([0-9]*\) /\1× /'; }
+
+# 归属地库超过 35 天就重拉一次；月初当月版可能还没发，退回上个月的。拉不到就继续用旧的
+geo_refresh() {
+    command -v mmdblookup >/dev/null || return 0
+    [ -n "$(find "$GEO_DB" -mtime -35 2>/dev/null)" ] && return 0
+    local m
+    for m in "$(date +%Y-%m)" "$(date -d '-1 month' +%Y-%m)"; do
+        timeout 600 curl -sSfL "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o "$TMP/geo.gz" 2>/dev/null &&
+            gunzip -c "$TMP/geo.gz" > "$GEO_DB.tmp" && mv -f "$GEO_DB.tmp" "$GEO_DB" && return 0
+    done
+    rm -f "$GEO_DB.tmp"
+    [ -f "$GEO_DB" ] || add Y 一周事件 "IP 归属地库（db-ip.com）下载失败，RustDesk 来源全按陌生地区报"
+}
+
+# IP → 「CN-Hebei Shijiazhuang」；私有地址给 LAN；没库或查不到给 ?
+geo() {
+    [[ $1 =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|fe80:|fd) ]] && { echo LAN; return; }
+    [ -f "$GEO_DB" ] && command -v mmdblookup >/dev/null || { echo "?"; return; }
+    local c s city
+    q() { mmdblookup -f "$GEO_DB" -i "$1" "${@:2}" 2>/dev/null | sed -n 's/^ *"\(.*\)" <utf8_string>$/\1/p' | head -1; }
+    c=$(q "$1" country iso_code) s=$(q "$1" subdivisions 0 names en) city=$(q "$1" city names en)
+    echo "${c:-?}${s:+-$s}${city:+ $city}"
+}
+
+# ── 1. 系统文件完整性 ──────────────────────────────────────────────────────
+chk_sysfiles() {
+    local C=系统文件 num bnum
+
+    # snapper：基线快照 → 现在，哪些文件变了、又不归任何包管（归包管的由下面 paccheck 验）。
+    # 快照不带 cleanup 算法，snap-pac 的 number 清理不会把基线删掉；旧的由本脚本自己删。
+    num=$(snapper -c root create -p -d "sec-audit $DATE" -u sec-audit=1 2>"$TMP/err")
+    if [ -z "$num" ]; then
+        add Y $C "snapper 建快照失败，本周没有文件级对比：$(head -c 200 "$TMP/err")"
+    else
+        echo "$num" > "$NEW/snapper.num"
+        bnum=$(cat "$BASE/snapper.num" 2>/dev/null)
+        if [ "$FIRST" = 0 ] && [ -n "$bnum" ]; then
+            if snapper -c root status "$bnum..$num" > "$TMP/snst" 2>"$TMP/err"; then
+                # status 行：前 6 列是标志（+ 新增 - 删除 c 内容 t 类型 p 权限 u/g 属主…），第 8 列起是路径
+                awk '{ print substr($0, 8) "\t" substr($0, 1, 1) }' "$TMP/snst" |
+                    # 正则走 ENVIRON 而不是 -v：-v 会先按转义序列处理一遍，\. 被吃成 .（awk 还会打警告）
+                    keep=$SNAP_KEEP skip=$SNAP_SKIP awk -F'\t' '$1 ~ ENVIRON["keep"] && $1 !~ ENVIRON["skip"]' |
+                    sort -t $'\t' -k1,1 -u > "$TMP/snchg"
+                join -t $'\t' -v1 "$TMP/snchg" "$TMP/owned" |
+                    awk -F'\t' '{ print ($2=="+" ? "新增" : $2=="-" ? "删除" : "改动") " " $1 }' > "$TMP/snun"
+                _emit "$TMP/snun" Y $C "不归任何包管的系统文件变动（快照 #$bnum → #$num）" "^(新增|改动) $SNAP_RED"
+                add G $C "快照对比 #$bnum → #$num：共 $(wc -l < "$TMP/snst") 处变动，其中不归包管的 $(wc -l < "$TMP/snun") 处"
+            else
+                add Y $C "snapper status #$bnum..#$num 失败（基线快照被删了？）：$(head -c 200 "$TMP/err")"
+            fi
+        fi
+    fi
+
+    # paccheck：包里的文件和包数据库记录的 sha256/权限/属主是否一致。
+    # mtime 不一致是常态噪音，丢掉；sha 不一致时附上当前指纹，再被改一次会重新报。
+    paccheck --sha256sum --file-properties --quiet 2>&1 |
+        grep -Ev 'modification time mismatch|size mismatch' |
+        while IFS= read -r l; do
+            if [[ $l == *"sha256sum mismatch"* ]]; then
+                f=${l#*\'}; f=${f%%\'*}
+                printf '%s #%s\n' "${l%% (expected*}" "$(sha256sum < "$f" 2>/dev/null | cut -c1-16)"
+            else
+                printf '%s\n' "${l%% (expected*}"
+            fi
+        done | save paccheck
+    diff_lines paccheck Y $C "包文件与包数据库不一致（paccheck）" "$PKG_RED"
+    [ "$FIRST" = 1 ] && add G $C "paccheck 现有 $(wc -l < "$NEW/paccheck.txt") 条已知不一致，记入基线"
+
+    # /boot 是 vfat，不在 btrfs 快照里，单独做指纹（换内核/微码时会变，属正常）。
+    # limine.conf 与 limine_history/ 不看：limine-snapper-sync 会把本脚本每周建的快照写进启动菜单，
+    # 每周必变。改启动参数照样逃不掉 —— 重启后 chk_kernel 比的 /proc/cmdline 会变
+    hashlist /boot | grep -Ev '^/boot/(limine\.conf|.*/limine_history/)' | save_hash boot
+    diff_hash boot Y $C "/boot 里的文件（刚升级过内核就是正常的）"
+}
+
+# ── 2. 持久化位置 ──────────────────────────────────────────────────────────
+chk_persist() {
+    local C=持久化 u name h
+    hashlist "${SYS_PERSIST[@]}" | save_hash persist-sys
+    diff_hash persist-sys Y $C "系统级自启动 / 提权 / shell 配置" "^[^ ]+ $SYS_RED"
+
+    for u in "${USERS[@]}"; do
+        name=${u%%:*} h=${u#*:}
+        mapfile -t paths < <(user_persist "$h")
+        hashlist "${paths[@]}" | save_hash "persist-$name"
+        diff_hash "persist-$name" Y $C "$name 的自启动 / shell / ssh / ~/.local/bin" "$USER_RED"
+
+        # Claude Code 的 hooks / MCP / 插件 —— 往这里塞一条 hook，每次用 Claude 都会执行，传统扫描器不看这里
+        claude_cfg "$h" | save "claude-$name"
+        diff_lines "claude-$name" Y $C "$name 的 Claude Code hooks / MCP / 插件"
+    done
+
+    audit_events
+}
+
+claude_cfg() {
+    local H=$1
+    [ -f "$H/.claude/settings.json" ] && jq -r '
+        (.hooks // {} | to_entries[] | .key as $e | .value[] | (.matcher // "*") as $m
+            | .hooks[]? | "hook\t\($e)\t\($m)\t\(.command // .url // .type)"),
+        (if .statusLine then "statusLine\t\(.statusLine.command // .statusLine)" else empty end),
+        (if .apiKeyHelper then "apiKeyHelper\t\(.apiKeyHelper)" else empty end),
+        (.env // {} | keys[] | "env\t\(.)")' "$H/.claude/settings.json" 2>/dev/null
+    [ -f "$H/.claude.json" ] && jq -r '
+        def srv($s): to_entries[] | "mcp\t\($s)\t\(.key)\t\(.value.command // .value.url // "?") \(.value.args // [] | join(" ") | .[0:80])";
+        (.mcpServers // {} | srv("user")),
+        (.projects // {} | to_entries[] | .key as $p | .value.mcpServers // {} | srv($p))' "$H/.claude.json" 2>/dev/null
+    [ -f "$H/.claude/plugins/installed_plugins.json" ] && jq -r '
+        .plugins // {} | keys[] | "plugin\t\(.)"' "$H/.claude/plugins/installed_plugins.json" 2>/dev/null
+    [ -f "$H/.claude/plugins/known_marketplaces.json" ] && jq -r '
+        to_entries[] | "marketplace\t\(.key)\t\(.value.source.repo // .value.source.url // "")"' \
+        "$H/.claude/plugins/known_marketplaces.json" 2>/dev/null
+    return 0
+}
+
+# auditd 记下的「谁改了持久化位置」（规则由 setup.sh 生成，key 都以 sec- 开头）
+audit_events() {
+    local C=持久化 k
+    if ! systemctl is-active -q auditd 2>/dev/null; then
+        add Y $C "auditd 没在跑 —— 上面这些文件被改了也查不到是哪个进程改的"
+        return
+    fi
+    for k in sec-persist sec-acct sec-priv sec-kmod; do
+        ausearch -k "$k" -ts "$(since_fmt %x)" "$(since_fmt %T)" --format csv 2>/dev/null
+    done | awk -F, '
+        $2 == "EVENT" { for (i = 1; i <= NF; i++) col[$i] = i; next }
+        # 加载规则本身也会产生事件（对象是 key 名 sec-*），不是文件写入，丢掉
+        # (null) 是同一次写入附带的父目录记录，重复
+        col["HOW"] && $col["OBJ_PRIME"] != "" && $col["OBJ_PRIME"] !~ /^sec-|\(null\)$/ {
+            print $col["HOW"] " → " $col["OBJ_PRIME"] " (" $col["SUBJ_PRIME"] ")" }' |
+        tally > "$TMP/aud"
+    [ -s "$TMP/aud" ] && add G $C "auditd：本周写入监控位置的进程（对照上面的改动看是谁干的）$(items "$TMP/aud" 30)"
+    return 0
+}
+
+# ── 3. 账户与权限 ──────────────────────────────────────────────────────────
+chk_accounts() {
+    local C=账户权限
+    {
+        awk -F: '{ print "passwd " $1 ":" $3 ":" $4 ":" $6 ":" $7 }' /etc/passwd
+        awk -F: '{ print "group " $1 ":" $3 ":" $4 }' /etc/group
+        # 不抄密码哈希，只记状态和最后修改日
+        awk -F: '{ s = ($2 == "" ? "空密码" : $2 ~ /^[!*]/ ? "锁定" : "有密码"); print "shadow " $1 ":" s ":" $3 }' /etc/shadow
+    } | save accounts
+    diff_lines accounts Y $C "账户 / 组 / 密码状态" '^(passwd|shadow) '
+
+    awk -F: '$3 == 0 && $1 != "root" { print $1 }' /etc/passwd > "$TMP/uid0"
+    [ -s "$TMP/uid0" ] && add R $C "UID 0 的非 root 账户$(items "$TMP/uid0")"
+    awk -F: '$2 == "" { print $1 }' /etc/shadow > "$TMP/nopw"
+    [ -s "$TMP/nopw" ] && add R $C "空密码账户$(items "$TMP/nopw")"
+
+    # SUID/SGID：只扫本机 btrfs 子卷，跳过容器镜像层与 AUR 构建目录（里面有成堆的打包用 suid 文件）
+    mapfile -t mnts < <(findmnt -rn -t btrfs -o TARGET | grep -v '^/var/lib/')
+    find "${mnts[@]}" -xdev \( -path /var/lib/docker -o -path /var/lib/containers -o -path /var/lib/waydroid \
+            -o -path /var/lib/flatpak -o -path '/home/*/.cache/yay' -o -path '/home/*/.cache/paru' \
+            -o -path '/home/*/.local/share/containers' \) -prune \
+         -o -type f \( -perm -4000 -o -perm -2000 \) -printf '%p\t%m %u:%g\n' 2>/dev/null | save_hash suid
+    if has_base suid $C; then
+        join -t $'\t' -v2 "$BASE/suid.txt" "$NEW/suid.txt" | cut -f1 | sort > "$TMP/suid.add"
+        # 新增的 SUID 文件：归包管的 🟡（装了带 suid 的包），不归包管的 🔴
+        comm -12 "$TMP/suid.add" "$TMP/owned" > "$TMP/suid.pkg"
+        comm -23 "$TMP/suid.add" "$TMP/owned" > "$TMP/suid.bad"
+        [ -s "$TMP/suid.bad" ] && add R $C "新出现的 SUID/SGID 文件，且不归任何包$(items "$TMP/suid.bad")"
+        [ -s "$TMP/suid.pkg" ] && add Y $C "新出现的 SUID/SGID 文件（归包管，看看是哪个包）$(items "$TMP/suid.pkg")"
+        join -t $'\t' -o 0,1.2,2.2 "$BASE/suid.txt" "$NEW/suid.txt" | awk -F'\t' '$2 != $3 { print $1 "  " $2 " → " $3 }' > "$TMP/suid.chg"
+        [ -s "$TMP/suid.chg" ] && add Y $C "SUID/SGID 文件的权限或属主变了$(items "$TMP/suid.chg")"
+    fi
+
+    getcap -r /usr /opt /etc 2>/dev/null | save caps
+    diff_lines caps Y $C "带 file capabilities 的程序" "" add
+}
+
+# ── 4. 网络 ────────────────────────────────────────────────────────────────
+chk_network() {
+    local C=网络
+    # 对外监听（不含本机回环）。高位端口多是随机的，只记「高位」免得每周换号都报
+    ss -H -tulpn 2>/dev/null | awk '
+        {
+            loc = $5; port = loc; sub(/.*:/, "", port); addr = substr(loc, 1, length(loc) - length(port) - 1)
+            if (addr ~ /^127\.|^\[::1\]|%lo$|^\[::ffff:127\./) next
+            name = "-"; if (match($0, /\(\("[^"]+"/)) name = substr($0, RSTART + 3, RLENGTH - 4)
+            if (port + 0 >= 32768) port = "高位随机"
+            print $1 " " addr ":" port " " name
+        }' | save listen
+    diff_lines listen Y $C "对外监听的端口（不含本机回环）"
+    [ "$FIRST" = 1 ] && add G $C "当前对外监听$(items "$NEW/listen.txt" 40)"
+
+    if command -v ufw >/dev/null; then
+        if ufw status 2>/dev/null | grep -q '^Status: active'; then
+            ufw status verbose 2>/dev/null | sed '1,/^--/d; s/  */ /g; /^ *$/d' | save ufw
+            diff_lines ufw Y $C "ufw 规则"
+        else
+            : | save ufw
+            add R $C "防火墙没开（ufw inactive）—— 上面那些对外监听的服务对同一网络里的人全开放；开法见 docs/16"
+        fi
+    fi
+
+    nmcli -t -f NAME,TYPE connection show 2>/dev/null | save nm
+    diff_lines nm Y $C "NetworkManager 连接配置（新 VPN / 新 Wi-Fi）"
+}
+
+# ── 5. 内核与进程 ──────────────────────────────────────────────────────────
+chk_kernel() {
+    local C=内核进程 d exe p pid cmd own key
+    {
+        echo "cmdline $(cat /proc/cmdline)"
+        echo "tainted $(cat /proc/sys/kernel/tainted)"
+        echo "lockdown $(cat /sys/kernel/security/lockdown 2>/dev/null)"
+    } | save kernel
+    diff_lines kernel Y $C "内核启动参数 / taint / lockdown"
+
+    lsmod | awk 'NR > 1 { print $1 }' | save_union kmod
+    diff_lines kmod Y $C "第一次加载的内核模块（插了新设备会有）" "" add
+
+    # 进程：可执行文件在 /tmp /dev/shm、memfd（无文件落地）、或已被删除
+    declare -A seen=()
+    for d in /proc/[0-9]*; do
+        exe=$(readlink "$d/exe" 2>/dev/null) || continue
+        case $exe in *" (deleted)"|/tmp/*|/dev/shm/*|/var/tmp/*|/run/user/*|/memfd:*) ;; *) continue ;; esac
+        p=${exe% (deleted)} pid=${d#/proc/}
+        own=$(stat -c %U "$d" 2>/dev/null)
+        cmd=$(tr '\0' ' ' < "$d/cmdline" 2>/dev/null | cut -c1-90)
+        case $p in
+            /memfd:*runc*|/memfd:*crun*) key="Y容器运行时 $p" ;;
+            /memfd:*)                    key="R无文件落地（memfd）$p" ;;
+            /tmp/.mount_*)               key="YAppImage $p" ;;
+            /tmp/*|/dev/shm/*|/var/tmp/*|/run/user/*) key="R从临时目录运行 $p" ;;
+            /home/*/.local/share/claude/versions/*) key="G已删除（Claude Code 自更新）$p" ;;
+            *) if grep -Fxq -- "$p" "$TMP/owned"; then key="G已删除（升级后没重启，重启即消失）$p"
+               else key="R可执行文件已被删除、且不归任何包 $p"; fi ;;
+        esac
+        [ -n "${seen[$key]:-}" ] && continue
+        seen[$key]=1
+        add "${key:0:1}" $C "${key:1}  —— $own pid $pid：$cmd"
+    done
+}
+
+# ── 6. 一周事件 ────────────────────────────────────────────────────────────
+chk_events() {
+    local C=一周事件 u name h n
+    J() { journalctl --since "@$SINCE" --no-pager -q "$@" 2>/dev/null; }
+
+    # sudo：认证失败（不算 sudo -n 那种「需要密码」）+ 用得最多的命令
+    J _COMM=sudo -o cat > "$TMP/sudo"
+    grep -E 'incorrect password attempt|NOT in sudoers|authentication failure' "$TMP/sudo" > "$TMP/sudo.bad"
+    [ -s "$TMP/sudo.bad" ] && add Y $C "sudo 认证失败 $(wc -l < "$TMP/sudo.bad") 次$(items "$TMP/sudo.bad" 10)"
+    grep -o 'COMMAND=.*' "$TMP/sudo" | sed 's/^COMMAND=//' | awk '{ print $1 }' | tally | head -8 > "$TMP/sudo.top"
+    add G $C "sudo 执行 $(grep -c 'COMMAND=' "$TMP/sudo") 次，最常用$(items "$TMP/sudo.top")"
+
+    # sudo 以 root 跑了「普通用户能改」的程序：谁能改它，谁下次就能借你的 sudo 拿 root。
+    # 记成只增集合，同一个程序只在第一次出现时报
+    grep -o 'COMMAND=.*' "$TMP/sudo" | sed 's/^COMMAND=//' | awk '{ print $1 }' | sort -u |
+        while IFS= read -r p; do
+            [ -e "$p" ] || continue
+            # -L：/bin/sh 这类符号链接本身恒为 777，要看指向的文件
+            [ "$(stat -L -c %u "$p")" != 0 ] || [ -n "$(find -L "$p" -maxdepth 0 -perm /022)" ] || [[ $p == /home/* ]] &&
+                echo "$p"
+        done | save_union sudo-uw
+    diff_lines sudo-uw Y $C "sudo 以 root 执行了普通用户可改的程序（能改它的东西都能借 sudo 拿 root）" "" add
+    [ "$FIRST" = 1 ] && [ -s "$NEW/sudo-uw.txt" ] &&
+        add Y $C "sudo 以 root 执行了普通用户可改的程序（能改它的东西都能借 sudo 拿 root）$(items "$NEW/sudo-uw.txt")"
+
+    # 其它 PAM 认证失败：锁屏 hyprlock、登录界面、su……有人在你离开时试密码就在这
+    J -o cat -g 'pam_unix\([^:]+:auth\): authentication failure' | grep -v 'pam_unix(sudo' > "$TMP/pam.bad"
+    [ -s "$TMP/pam.bad" ] && add Y $C "锁屏 / 登录 / su 认证失败 $(wc -l < "$TMP/pam.bad") 次$(items "$TMP/pam.bad" 10)"
+    J -o cat -g 'pam_unix\(su(-l)?:session\): session opened' > "$TMP/su"
+    [ -s "$TMP/su" ] && add Y $C "su 切换身份 $(wc -l < "$TMP/su") 次$(items "$TMP/su" 10)"
+
+    # sshd：本机没开 sshd，日志里出现任何 ssh 登录都不对
+    J -o cat -t sshd -t sshd-session > "$TMP/ssh"
+    if [ -s "$TMP/ssh" ]; then
+        if systemctl is-enabled -q sshd 2>/dev/null; then
+            grep -E 'Accepted|Failed|Invalid user' "$TMP/ssh" | tally > "$TMP/ssh.sum"
+            add Y $C "sshd 登录记录$(items "$TMP/ssh.sum" 15)"
+        else
+            add R $C "sshd 没启用，日志里却有 ssh 活动$(items "$TMP/ssh" 15)"
+        fi
+    fi
+
+    # polkit 提权授权（图形界面弹密码框那种）
+    J _COMM=polkitd -o cat | grep -o 'for action [^ ]*' | tally > "$TMP/polkit"
+    [ -s "$TMP/polkit" ] && add G $C "polkit 授权$(items "$TMP/polkit" 15)"
+
+    # 登录会话：除了本机用户和登录管理器，不该有别人
+    J -t systemd-logind -o cat | sed -n 's/^New session .* of user \([^ .]*\)\.$/\1/p' | tally > "$TMP/sess"
+    local known; known=$(printf '%s\n' "${USERS[@]%%:*}" sddm greeter gdm lightdm root | paste -sd'|')
+    awk -v k="^($known)$" '$2 !~ k' "$TMP/sess" > "$TMP/sess.odd"
+    [ -s "$TMP/sess.odd" ] && add R $C "陌生用户的登录会话$(items "$TMP/sess.odd")"
+    [ -s "$TMP/sess" ] && add G $C "登录会话$(items "$TMP/sess")"
+
+    # USB：本周接入过的 + 当前插着的，和基线比只看「第一次见」。BadUSB 会伪装成键盘。
+    # ⚠ 内核日志用 _TRANSPORT=kernel 而不是 -k：-k 隐含 -b，只看本次开机
+    {
+        J _TRANSPORT=kernel -o cat -g '^usb [^ ]+: (New USB device found|Product:|Manufacturer:)' | awk '
+            # 每行形如「usb 1-6: …」，$2 就是设备位置；同一位置的 Product/Manufacturer 紧跟在 New 之后
+            function emit(d) { if (d in id) print id[d] "\t" man[d] " " prod[d]; delete id[d] }
+            / New USB device found/ { d = $2; emit(d)
+                match($0, /idVendor=[0-9a-f]+/); v = substr($0, RSTART + 9, RLENGTH - 9)
+                match($0, /idProduct=[0-9a-f]+/); p = substr($0, RSTART + 10, RLENGTH - 10)
+                id[d] = v ":" p; man[d] = ""; prod[d] = ""; next }
+            / Manufacturer: / { x = $0; sub(/.*Manufacturer: /, "", x); man[$2] = x; next }
+            / Product: /      { x = $0; sub(/.*Product: /, "", x); prod[$2] = x; next }
+            END { for (d in id) emit(d) }'
+        for d in /sys/bus/usb/devices/*/idVendor; do
+            d=${d%/idVendor}
+            printf '%s:%s\t%s %s\n' "$(cat "$d/idVendor")" "$(cat "$d/idProduct")" \
+                "$(cat "$d/manufacturer" 2>/dev/null)" "$(cat "$d/product" 2>/dev/null)"
+        done
+    } | sed -E 's/Linux [^ ]+ //; s/[[:space:]]+$//' | awk -F'\t' '!seen[$1]++' > "$TMP/usb.now"
+    # 只按 vid:pid 比 —— 名字会变（根集线器的名字里带内核版本）。基线在前，同一设备沿用基线里的名字
+    cat "$BASE/usb.txt" "$TMP/usb.now" 2>/dev/null | awk -F'\t' '!seen[$1]++' | save usb
+    if has_base usb $C; then
+        awk -F'\t' 'NR == FNR { b[$1]; next } !($1 in b)' "$BASE/usb.txt" "$TMP/usb.now" > "$TMP/usb.new"
+        _emit "$TMP/usb.new" Y $C "第一次见到的 USB 设备（不是你插的就要查）——"
+    fi
+
+    # 崩溃 / OOM / 失败的服务
+    coredumpctl list --since "@$SINCE" --json=short --no-pager 2>/dev/null | jq -r '.[].exe' 2>/dev/null |
+        tally > "$TMP/core"
+    [ -s "$TMP/core" ] && add G $C "程序崩溃（coredump）$(items "$TMP/core" 10)"
+    n=$(J _TRANSPORT=kernel -o cat -g 'Out of memory: Killed process' | wc -l)
+    [ "$n" -gt 0 ] && add G $C "内存不足杀进程 $n 次"
+    {
+        systemctl --failed --plain --no-legend 2>/dev/null | awk '{ print "系统 " $1 }'
+        for u in "${USERS[@]}"; do
+            systemctl --user -M "${u%%:*}@" --failed --plain --no-legend 2>/dev/null | awk -v u="${u%%:*}" '{ print u " " $1 }'
+        done
+    } > "$TMP/failed"
+    [ -s "$TMP/failed" ] && add Y $C "失败的 systemd 单元$(items "$TMP/failed")"
+
+    # RustDesk：远程控制软件，被谁连过要心里有数
+    local s; s=$(since_fmt '%Y-%m-%d %H:%M:%S')
+    for u in "${USERS[@]}"; do
+        name=${u%%:*} h=${u#*:}
+        [ -d "$h/.local/share/logs/RustDesk/server" ] || continue
+        find "$h/.local/share/logs/RustDesk/server" -name '*.log' -newermt "@$SINCE" -print0 |
+            xargs -0r cat | awk -v s="$s" 'substr($0, 2, 19) >= s' > "$TMP/rd"
+        n=$(grep -c 'new video service' "$TMP/rd")
+        grep -o 'Connection opened from [^ ]*' "$TMP/rd" | sed 's/.* from //; s/\.$//; s/:[0-9]*$//' |
+            tally > "$TMP/rd.ip"
+        [ -s "$TMP/rd.ip" ] || continue
+        geo_refresh
+        : > "$TMP/rd.home"; : > "$TMP/rd.away"
+        local cnt ip g
+        while read -r cnt ip; do
+            g=$(geo "$ip")
+            if [[ $g =~ $RUSTDESK_HOME ]]; then echo "$cnt $ip  $g" >> "$TMP/rd.home"
+            else echo "$cnt $ip  $g" >> "$TMP/rd.away"; fi
+        done < "$TMP/rd.ip"
+        # 归属地署名是 DB-IP 免费库的授权要求
+        [ -s "$TMP/rd.away" ] && add Y $C "$name 的 RustDesk 被**常用地区以外**的 IP 连入 —— 是你吗？不是就立刻改 RustDesk 密码（归属地 by DB-IP）$(items "$TMP/rd.away")"
+        [ -s "$TMP/rd.home" ] && add G $C "$name 的 RustDesk 本周被连入（画面会话 $n 次），来源都在常用地区（归属地 by DB-IP）$(items "$TMP/rd.home")"
+    done
+    return 0
+}
+
+# ── 浏览器扩展 ─────────────────────────────────────────────────────────────
+# 桌面上最常见的中招方式是恶意扩展（偷 cookie、改页面、挖矿），而它们完全不经过 pacman。
+# 只记 id + 名字，不记版本 —— 扩展自动更新很勤，记版本就每周都报。
+chk_browser() {
+    local C=浏览器 u name h
+    for u in "${USERS[@]}"; do
+        name=${u%%:*} h=${u#*:}
+        browser_exts "$h" | save "browser-$name"
+        diff_lines "browser-$name" Y $C "$name 的浏览器扩展（不是你装的就去浏览器里删掉，再查是谁装的）"
+        [ "$FIRST" = 1 ] && add G $C "$name 现有 $(wc -l < "$NEW/browser-$name.txt") 个浏览器扩展，记入基线$(items "$NEW/browser-$name.txt" 40)"
+    done
+}
+
+# Chrome 系（含 Chromium/Edge/Brave/Vivaldi）与 Firefox 的已装扩展：浏览器 \t 配置目录 \t id \t 名字
+browser_exts() {
+    local H=$1 ext ver prof f
+    for ext in "$H"/.config/{google-chrome*,chromium,microsoft-edge*,BraveSoftware/*,vivaldi}/*/Extensions/*; do
+        prof=${ext%/Extensions/*} prof=${prof#"$H"/}
+        ver=$(ls -d "$ext"/*/ 2>/dev/null | tail -1)
+        [ -n "$ver" ] && printf 'chrome\t%s\t%s\t%s\n' "$prof" "${ext##*/}" "$(chrome_ext_name "${ver%/}")"
+    done
+    # Firefox 的配置在 ~/.mozilla 或（新版 XDG）~/.config/mozilla；内置和系统附加组件不算
+    for f in "$H"/.mozilla/firefox/*/extensions.json "$H"/.config/mozilla/firefox/*/extensions.json; do
+        prof=${f%/extensions.json} prof=${prof#"$H"/}
+        jq -r --arg p "$prof" '.addons[] | select(.type == "extension")
+            | select(.location | test("^app-(builtin|system)") | not)
+            | "firefox\t\($p)\t\(.id)\t\(.defaultLocale.name // "?")\(if .active then "" else "（已停用）" end)"' "$f" 2>/dev/null
+    done
+    return 0
+}
+
+# Chrome 扩展名常是 __MSG_appName__ 占位符，要去扩展自带的 _locales 里查（键名不分大小写，文件可能带 BOM）
+chrome_ext_name() {
+    local d=$1 n key loc f
+    n=$(jq -r '.name // ""' "$d/manifest.json" 2>/dev/null)
+    if [[ $n == __MSG_*__ ]]; then
+        key=${n#__MSG_} key=${key%__}
+        loc=$(jq -r '.default_locale // "en"' "$d/manifest.json" 2>/dev/null)
+        for f in "$d/_locales/zh_CN/messages.json" "$d/_locales/$loc/messages.json" "$d/_locales/en/messages.json"; do
+            [ -f "$f" ] || continue
+            n=$(sed '1s/^\xEF\xBB\xBF//' "$f" | jq -r --arg k "${key,,}" \
+                'to_entries[] | select(.key | ascii_downcase == $k) | .value.message' 2>/dev/null | head -1)
+            [ -n "$n" ] && break
+        done
+    fi
+    printf '%s' "${n:-?}"
+}
+
+# ── 7. 软件与漏洞 ──────────────────────────────────────────────────────────
+chk_software() {
+    local C=软件 u h name last days
+    pacman -Qqm | save aur
+    diff_lines aur Y $C "AUR / 本地包（供应链投毒的主要入口）"
+
+    awk -v s="$(since_fmt %Y-%m-%dT%H:%M:%S)" 'substr($1, 2, 19) >= s' /var/log/pacman.log > "$TMP/plog"
+    grep -o "Running 'pacman -U [^']*'" "$TMP/plog" | sed "s/^Running 'pacman -U //; s/'$//" |
+        tr ' ' '\n' | grep '\.pkg\.tar' | sed 's:.*/::' | sort -u > "$TMP/pU"
+    [ -s "$TMP/pU" ] && add Y $C "本周用 pacman -U 装的本地包（yay 装 AUR 也走这条）$(items "$TMP/pU")"
+    sed -n 's/.*\[ALPM\] installed \([^ ]*\).*/\1/p' "$TMP/plog" | sort -u > "$TMP/pI"
+    [ -s "$TMP/pI" ] && add G $C "本周新装的包$(items "$TMP/pI" 40)"
+    sed -n 's/.*\[ALPM\] removed \([^ ]*\).*/\1/p' "$TMP/plog" | sort -u > "$TMP/pR"
+    [ -s "$TMP/pR" ] && add G $C "本周删掉的包$(items "$TMP/pR" 40)"
+
+    last=$(grep 'starting full system upgrade' /var/log/pacman.log | tail -1 | cut -c2-20)
+    if [ -n "$last" ]; then
+        days=$(( (NOW - $(date -d "$last" +%s)) / 86400 ))
+        [ "$days" -gt 14 ] && add Y $C "已经 $days 天没有 pacman -Syu 了（上次 ${last%T*}）"
+    fi
+
+    if command -v arch-audit >/dev/null; then
+        if timeout 120 arch-audit -u -f '%n|%s|%v|%c' > "$TMP/aa" 2>"$TMP/err"; then
+            grep -E '\|(Critical|High)\|' "$TMP/aa" > "$TMP/aa.r"
+            grep -Ev '\|(Critical|High)\|' "$TMP/aa" > "$TMP/aa.y"
+            [ -s "$TMP/aa.r" ] && add R $C "有高危漏洞、且已有修复版本的包 —— pacman -Syu$(items "$TMP/aa.r")"
+            [ -s "$TMP/aa.y" ] && add Y $C "有漏洞、且已有修复版本的包$(items "$TMP/aa.y")"
+        else
+            add Y $C "arch-audit 拉不到漏洞库：$(head -c 150 "$TMP/err")"
+        fi
+    else
+        add Y $C "没装 arch-audit"
+    fi
+
+    # 语言包管理器装的全局工具：pacman 管不到，同样是投毒入口
+    for u in "${USERS[@]}"; do
+        name=${u%%:*} h=${u#*:}
+        {
+            for d in "$h/.local/lib/node_modules" /usr/lib/node_modules; do
+                for p in "$d"/* "$d"/@*/*; do [[ $p == */@* && $p != */@*/* ]] || echo "npm $d ${p#"$d"/}"; done
+            done
+            for p in "$h"/.local/lib/python3*/site-packages/*.dist-info; do
+                p=${p##*/}; p=${p%.dist-info}; echo "pip --user ${p%-*}"
+            done
+            for p in "$h/.local/share/uv/tools"/* "$h/.cargo/bin"/* "$h/go/bin"/* "$h/.bun/bin"/*; do
+                echo "bin ${p#"$h"/}"
+            done
+        } | save "userpkg-$name"
+        diff_lines "userpkg-$name" Y $C "$name 的 npm / pip / uv / cargo 全局包"
+    done
+}
+
+# ── 8. 扫描器 ──────────────────────────────────────────────────────────────
+chk_scanners() {
+    local C=扫描器 idx bidx
+
+    # rkhunter：只用它查 rootkit 特征 / 隐藏文件 / 可疑端口。
+    # 文件属性那组测试（properties）关掉 —— 它不认 pacman，每次升级都全红，这件事 paccheck 做得更好
+    if command -v rkhunter >/dev/null; then
+        timeout 1800 rkhunter --check --sk --nocolors --rwo --disable properties 2>&1 |
+            awk '/^Warning:/ { if (w != "") print w; w = $0; next }
+                 /^[[:space:]]/ && w != "" { gsub(/^[[:space:]]+/, " "); w = w $0; next }
+                 END { if (w != "") print w }' | sed 's/  */ /g' | save rkhunter
+        diff_lines rkhunter Y $C "rkhunter 警告" '[Rr]ootkit'
+        [ "$FIRST" = 1 ] && [ -s "$NEW/rkhunter.txt" ] && add G $C "rkhunter 现有 $(wc -l < "$NEW/rkhunter.txt") 条警告，记入基线$(items "$NEW/rkhunter.txt")"
+    else
+        add Y $C "没装 rkhunter"
+    fi
+
+    # lynis：只看加固评分的变化和新增警告，建议项留给每月那次细看
+    if command -v lynis >/dev/null; then
+        timeout 1800 lynis audit system --quick --no-colors --quiet \
+            --report-file "$TMP/lynis.dat" --log-file /var/log/lynis.log >/dev/null 2>&1
+        idx=$(sed -n 's/^hardening_index=//p' "$TMP/lynis.dat" 2>/dev/null)
+        echo "${idx:-?}" > "$NEW/lynis.idx"
+        sed -n 's/^warning\[\]=//p' "$TMP/lynis.dat" 2>/dev/null | cut -d'|' -f1,2 | save lynis
+        diff_lines lynis Y $C "lynis 警告"
+        bidx=$(cat "$BASE/lynis.idx" 2>/dev/null)
+        add G $C "lynis 加固评分 ${idx:-?}（基线 ${bidx:-—}），建议 $(grep -c '^suggestion' "$TMP/lynis.dat" 2>/dev/null) 条：sudo lynis show details <ID> 看"
+    else
+        add Y $C "没装 lynis"
+    fi
+
+    # clamav：只扫本周新下载的文件 + 临时目录，整盘扫放到每月
+    if command -v clamscan >/dev/null; then
+        timeout 600 freshclam --quiet >/dev/null 2>"$TMP/err" ||
+            add Y $C "clamav 病毒库更新失败，用旧库扫：$(head -c 150 "$TMP/err")"
+        find /home/*/Downloads /tmp /var/tmp /dev/shm -type f -newermt "@$SINCE" -size -300M 2>/dev/null > "$TMP/scan"
+        if [ -s "$TMP/scan" ]; then
+            timeout 3600 clamscan --infected --no-summary --file-list="$TMP/scan" 2>/dev/null | grep 'FOUND$' > "$TMP/virus"
+            [ -s "$TMP/virus" ] && add R $C "clamav 报毒$(items "$TMP/virus")"
+            add G $C "clamav 扫了本周新增的 $(wc -l < "$TMP/scan") 个文件，报毒 $(wc -l < "$TMP/virus") 个"
+        fi
+    fi
+    return 0
+}
+
+# ── 报告 ───────────────────────────────────────────────────────────────────
+write_report() {
+    local L rec lv rest c txt nR nY nG out=$LOGDIR/$DATE.md
+    count() { tr '\0' '\n' < "$FIND" | grep -c "^$1"$'\t'; }
+    nR=$(count R) nY=$(count Y) nG=$(count G)
+    {
+        echo "# 安全体检 $DATE"
+        echo
+        echo "- 覆盖时段：$(since_fmt '%F %R') → $(date '+%F %R')"
+        echo "- 基线：$(cat "$BASE/meta" 2>/dev/null || echo '（本次即初始基线）')"
+        echo
+        echo "**🔴 $nR · 🟡 $nY · 🟢 $nG**"
+        echo
+        echo '复核完（🔴 都有结论、🟡 都对得上本周做过的事）就更新基线：`sudo sec-audit --accept "本周做了什么"`'
+        for L in R Y G; do
+            case $L in R) echo; echo "## 🔴 必须处理" ;; Y) echo; echo "## 🟡 对照本周做过的事确认" ;; G) echo; echo "## 🟢 信息" ;; esac
+            while IFS= read -r -d '' rec; do
+                lv=${rec%%$'\t'*} rest=${rec#*$'\t'}
+                c=${rest%%$'\t'*} txt=${rest#*$'\t'}
+                [ "$lv" = "$L" ] && printf -- '- **[%s]** %s\n' "$c" "$txt"
+            done < "$FIND"
+        done
+        echo
+        echo "## 已知并接受的风险（docs/16）"
+        echo "- docker 组成员等价于 root：$(awk -F: '$1 == "docker" { print $4 }' /etc/group)"
+        echo "- 本报告与检查器都防不住已经拿到 root 的入侵者；它针对的是用户级恶意程序和事后发现"
+    } > "$out"
+    chgrp wheel "$out"; chmod 640 "$out"
+    ln -sfn "$DATE.md" "$LOGDIR/latest.md"
+    printf '{"date":"%s","red":%d,"yellow":%d,"info":%d,"report":"%s"}\n' "$DATE" "$nR" "$nY" "$nG" "$out" > "$LOGDIR/.latest.json"
+    chgrp wheel "$LOGDIR/.latest.json"; chmod 640 "$LOGDIR/.latest.json"
+    mv -f "$LOGDIR/.latest.json" "$LOGDIR/latest.json"
+    find "$LOGDIR" -name '20*.md' -mtime +200 -delete
+    log "报告：$out  🔴 $nR 🟡 $nY 🟢 $nG"
+}
+
+# ── 主流程 ─────────────────────────────────────────────────────────────────
+do_run() {
+    TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+    FIND=$TMP/findings; : > "$FIND"
+    FIRST=0; [ -d "$BASE" ] || FIRST=1
+    SINCE=$(cat "$STATE/last-run" 2>/dev/null || echo $((NOW - 7 * 86400)))
+    mapfile -t USERS < <(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ { print $1 ":" $6 }')
+    pacman -Qlq 2>/dev/null | sed 's:/$::' | sort -u > "$TMP/owned"
+    rm -rf "$NEW"; mkdir -p "$NEW"
+
+    local s
+    for s in sysfiles persist accounts network kernel events browser software scanners; do
+        log "检查：$s"
+        "chk_$s"
+    done
+    write_report
+
+    # 上一次的 cur 快照如果不是基线，就没用了
+    local old base
+    old=$(cat "$CUR/snapper.num" 2>/dev/null) base=$(cat "$BASE/snapper.num" 2>/dev/null)
+    [ -n "$old" ] && [ "$old" != "$base" ] && snapper -c root delete "$old" 2>/dev/null
+    rm -rf "$CUR"; mv "$NEW" "$CUR"
+    echo "$NOW" > "$STATE/last-run"
+}
+
+do_accept() {
+    local note=$1 old cur
+    [ -d "$CUR" ] || die "还没跑过体检，先 sudo sec-audit"
+    old=$(cat "$BASE/snapper.num" 2>/dev/null) cur=$(cat "$CUR/snapper.num" 2>/dev/null)
+    rm -rf "$BASE.tmp"; cp -a "$CUR" "$BASE.tmp"
+    echo "$(date '+%F %R') 接受（$(date -r "$CUR" +%F) 那次体检）：$note" > "$BASE.tmp/meta"
+    rm -rf "$BASE"; mv "$BASE.tmp" "$BASE"
+    [ -n "$old" ] && [ "$old" != "$cur" ] && snapper -c root delete "$old" 2>/dev/null
+    printf '%s\t%s\t%s\n' "$(date '+%F %R')" "$(jq -r '"🔴\(.red) 🟡\(.yellow)"' "$LOGDIR/latest.json" 2>/dev/null)" "$note" \
+        >> "$LOGDIR/accept.log"
+    chgrp wheel "$LOGDIR/accept.log"; chmod 640 "$LOGDIR/accept.log"
+    echo "已更新基线：$note"
+}
+
+case "${1:-}" in
+    --show) exec less -R "$LOGDIR/latest.md" ;;
+    -h|--help) sed -n '2,/^# =====/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+esac
+
+[ "$(id -u)" -eq 0 ] || die "要 root：sudo sec-audit $*"
+mkdir -p "$STATE" "$LOGDIR"
+exec 9> "$STATE/.lock"
+flock -n 9 || die "已经有一次体检在跑"
+
+case "${1:-}" in
+    "")       do_run ;;
+    --init)   do_run && do_accept "初始基线" ;;
+    --accept) shift; [ $# -gt 0 ] || die '要写备注：sudo sec-audit --accept "本周装了 xxx"'; do_accept "$*" ;;
+    --scan)   shift; [ $# -gt 0 ] || die "要给路径"; clamscan -r --infected "$@" ;;
+    *)        die "不认识的参数：$1（--help 看用法）" ;;
+esac
