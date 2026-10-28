@@ -1,0 +1,11 @@
+[Unit]
+Description=安全体检结果通知
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sec-audit-notify
+
+[Install]
+# 登录时补报一次（见脚本开头的注释）
+WantedBy=graphical-session.target

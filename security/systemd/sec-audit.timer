@@ -1,0 +1,11 @@
+[Unit]
+Description=每周日晚跑一次安全体检
+
+[Timer]
+OnCalendar=Sun *-*-* 20:17:00
+# 那会儿关着机就开机后补跑
+Persistent=true
+RandomizedDelaySec=20m
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# sec-audit-notify —— 体检出结果后弹桌面通知，点「打开报告」用 kitty 看
+#
+# 由用户级 sec-audit-notify.path 盯着 /var/log/sec-audit/latest.json 触发；
+# 另外登录图形会话时也跑一次 —— timer 是 Persistent 的，关机错过周日那次会在开机时补跑，
+# 那时你多半还没登录，path 单元看不到那次改动，靠这次补报。
+# 同一份结果只报一次（记 latest.json 的修改时间）。
+set -uo pipefail
+
+J=/var/log/sec-audit/latest.json
+MARK=${XDG_STATE_HOME:-$HOME/.local/state}/sec-audit-notified
+[ -r "$J" ] || exit 0
+
+stamp=$(stat -c %Y "$J")
+[ "$(cat "$MARK" 2>/dev/null)" = "$stamp" ] && exit 0
+mkdir -p "${MARK%/*}" && echo "$stamp" > "$MARK"
+
+read -r date red yellow report < <(jq -r '"\(.date) \(.red) \(.yellow) \(.report)"' "$J")
+urg=normal; [ "$red" -gt 0 ] && urg=critical
+
+act=$(notify-send -a 安全体检 -i security-high -u "$urg" -A open=打开报告 \
+    "安全体检 $date：🔴 $red  🟡 $yellow" \
+    "复核完更新基线：sudo sec-audit --accept \"本周做了什么\"")
+[ "$act" = open ] && exec kitty --title 安全体检 less -R "$report"
+exit 0

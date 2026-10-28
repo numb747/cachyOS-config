@@ -1,0 +1,8 @@
+[Unit]
+Description=盯着安全体检的结果文件
+
+[Path]
+PathChanged=/var/log/sec-audit/latest.json
+
+[Install]
+WantedBy=default.target
