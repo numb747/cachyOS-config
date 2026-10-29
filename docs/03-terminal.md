@@ -335,3 +335,40 @@ export QT_QPA_PLATFORMTHEME="qt6ct"
 
 改了要**注销重进**才生效，`source` 一下是不够的——它是给整个会话（含 Hyprland
 自己拉起的进程）用的。
+
+---
+
+## Dolphin 里「打开终端」用 Konsole（只改 Dolphin）
+
+全局默认终端是 kitty（`~/.config/kdeglobals` 的 `[General] TerminalApplication=kitty`），
+但 kitty 一打开就进 nvim，在 Dolphin 里按 Shift+F4「在此打开终端」时不顺手，所以 Dolphin 单独用 Konsole。
+
+KIO 的 `KTerminalLauncherJob` 读的是 `KSharedConfig::openConfig()`，也就是**应用自己的配置
+叠在 kdeglobals 上面**，所以同名键写进 `dolphinrc` 就只覆盖 Dolphin：
+
+```sh
+kwriteconfig6 --file dolphinrc --group General --key TerminalApplication konsole
+kwriteconfig6 --file dolphinrc --group General --key TerminalService org.kde.konsole.desktop
+```
+
+- `TerminalService` 优先于 `TerminalApplication`，两个都写，免得以后 kdeglobals 里冒出一个 `TerminalService` 把它盖掉。
+- **别改 kdeglobals**：那是 noctalia 模板生成的产物，手改会被覆盖；而且它对所有 KDE 程序生效。
+- Dolphin 启动时读一次配置，改完要**完全退出 Dolphin 再开**才生效。
+- F4 的内嵌终端面板本来就是 Konsole 组件（konsolepart），跟这个设置无关。
+- `dolphinrc` 没进 `manifest.map`：里面大半是 Dolphin 运行时写的视图状态，入包只会天天漂移。新机器上跑一遍上面两条命令即可。
+
+### 面板里的字被撑开、像全角字符
+
+Konsole 没有自己的 profile 时用「系统等宽字体」，这个值由 qt6ct 给；`qt6ct.conf` 没设字体，
+等宽字体就落到了 **Noto Sans**（比例字体，`fixedPitch: False`，`i` 4px、`W` 15px）。
+Konsole 按最宽的字母给每格定宽，窄字母两边全是空，看着像全角。
+
+修法只动 Konsole，不碰 qt6ct 的全局字体：`~/.local/share/konsole/david.profile`
+（已入包，term 模块）把字体钉成 Adwaita Mono 12，再让 konsolerc 默认用它：
+
+```sh
+kwriteconfig6 --file konsolerc --group 'Desktop Entry' --key DefaultProfile david.profile
+```
+
+内嵌面板（konsolepart）也读 konsolerc 的 DefaultProfile，所以同样要**重启 Dolphin** 才生效。
+查 Qt 实际拿到哪个字体：PySide6 里 `QFontInfo(QFontDatabase.systemFont(QFontDatabase.FixedFont))`。
