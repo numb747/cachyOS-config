@@ -134,7 +134,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
    否则两套并存。`hl.config` 则是逐项合并，只写自己关心的项是安全的。
 
 4. **hypr 有 5 个 CachyOS 官方文件被改过**（`config/` 下的 `binds` / `variables` /
-   `workspaces` 为纯动态工作区，`windowrules` 为浮动窗居中与 satty（原有的企业微信幽灵窗规则已随 wine 卸载删掉），`misc` 为关掉内置壁纸）。
+   `workspaces` 为纯动态工作区，`windowrules` 只剩 satty 一处（企业微信幽灵窗规则已随 wine 卸载删掉；全局浮动窗居中 2026-10-29 撤掉，因为它把 XWayland 应用的设置窗从主窗口上方拽到屏幕正中，见 `docs/02`），`misc` 为关掉内置壁纸）。
    `pacman -Syu` 可能覆盖回去，用 `config/hypr/patches/*.patch` 重打，
    基准是 `/etc/skel/.config/hypr/config/`。（此前文档记的「3 个」是漏了后两个。）
    **别急着加第 6 个**：只有「要撤销官方已定义的东西」才必须动原版，纯覆盖值一律写进
