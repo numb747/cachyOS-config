@@ -549,6 +549,61 @@ journalctl 里应只剩 `pkexec: Executing command`，没有 polkitd 的 `FAILED
 
 ---
 
+## 钥匙环开机自动解锁（2026-10-28）
+
+症状：每次开机后**第一次**打开 Chrome（以及部分 Electron 应用），弹
+「An application wants access to the keyring "Default Keyring", but it is locked」。
+输一次密码后本次开机内不再弹。
+
+Chrome 的「Chrome Safe Storage」密钥就在这个环里（条目属性 `application` 是 `md5("chrome")`；
+另有 6 条 `md5("chromium")` 是 Electron 应用的）。环锁着，它们一要密钥就弹窗。
+
+### 根因：两层叠加，补一层不够
+
+1. **`/etc/pam.d/greetd` 没有 `pam_gnome_keyring`。** greetd + noctalia-greeter 登录时，
+   登录密码没交给密钥环，环自然开着锁。
+2. **环的名字叫 `Default_Keyring`，而 `pam_gnome_keyring` 只解锁名叫 `login` 的环。**
+   光补 PAM，密码传过去了也没有可解的环。
+
+另外登录时 socket 激活和 D-Bus 激活会各起一个 `gnome-keyring-daemon`，这是时序竞争，无害，
+但改环文件前要两个都停掉，否则内存里那份可能回写覆盖。
+
+### 解法：`system/keyring-autounlock.sh`
+
+在图形会话的终端里**不加 sudo** 跑，改 PAM 那步它自己会要 sudo。可重复跑，每一步都先检查再动手：
+
+1. `/etc/pam.d/greetd` 末尾追加 `auth optional pam_gnome_keyring.so` 和
+   `session optional pam_gnome_keyring.so auto_start`。
+   session 行必须在 `pam_systemd` 之后，要用它建好的 `XDG_RUNTIME_DIR`
+2. 停掉守护进程，备份 `~/.local/share/keyrings/`，把 `Default_Keyring.keyring` 改名为 `login.keyring`，
+   `default` 文件写成 `login`
+3. 环密码和登录密码不一致时，通过 gnome-keyring 的 D-Bus `ChangeWithPrompt` 弹 gcr 对话框来改。
+   密码只进对话框，不经过终端
+
+备份在 `/etc/pam.d/greetd.bak.keyring.*` 和 `~/.local/share/keyrings.bak-*`。
+⚠ 系统文件（PAM）**不在本包管辖**，新机器要重跑脚本。
+
+### 验收
+
+- 重启后打开 Chrome **不再弹窗**（2026-10-29 开机实测通过）
+- `busctl --user get-property org.freedesktop.secrets /org/freedesktop/secrets/collection/login org.freedesktop.Secret.Collection Locked`
+  → `b false`
+- `ReadAlias default` → `/org/freedesktop/secrets/collection/login`
+
+还弹的话，多半是环密码≠登录密码：重跑脚本，第 3 步答 `n`。
+
+### 注意事项
+
+- 每周安全体检会把 `/etc/pam.d/greetd` 的改动报 🔴。这是预期的，复核后
+  `sudo sec-audit --accept "钥匙环 PAM 自动解锁"`（见 [16](16-security.md)）。
+- ⚠ **改了登录密码，弹窗就会回来**：本机 `/etc/pam.d/passwd` 没挂 `pam_gnome_keyring`，
+  `passwd` 不会顺带改环密码。改完登录密码后重跑脚本，第 3 步答 `n`，把环密码改成新的。
+- 别再用 `--password-store=basic` 或空环密码去「解决」这个问题。前者只是让单个程序不碰钥匙环，
+  后者等于明文。Excalidraw 那个 flag 留着是因为它确实用不上钥匙环，见下面
+  [Excalidraw 坑 00](#五个坑)。
+
+---
+
 ## 字体
 
 | 用途 | 包 |
@@ -707,6 +762,8 @@ Excalidraw 用不到 cookie 和密码，画布在 localStorage 里，Chrome 本�
 验证方法（2026-10-09）：用 `dbus-monitor` 盯 `destination='org.freedesktop.secrets'`，
 分别用新 profile 各启动一次。不加 flag 时有 `Unlock`×2、`GetSecrets`、`SearchItems`；加了以后**全为 0**。
 ⚠ 钥匙环已解锁时看弹窗没有意义：弹窗只在锁着时出现，得看 D-Bus 调用。
+（2026-10-28 起钥匙环已能开机自动解锁，根因修掉了，见[上文](#钥匙环开机自动解锁2026-10-28)。
+这个 flag 照样留着：Excalidraw 不需要钥匙环，少一处依赖。）
 
 **0. `Exec=` 必须写绝对路径。** noctalia 启动器经 `systemd-run --user` 拉起程序，
 而它的 PATH 里**没有 `~/.local/bin`**。写成 `Exec=excalidraw` 时，终端里跑一切正常，
