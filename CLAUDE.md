@@ -28,6 +28,7 @@
 ├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
+├── system/                   一次性系统修复脚本（改 /etc、不走 manifest.map）：keyring-autounlock.sh 钥匙环开机自动解锁，见 docs/05
 ├── security/                 每周安全体检 sec-audit + ufw（`sudo ./setup.sh`，装到 /usr/local、/etc，**不走 manifest.map**，见 docs/16）
 ├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr；另有两个 elephant 补丁版已发布到 AUR，说明也在这
 ├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
