@@ -471,7 +471,7 @@ Waydroid 整屏界面被窗口规则送进命名工作区 `name:android`，它�
 | `config/workspaces.lua` | 删掉全部 `hl.workspace_rule(... persistent = true)` | persistent 会让空工作区赖着不走，等于退回写死 N 个桌面 |
 | `config/binds.lua` | 注释掉 `SUPER+ALT+数字`（绝对编号跳转）那个循环 | 按绝对编号跳会**凭空创建**该编号的工作区，与动态策略直接冲突 |
 | `config/variables.lua` | `NUM_WPM` 3 → 9 | 它不再决定「有几个桌面」，只决定生成多少个**按位置跳转**的键位。绑满 9 个没代价：位置不存在时按下即空操作 |
-| `config/windowrules.lua` | 曾加企业微信幽灵窗规则（2026-10-09 随 wine 卸载已删） | 经验见 `docs/09-wine-apps.md` 第 3 节（`initial_title` 而非 `title`，坑 14） |
+| `config/windowrules.lua` | 曾加企业微信幽灵窗规则（2026-10-09 随 wine 卸载已删）；曾给第 4 行「所有浮动窗」加 `center = true`（2026-10-29 撤掉，回到官方原样）。现存差异只剩 satty 那行 | 企业微信经验见 `docs/09-wine-apps.md` 第 3 节（`initial_title` 而非 `title`，坑 14）；撤 center 见下节 |
 | `config/misc.lua` | 关掉 Hyprland 内置壁纸与 logo，底色改成壁纸主色 | 见下节「开机时先闪一张陌生壁纸」 |
 
 **pacman 升级把它们覆盖回去了怎么办**：
@@ -486,6 +486,22 @@ hyprctl reload
 
 patch 是拿 `/etc/skel/.config/hypr/config/` 的原版做的基准（已核对一致），
 所以升级后只要 skel 那份没大改，patch 就能直接打上。冲突了就手动照上表改五处，都很小。
+
+### 浮动窗不再强制居中（2026-10-29）
+
+现象：jadx、v2rayN 点「设置」，设置窗不在主窗口上方，而是跑到**显示器正中央**。
+主窗口平铺在半边屏时尤其明显。
+
+根因不是 Hyprland，是本配置在 `windowrules.lua` 第 4 行给「所有浮动窗」加的 `center = true`：
+
+- 两个应用都跑在 XWayland 上（`hyprctl clients` 里 `xwayland: true`），设置窗是子窗口，
+  Hyprland 自动让它浮动；
+- 应用自己算好了位置（Swing 的 `setLocationRelativeTo(主窗口)` 之类），XWayland 下合成器本来会照办；
+- 全局 `center` 不管这些，一律拽到显示器中心。
+
+撤掉 `center`，只留 `persistent_size`，回到官方原样，也就是用户想要的默认行为。
+原生 Wayland 应用不受影响：协议不让应用给自己定位置，本来就由 Hyprland 决定。
+**以后哪个窗口没了居中就落到角落，就给它单独加 `center = true` 的规则，别把全局那条加回来。**
 
 ### 为什么 `decorations.lua` 不在这张表里
 

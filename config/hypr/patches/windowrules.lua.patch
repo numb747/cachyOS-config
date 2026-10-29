@@ -1,15 +1,15 @@
 --- /etc/skel/.config/hypr/config/windowrules.lua	2026-09-13 17:48:20.000000000 +0800
-+++ /home/david/cachyOS-config/config/hypr/config/windowrules.lua	2026-10-09 15:55:26.175220501 +0800
-@@ -1,7 +1,7 @@
++++ /home/david/cachyOS-config/config/hypr/config/windowrules.lua	2026-10-29 14:05:35.474327874 +0800
+@@ -1,6 +1,8 @@
  -- Window rules wiki https://wiki.hypr.land/Configuring/Basics/Window-Rules/
  
  -- Generic floating position
--hl.window_rule({ match = { float = true }, persistent_size = true })
-+hl.window_rule({ match = { float = true }, center = true, persistent_size = true })
++-- 不加 center：XWayland 弹窗(jadx/v2rayN 的设置窗)按应用自己算的位置放(一般在主窗口上方)，
++-- 全局 center 会把它们都拽到显示器正中。个别跑偏的窗口再单独加 center 规则。
+ hl.window_rule({ match = { float = true }, persistent_size = true })
  
  -- Picture-in-Picture
- hl.window_rule({
-@@ -52,7 +52,7 @@
+@@ -52,7 +54,7 @@
  hl.window_rule({ match = { class = "^(.*[Cc]alc.*)$" }, float = true, size = { "max(monitor_w, monitor_h)*0.17", "min(monitor_w, monitor_h)*0.43" } })
  hl.window_rule({ match = { class = "^(org\\.kde\\.keditfiletype)$" }, float = true })
  hl.window_rule({ match = { class = "^(org\\.kde\\.ark)$" }, size = { "max(monitor_w, monitor_h)*0.40", "min(monitor_w, monitor_h)*0.40" } })

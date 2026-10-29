@@ -1,7 +1,9 @@
 -- Window rules wiki https://wiki.hypr.land/Configuring/Basics/Window-Rules/
 
 -- Generic floating position
-hl.window_rule({ match = { float = true }, center = true, persistent_size = true })
+-- 不加 center：XWayland 弹窗(jadx/v2rayN 的设置窗)按应用自己算的位置放(一般在主窗口上方)，
+-- 全局 center 会把它们都拽到显示器正中。个别跑偏的窗口再单独加 center 规则。
+hl.window_rule({ match = { float = true }, persistent_size = true })
 
 -- Picture-in-Picture
 hl.window_rule({
