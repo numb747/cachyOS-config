@@ -1,4 +1,4 @@
-config_version = 15
+config_version = 16
 
 [lockscreen_widgets]
 enabled = false
@@ -22,7 +22,7 @@ widget_order = [ "lockscreen-login-box@DP-1" ]
     type = "login_box"
 
         [lockscreen_widgets.widget."lockscreen-login-box@DP-1".settings]
-        background_color = "surface_variant"
+        background_color = "surface_container"
         background_opacity = 0.88
         background_radius = 12.0
         center_password_text = false

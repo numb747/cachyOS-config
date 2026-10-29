@@ -1,6 +1,7 @@
 [Added Associations]
 application/json=org.gnome.TextEditor.desktop;
 application/pdf=libreoffice-draw.desktop;
+application/vnd.ms-visio.drawing.main+xml=drawio.desktop;
 text/x-shellscript=org.gnome.TextEditor.desktop;
 
 [Default Applications]
@@ -13,6 +14,7 @@ application/smil=mpv.desktop
 application/streamingmedia=mpv.desktop
 application/vnd.apple.mpegurl=mpv.desktop
 application/vnd.ms-asf=mpv.desktop
+application/vnd.ms-visio.drawing.main+xml=drawio.desktop;
 application/vnd.rn-realmedia=mpv.desktop
 application/vnd.rn-realmedia-vbr=mpv.desktop
 application/x-cue=mpv.desktop
