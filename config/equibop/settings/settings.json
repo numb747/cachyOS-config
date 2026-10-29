@@ -242,7 +242,8 @@
             "enabled": false
         },
         "IrcColors": {
-            "enabled": true
+            "enabled": true,
+            "memberListColors": true
         },
         "KeepCurrentChannel": {
             "enabled": false
@@ -708,9 +709,6 @@
         "FastDeleteChannels": {
             "enabled": false
         },
-        "FavouriteAnything": {
-            "enabled": false
-        },
         "FileUpload": {
             "enabled": false
         },
@@ -1133,22 +1131,6 @@
             "enabled": true,
             "disableAnalytics": true
         },
-        "EquicordHelper": {
-            "enabled": true,
-            "noMirroredCamera": false,
-            "removeActivitySection": false,
-            "showYourOwnActivityButtons": false,
-            "forceRoleIcon": false,
-            "restoreFileDownloadButton": false,
-            "noModalAnimation": false,
-            "disableAdoptTagPrompt": false,
-            "jsonGateway": false,
-            "hideVoiceIndicatorForMutedChannels": false,
-            "noOnboarding": false,
-            "enableAutoCorrect": false,
-            "noBulletPoints": false,
-            "accountStandingButton": false
-        },
         "Settings": {
             "enabled": true,
             "settingsLocation": "aboveNitro",
@@ -1177,6 +1159,39 @@
         },
         "WebContextMenus": {
             "enabled": true
+        },
+        "EquiTweaks": {
+            "enabled": true,
+            "noMirroredCamera": false,
+            "removeActivitySection": false,
+            "showYourOwnActivityButtons": false,
+            "forceRoleIcon": false,
+            "restoreFileDownloadButton": false,
+            "noModalAnimation": false,
+            "disableAdoptTagPrompt": false,
+            "jsonGateway": false,
+            "hideVoiceIndicatorForMutedChannels": false,
+            "noOnboarding": false,
+            "enableAutoCorrect": false,
+            "noBulletPoints": false,
+            "accountStandingButton": false,
+            "disableHolidayNotifications": false,
+            "showAllBadges": false
+        },
+        "FavoriteAnything": {
+            "enabled": false
+        },
+        "DirectFileDownload": {
+            "enabled": true
+        },
+        "JumpToTop": {
+            "enabled": false
+        },
+        "BetterBackreading": {
+            "enabled": true
+        },
+        "ExternalPlayer": {
+            "enabled": false
         }
     },
     "uiElements": {
@@ -1194,7 +1209,7 @@
         "authenticated": false,
         "url": "https://cloud.equicord.org/",
         "settingsSync": false,
-        "settingsSyncVersion": 1792104718525
+        "settingsSyncVersion": 1792978196558
     },
     "ignoreResetWarning": false
 }

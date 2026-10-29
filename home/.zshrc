@@ -19,6 +19,10 @@ export PATH="$HOME/.local/bin:$PATH"
 [ -d "$HOME/.local/share/nvim/mason/bin" ] && \
     export PATH="$HOME/.local/share/nvim/mason/bin:$PATH"
 
+# bun 全局安装的二进制(omp / oh-my-pi 在这里)
+[ -d "$HOME/.cache/.bun/bin" ] && \
+    export PATH="$HOME/.cache/.bun/bin:$PATH"
+
 # ─── 编辑器 ─────────────────────────────────────────────────────────────────
 export EDITOR=vim
 
