@@ -233,7 +233,7 @@ local function edge_ws(want_max)
     local best = nil
     for _, w in ipairs(hl.get_workspaces()) do
         local same_mon = (mon == nil) or (w.monitor == nil) or (w.monitor.name == mon.name)
-        if w.id > 0 and not w.special and same_mon then
+        if w.id and w.id > 0 and not w.special and same_mon then
             if best == nil
                 or (want_max and w.id > best)
                 or (not want_max and w.id < best) then
@@ -319,6 +319,9 @@ hl.config({
 --     不用像第 4c 节那样过滤 special：hl.get_workspaces() 【确实会】返回抽屉架
 --     那些 special 工作区，但它们的 id 是负数，永远当不上 max。取 min 的第 4c 节
 --     就没这个便宜可占，必须显式写 w.id > 0。
+--     ⚠ 2026-10-30：Hyprland 0.57.0 起 special 工作区的 w.id 变成了 nil（0.56 是负数），
+--       w.id > maxid 直接抛 "attempt to compare number with nil"，ALT+T 右上角报错。
+--       所以这里和第 4c 节都先判 w.id 非空。
 --
 --     编号会随着开关桌面出现空洞（比如剩 1、3 时新建的是 4 而不是 2），
 --     这无所谓：本配置从不按绝对编号跳转，位置跳转用的是 m~N
@@ -327,7 +330,8 @@ hl.config({
 local function next_ws()
     local maxid = 0
     for _, w in ipairs(hl.get_workspaces()) do
-        if w.id > maxid then maxid = w.id end
+        -- 0.57 起 special 的 id 是 nil（见上方注释），不判空就 compare nil 报错
+        if w.id and w.id > maxid then maxid = w.id end
     end
     return tostring(maxid + 1)
 end

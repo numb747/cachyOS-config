@@ -252,6 +252,9 @@ stub `/usr/share/hypr/stubs/hl.meta.lua` 里这些函数全是 `fun(...)`，没�
 
 6. **抽屉格 id 不稳定。** 搬空后销毁，再放东西是全新 id（实测 `-99` → `-98`）。
    所以代码一切认名字（`^special:rack(%d+)$`），绝不认 id。
+   Hyprland 0.57.0 起 special 的 id 干脆是 `nil`（`hl.get_workspace("special:rack1").id`
+   也是），抽屉架引擎因为只认名字，没受影响；出问题的是拿 id 比大小的
+   `next_ws()` / `edge_ws()`，见「纯动态工作区」。
 
 7. **抽屉架收起时 `monitor.active_special_workspace` 是 `nil`**，哪怕格里有窗口。
    查内容要用 `hl.get_workspace("special:rackN")`，它不受开合影响。
@@ -383,7 +386,7 @@ end
 local function next_ws()
     local maxid = 0
     for _, w in ipairs(hl.get_workspaces()) do
-        if w.id > maxid then maxid = w.id end
+        if w.id and w.id > maxid then maxid = w.id end
     end
     return tostring(maxid + 1)
 end
@@ -393,6 +396,14 @@ end
 special」—— 它**确实会**返回（本文档 2026-08-26 之前写反了）。真正的理由是 special 的
 id 是负数，**永远当不上 max**。取 min 的 `edge_ws()` 就没这个便宜可占，必须显式写
 `w.id > 0`。
+
+⚠️ **Hyprland 0.57.0 起 special 工作区的 id 是 `nil`**（2026-10-30 发现，0.56 是负数）。
+不只是 Lua 绑定的事，`hyprctl workspaces -j` 里同样是 `"id": null`，属于核心层的改动。
+抽屉架里只要有窗口，原来的 `w.id > maxid` 就会抛 `attempt to compare number with nil`：
+按 `ALT+T` 没反应，右上角弹出 Hyprland 的红色错误提示。`edge_ws()`（`CTRL+1/4`）也一样。
+两处都改成先判 `w.id` 不为空，nil 直接跳过，相当于「当不上 max / 进不了 `> 0`」，
+语义和 0.56 下一致。复现用 `hyprctl eval` 把循环包进 `pcall`，错误写进文件看
+（eval 没有 `print`，见坑 8）。
 
 编号会随着开关桌面出现空洞（剩 1、3 时新建的是 4 而不是 2），这无所谓——本配置
 **从不按绝对编号跳转**，位置跳转用的是 `m~N`。
@@ -422,7 +433,7 @@ local function edge_ws(want_max)
     local best = nil
     for _, w in ipairs(hl.get_workspaces()) do
         local same_mon = (mon == nil) or (w.monitor == nil) or (w.monitor.name == mon.name)
-        if w.id > 0 and not w.special and same_mon then
+        if w.id and w.id > 0 and not w.special and same_mon then
             if best == nil
                 or (want_max and w.id > best)
                 or (not want_max and w.id < best) then
@@ -436,7 +447,8 @@ end
 
 两个过滤条件都不能省：
 
-- **`w.id > 0 and not w.special`** —— 抽屉架那些 special 工作区 id 是负数（`-99` 起）。
+- **`w.id and w.id > 0 and not w.special`** —— 抽屉架那些 special 工作区 id 是负数（`-99` 起；
+  0.57 起变成 `nil`，所以最前面加了判空，见上一节）。
   不过滤的话 min 永远是抽屉格，`CTRL+1` 会一头扎进抽屉架。上面 `next_ws()` 只取 max
   所以不需要这条，别照抄那份就以为够了。
   ★ 这条同时是**两个平面互不干扰的保证**，不只是防呆 —— 见上文「抽屉架」。
@@ -450,7 +462,8 @@ end
 
 ### 命名工作区 `name:android`（第 19 节，2026-09-28）
 
-Waydroid 整屏界面被窗口规则送进命名工作区 `name:android`，它的 id 固定为 **-1337**。
+Waydroid 整屏界面被窗口规则送进命名工作区 `name:android`，它的 id 固定为 **-1337**
+（0.56 下实测。0.57 下还没复验，就算它也变成 `nil`，前面加的判空同样会把它挡在外面）。
 负数 id 让它自然落在上面这套过滤的「盲区」里，不用为它写任何特例：
 
 - `CTRL+1/4`、`ALT+T` 只认 `w.id > 0` → 看不见它，工作桌面的头尾和新建编号不受干扰；
@@ -674,6 +687,9 @@ ALT 这一组才是完整的。
 - **Hyprland ≥ 0.56 且用 Lua 配置。** `hl.bind` / `hl.dsp.*` 是 0.56+ 的新 API。
   若目标机是传统 `hyprland.conf`（`bind = SUPER, F, fullscreen, 0` 那种），本文件
   一行都跑不了，需整体翻译。`install.sh` 会检查并中止。
+  源机器 2026-10-29 升到 **0.57.0**，已知的不兼容只有一处：special 工作区 id 变成 `nil`，
+  已修（见「纯动态工作区」）。升级后 `hyprctl configerrors` 是空的，但这个错误只在按键时才触发，
+  configerrors 查不出来。
 - **noctalia**：`ALT+9`（顶栏开合）走 `noctalia msg` IPC。
 - **Walker + Elephant**：`ALT+Space` / `SUPER+.` 调 `walker`，没装或两个用户服务没起就没反应（launcher 模块，见 [13](13-launcher.md)）。
 - **UWSM**：`ALT+E` 开文件管理器用 `uwsm app -- ` 前缀（`mykeys.lua` 第 14 节的 `launchPrefix`，与官方 `binds.lua` 一致）。

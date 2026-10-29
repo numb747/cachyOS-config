@@ -283,10 +283,16 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 
 ---
 
-## 现状（2026-09-11）
+## 现状（2026-10-30）
 
-- 源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 · nvim 0.12.5 ·
-  zsh 5.9.2 + p10k 1.20.17
+- 源机器：CachyOS · Hyprland 0.57.0 · noctalia 5.4.0 · kitty 0.49.2 · nvim 0.12.6 ·
+  zsh 5.9.2 + p10k 1.20.18 · fcitx5 5.1.23（2026-10-30 按 `pacman -Q` 重取）
+- **Hyprland 0.57.0**（2026-10-29 随 `-Syu` 从 0.56.2 升上来）：**special 工作区的 id 变成 `nil`**
+  （0.56 是负数；`hyprctl workspaces -j` 里也是 `null`）。抽屉架里只要有窗口，`ALT+T` 和
+  `CTRL+1/4` 就会在 `w.id > …` 处抛 compare-nil，表现是按键没反应、右上角弹红色报错。
+  `mykeys.lua` 的 `next_ws()` / `edge_ws()` 已加判空。抽屉架引擎只认名字不认 id，没受影响。
+  ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来；
+  `name:android` 的 id 在 0.57 下还没复验。见 `docs/02-hyprland.md`「纯动态工作区」
 - Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
   （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
