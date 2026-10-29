@@ -115,6 +115,27 @@
   笔记本运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
   （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
   别照着那条去「补装」。
+- 钥匙环开机自动解锁（`system/keyring-autounlock.sh`）2026-10-29 已在笔记本跑完，密钥环密码本来就和登录密码一致。
+
+### 安全体检与防火墙：笔记本多放行两条（2026-10-29）
+
+`sudo ./setup.sh audit` 和 `sudo ./setup.sh firewall` 笔记本都跑过了，
+后者自动认出的网段是 **`192.168.0.0/24`**（wlan0），不是源机器的 `192.168.1.0/24`。
+`setup.sh` 的放行清单是照源机器在用的服务写的，笔记本另有两个要对局域网开的服务，
+**没改 `setup.sh`**（那份两台共用），开墙后手工补了两条：
+
+```bash
+sudo ufw allow from 192.168.0.0/24 to any port 53317 comment 'LocalSend（笔记本）'      # 不写 proto = tcp+udp，发现走 udp
+sudo ufw allow from 192.168.0.0/24 to any port 8000 proto tcp comment 'SillyTavern（笔记本）'
+```
+
+- **重跑 `setup.sh firewall` 不会删掉这两条**（ufw 规则是累加的），但换了网段（家里路由器改了地址）要按新网段重加。
+- **sshd（22）有意没放行**：笔记本 sshd 是 enabled 的，但只有本机 `::1` 登录过，局域网用不到。
+  要从别的设备 ssh 进来再加。
+- SillyTavern 能放给局域网是因为它开着 `basicAuthMode`（`~/SillyTavern/config.yaml`），关了就别放。
+- ⚠ 笔记本会带出门：外面很多 Wi-Fi 也是 `192.168.0.x`，那时这些放行对同网的陌生人一样有效。
+- 开墙后日志里的 `UFW BLOCK ... PROTO=2` 是路由器/局域网设备的 IGMP 组播查询，噪音。
+  若过一阵 LocalSend / KDE Connect **发现不到设备**，再考虑放行 IGMP（有的路由器收不到应答会停发组播）。
 
 ### 壁纸库两台不一样大
 
