@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Claude Code 的 chrome-devtools MCP 入口（claude mcp add --scope user chrome-devtools -- 本脚本）。
+#
+# 连的是 chrome-ai 那个独立 profile 的 Chrome（127.0.0.1:9222），而不是让 MCP 自己另起一个：
+# 这样你手动开的窗口和 AI 操作的是同一个，登录状态共享，AI 在干什么也看得见。
+# 没开就先拉起来。⚠ stdout 是 MCP 的 stdio 通道，这里任何输出都要扔掉。
+#
+# 版本钉死：@latest 每次启动都去 npm 查新版，慢且等于自动更新一段能操控浏览器的代码。
+# 升级就改下面的版本号。
+
+PORT=9222
+VERSION=1.12.0
+
+up() { curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/json/version"; }
+
+if ! up; then
+    # 经 Hyprland 拉起，进程落在桌面会话里，不跟 Claude Code 的终端同生共死；
+    # 不在 Hyprland 里（比如 ssh 进来）就退回 setsid。
+    hyprctl dispatch "hl.dsp.exec_cmd(\"uwsm app -- $HOME/.local/bin/chrome-ai\")" >/dev/null 2>&1 \
+        || setsid -f "$HOME/.local/bin/chrome-ai" >/dev/null 2>&1 </dev/null
+    for _ in $(seq 50); do up && break; sleep 0.2; done
+fi
+
+export CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1
+exec npx -y "chrome-devtools-mcp@$VERSION" \
+    --browser-url="http://127.0.0.1:$PORT" \
+    --no-usage-statistics \
+    --no-performance-crux

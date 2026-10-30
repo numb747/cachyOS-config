@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AI Chrome
+GenericName=给 Claude Code 用的 Chrome
+Comment=独立配置的 Chrome，开着调试端口供 chrome-devtools MCP 连接（~/.local/bin/chrome-ai）；快捷键 SUPER+CTRL+W
+Exec=/home/david/.local/bin/chrome-ai %U
+Icon=google-chrome
+Terminal=false
+Categories=Network;WebBrowser;
+Keywords=ai;chrome;mcp;devtools;claude;浏览器;liulanqi;
+StartupWMClass=chrome-ai

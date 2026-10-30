@@ -545,3 +545,57 @@ fork 的 `bin/ccd` 启动 `claude` 时带上了 `--dangerously-skip-permissions`
 离开 >1h → 先压缩再走     大段阅读 → 交给子代理
 脚本 → claude5m -p        中途 → 不换模型、不动 MCP
 ```
+
+---
+
+## 12 · AI Chrome：给 Claude Code 一个能操作的浏览器（2026-10-30）
+
+让 Claude Code 自己开网页、读内容、点按钮、填表，用的是 Google 官方的
+[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)。
+浏览器是一个**独立配置**的 Chrome，和日常浏览分开：
+
+| | 配置目录 | 打开方式 |
+|---|---|---|
+| 日常浏览 | Firefox（系统默认浏览器） | `Super+W` |
+| 日常 Chrome | `~/.config/google-chrome` | 启动器 |
+| **AI Chrome** | **`~/.config/chrome-ai`** | `Super+Ctrl+W`、启动器搜「AI Chrome」，或者 MCP 自动拉起 |
+
+窗口 class 是 `chrome-ai`（`--class` 在 Wayland 下就是 app_id），Hyprland 规则和任务栏都能把它和日常 Chrome 分开。
+
+### 怎么接上的
+
+```
+Claude Code ──stdio──> bin/chrome-ai-mcp ──npx──> chrome-devtools-mcp@1.12.0
+                              │                         │ --browser-url
+                              │ 没开就先拉起              ▼
+                              └──────────────> bin/chrome-ai（127.0.0.1:9222）
+```
+
+- **为什么连已有实例，而不让 MCP 自己起 Chrome**：MCP 自己起的是另一个 profile
+  （默认 `~/.cache/chrome-devtools-mcp/chrome-profile`），你手动开的窗口和 AI 操作的不是同一个，
+  登录状态不通。现在两边是**同一个实例**：你在 AI Chrome 里登录过的网站，AI 直接能用，AI 在干什么你也看得见。
+- **独立 profile 是硬性要求**：Chrome 136 起不许在默认 profile 上开 `--remote-debugging-port`。
+- **注册在 `~/.claude.json`（user 作用域），不入包**。新机器装完要手动执行一次：
+  `claude mcp add --scope user chrome-devtools -- ~/.local/bin/chrome-ai-mcp`。
+  在**新开的** Claude Code 会话里才能用（第 11 节：会话中途别动 MCP）。
+- **版本钉在 1.12.0**：用 `@latest` 的话，每次启动都要去 npm 查新版，既慢，也等于自动更新一段能操控浏览器的代码。
+  升级就改 `chrome-ai-mcp` 里的 `VERSION`。另外关掉了使用统计（`--no-usage-statistics`）和 CrUX 上报。
+
+### 坑
+
+**1. 调试端口谁都能连。** 9222 只监听 127.0.0.1，但本机任何进程都能连上来控制这个浏览器、读它的 cookie。
+所以 **AI Chrome 里别登录银行、主力邮箱这类账号**，只登 AI 需要用的网站。网页里藏的提示词注入
+（让 AI 去执行网页里写的指令）也是同一个道理：这个 profile 能碰到的东西越少越好。
+
+**2. MCP 的 stdout 是通信通道。** `chrome-ai-mcp` 里拉起 Chrome 那一步的输出必须全部扔掉，
+漏出一行字，Claude Code 那边就会解析失败、连接断开。
+
+**3. 1.12.0 默认按页面路由（page id routing）。** `take_snapshot` 等页面级工具必须带 `pageId`，
+不带就报 `Invalid arguments ... pageId`。Claude Code 会先调 `list_pages` 拿到 id，自己处理好；
+只有手写 JSON-RPC 测试时才会碰到。
+
+**4. 每周安全体检会报它。** `sec-audit` 监控 Claude 的 MCP 配置（`docs/16`），
+新增这个 MCP 后下一次体检会报变化，属于预期，复核后 `--accept`。
+
+验收（2026-10-30）：先关掉 AI Chrome，用 MCP 握手，1.4 秒内拉起 Chrome，32 个工具可用，
+`new_page` 打开 example.com 后，`take_snapshot` 能读出正文。

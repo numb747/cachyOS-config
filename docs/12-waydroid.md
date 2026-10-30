@@ -1,7 +1,7 @@
 # 12 · Waydroid：Android 容器
 
 > Android 13（LineageOS VANILLA）跑在 LXC 容器里，AMD 核显硬件加速，
-> 整屏界面独占 `name:android` 桌面，网络自动走 v2rayN 的 TUN，带 ARM 转译和 Rime 输入法。
+> 整屏界面住在覆盖层 `special:android`（`ALT+A` 开合），网络自动走 v2rayN 的 TUN，带 ARM 转译和 Rime 输入法。
 > 2026-09-28 新增。
 >
 > ⚠ **这不是 `install.sh` 的模块。** 需要 root 的系统级步骤（装包、`/etc` 下的 drop-in、
@@ -172,12 +172,18 @@ drop-in 做的就是把 iptables 分支那两条补进 docker 所在的那张表
 | 侧 | 设置 | 作用 |
 |---|---|---|
 | Android | `persist.waydroid.width/height = 2560/1440` | 存在 data 分区，重启不丢；改完要重启 session |
-| Hyprland | `mykeys.lua` 第 19 节：`class ^(Waydroid)$` → `name:android` + `fullscreen = true` | 实测窗口 2560×1440 @ (0,0)，fullscreen 模式 2（盖住顶栏） |
+| Hyprland | `mykeys.lua` 第 19 节：`class ^(Waydroid)$` → `special:android` + `fullscreen = true` | 实测窗口 2560×1440 @ (0,0)，fullscreen 模式 2（盖住顶栏） |
 
 `persist.waydroid.multi_windows` 保持默认（空 = 关）。多窗口模式下每个 app 的 class 是
 `waydroid.<包名>`，第 19 节的规则不管它们。
 
-### `name:android` 和导航键的关系
+### 覆盖层 `special:android` 和 `ALT+A`（2026-10-30 起）
+
+整屏界面现在住在覆盖层里，`ALT+A` 开合（Waydroid 没开时拉起它），开 Waydroid 会自动弹出。
+从命名工作区改过来，是因为它在 `CTRL+2/3` 的环里会让左右切换的动画方向反过来。
+原因、方案取舍和实测见 [docs/02](02-hyprland.md)「Android 覆盖层」。
+
+### ~~`name:android` 和导航键的关系~~（2026-10-30 已改成覆盖层，下面留作历史）
 
 命名工作区的 id 固定为 **-1337**。2026-09-28 从每个桌面出发各按一次 `m-1` / `m+1` 实测：
 

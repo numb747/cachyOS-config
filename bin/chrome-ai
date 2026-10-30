@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# AI 专用 Chrome：独立配置目录 + 远程调试端口，给 Claude Code 的 chrome-devtools MCP 连。
+#
+#   - 配置在 ~/.config/chrome-ai，和日常 Chrome（~/.config/google-chrome）、
+#     Excalidraw 的 profile 完全隔开；在这里登录的网站，AI 都能用，所以别登敏感账号。
+#   - Chrome 136+ 不许在默认 profile 上开调试端口，独立 --user-data-dir 是硬性要求。
+#   - 端口只监听 127.0.0.1，但本机任何进程都能连上来操控这个浏览器。
+#   - 已经开着时再运行：Chrome 把参数转给已有进程，只是多开一个窗口，端口不冲突。
+#
+# 手动打开：启动器搜「AI Chrome」或 SUPER+CTRL+W；MCP 那边由 chrome-ai-mcp 按需拉起。
+
+exec google-chrome-stable \
+    --user-data-dir="$HOME/.config/chrome-ai" \
+    --remote-debugging-port=9222 \
+    --class=chrome-ai \
+    --no-first-run \
+    --no-default-browser-check \
+    "$@"
