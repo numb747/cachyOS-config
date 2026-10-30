@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "/home/david/.local/bin/chrome-ai-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

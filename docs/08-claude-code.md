@@ -606,3 +606,56 @@ Claude Code ──stdio──> bin/chrome-ai-mcp ──npx──> chrome-devtool
 
 验收（2026-10-30）：先关掉 AI Chrome，用 MCP 握手，1.4 秒内拉起 Chrome，32 个工具可用，
 `new_page` 打开 example.com 后，`take_snapshot` 能读出正文。
+
+## 13 · MCP 按需加载：ccx 套餐（2026-10-31）
+
+**问题**：MCP 不像 skill。skill 是懒加载——平时只有一行简介在系统提示里，调用那一刻才读正文，装再多都几乎零开销。
+MCP 不是：只要配在**全局**（`~/.claude.json` 的 `mcpServers`）或由**插件**启用，每个会话一开就把进程拉起来、
+把全套工具定义常驻进上下文。平时用不到的 `mitmweb`（抓包）、`chrome-devtools`（AI 浏览器）、`ida`（逆向）、`burp`
+就这么白占着 token 和内存。
+
+**改法**：全局 `mcpServers` 清空、停用 `ida-mcp` 插件，把每个 MCP 拆成 `~/.claude/mcp/<名字>.json` 一个片段，
+启动时用 `bin/ccx` 按名字叠 `--mcp-config` 带上。平时干净，用到才起。
+
+```
+ccx            # 干净，只有 matrix-sync（手机同步）
+ccx web        # + chrome-devtools
+ccx cap web    # + mitmweb + chrome
+ccx rev        # + ida 逆向
+ccx -l         # 列出可用套餐
+ccx web -- "帮我看下这个页面"   # -- 之后原样透传给 claude
+```
+
+套餐名 → MCP：`web`=chrome-devtools、`cap`=mitmweb、`rev`=ida、`burp`=burp。加新套餐直接往 `~/.claude/mcp/`
+丢一个 `{"mcpServers":{...}}` 文件，`ccx` 自动认。
+
+### 为什么经 ccm、而不是直接 claude
+
+`ccx` 最后 `exec ccm`（见 `docs/14`、`claude-discord-sync`），这样 **Matrix 手机同步照常保留**。
+`ccm` 用 `exec … "$@"` 透传参数，而 Claude Code 的 `--mcp-config` **可以重复出现、全部合并**，所以叠套餐就是
+多拼几个 `--mcp-config`。Matrix daemon 平时起的是裸 `ccm`（无套餐）→ 现在是干净的；要给手机同步的会话带 MCP，
+得自己在 tmux pane 里跑 `ccx <套餐>`。
+
+### 密钥怎么不泄露
+
+`cap.json` 要 mitmweb 的 token。入库版写成占位符 `"MITMWEB_TOKEN": "${MITMWEB_TOKEN}"`
+（Claude Code 支持在 `command`/`args`/`env`/`url`/`headers` 里展开 `${VAR}` 和 `${VAR:-default}`），
+真值放 `~/.claude/mcp/secrets.env`（`export MITMWEB_TOKEN=…`）。该文件 **gitignore、不入包**（见 CLAUDE.md「边界」），
+`ccx` 启动时 `source` 它，变量进子进程环境，claude 再展开回真值。新机器要手动建 `secrets.env`。
+
+### 坑
+
+**1. `--mcp-config` 是可变参数，会吞后面的裸 token。** `claude --mcp-config a.json mcp list` 会把 `mcp`、`list`
+也当成配置路径。`ccx` 在套餐后补一个布尔 flag `--dangerously-skip-permissions` 当终止符，透传的 prompt 才不被吞。
+
+**2. ida 片段的路径锁了插件版本号**（`…/ida-mcp/20261008.0.1`）。插件已停用不会自更新；将来若报路径不存在，
+去 `~/.claude/plugins/cache/HexRaysSA/ida-mcp/` 看新版本号改 `rev.json`。片段里 MCP 名是 `ida`
+（原插件是 `plugin:ida-mcp:ida`），工具名相应变 `mcp__ida__*`。
+
+**3. 改动只对新会话生效。** 当前已加载的 MCP 不变，下次启动才干净。
+
+**4. settings.json 的插件停用不入包。** `~/.claude/settings.json` 含明文 token、本就不入包，所以
+「停用 ida-mcp 插件」这个开关只在本机生效，新机器装 cc 模块不会带过去（新机器可能根本没装那插件，无所谓）。
+
+验收（2026-10-31）：`ccx -l` 列出 4 个套餐；`ccx cap` 启动的会话里 `${MITMWEB_TOKEN}` 展开为真值、
+mitmweb 连得上；裸 `ccm`（含手机发起的会话）只有 matrix-sync；`./check.sh` 凭据扫描无命中。

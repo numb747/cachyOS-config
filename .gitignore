@@ -25,6 +25,8 @@ settings.json
 id_rsa*
 id_ed25519*
 .env
+secrets.env
+claude/mcp/secrets.env
 
 # ── 杂项 ───────────────────────────────────────────────────────────────────
 *.swp

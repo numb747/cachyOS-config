@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# ccx — 启动 Claude Code(经 ccm 保留 Matrix 手机同步),按名字叠加 MCP「套餐」。
+#
+# 用法:
+#   ccx                   只有 matrix-sync,最干净
+#   ccx web               + chrome-devtools(AI 浏览器调试)
+#   ccx cap web           + mitmweb + chrome
+#   ccx rev               + ida(逆向)
+#   ccx -l | --list       列出可用套餐
+#   ccx web -- <参数...>   -- 之后原样透传给 claude(prompt / 其他 flag)
+#
+# 套餐片段在 ~/.claude/mcp/<名字>.json,一个文件一个 MCP,想加新套餐直接丢文件进去。
+set -euo pipefail
+MCPDIR="$HOME/.claude/mcp"
+
+# 本地密钥(gitignored)。片段里用 ${VAR} 占位,真值在这里,Claude Code 会展开 env。
+[ -f "$MCPDIR/secrets.env" ] && . "$MCPDIR/secrets.env"
+
+if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ]; then
+  echo "可用 MCP 套餐(${MCPDIR}/):"
+  shopt -s nullglob
+  for f in "$MCPDIR"/*.json; do
+    name=$(basename "$f" .json)
+    srv=$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1])).get('mcpServers',{}).keys()))" "$f" 2>/dev/null || echo "?")
+    printf "  %-8s -> %s\n" "$name" "$srv"
+  done
+  exit 0
+fi
+
+args=()
+packs=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --) shift; break ;;          # 其余原样透传给 claude
+    -*) break ;;                 # 以 - 开头的也当成 claude 的参数
+    *)
+      f="$MCPDIR/$1.json"
+      if [ ! -f "$f" ]; then
+        echo "ccx: 未知套餐 '$1'(用 ccx -l 看可用)" >&2
+        exit 1
+      fi
+      packs+=("$1")
+      args+=(--mcp-config "$f")
+      shift ;;
+  esac
+done
+
+if [ ${#packs[@]} -gt 0 ]; then
+  echo "ccx: 本次加载套餐 -> ${packs[*]}" >&2
+else
+  echo "ccx: 干净启动(仅 matrix-sync)" >&2
+fi
+
+# 末尾补一个布尔 flag 终止 --mcp-config 的可变参数吞噬,避免把透传的 prompt 误当路径。
+exec ccm "${args[@]}" --dangerously-skip-permissions "$@"
