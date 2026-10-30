@@ -152,7 +152,24 @@ zen = { toggles = { dim = false } },
 `Snacks.toggle.zen():map("<leader>uz")` 手动调用，snacks 的 `enabled` 只拦得住
 自启动 setup 的那类模块（indent/scroll/notifier），拦不住按需调用。
 
+#### no-neck-pain 3.0：两侧第一行冒出行号（2026-10-30）
+
+`:Lazy update` 把插件从 2.x 带到了 3.0.5（3.0.0 是破坏性大版本，见插件 CHANGELOG）。
+之后开 `<leader>z`，左右两条边距**各在第一行显示一个行号、还带光标行高亮**。
+headless 下用真实配置实测：当时开着的 `scratchPad`（侧边当 markdown 草稿本）模式下，
+侧边窗口 `number` / `relativenumber` / `cursorline` 全是 true，`statuscolumn` 也是 LazyVim 那套 ——
+插件默认表里给边距设的 `wo` 那几项在草稿本模式下没生效。（winbar 是空的，不是它。）
+
+处理：**关掉 scratchPad**，两侧回到 `ft=no-neck-pain` 的纯填充，那几项全是 false；
+另在 `buffers.wo` 里补上 `statuscolumn = ""`、`signcolumn = "no"`（这两项是 LazyVim 全局设的，
+插件默认表不管）。草稿本本身从来没存上过盘 —— `location = "~/doc/"` 指的目录在两台机器上
+都不存在，全盘找不到 `no-neck-pain-*.markdown` —— 所以关掉没有损失。
+`scratchPad.location` 在 3.0 也已废弃（改叫 `pathToFile`），真要草稿本得按新写法重配。
+
 #### no-neck-pain 上游补丁：在 zen 里按 `<leader>z` 会让整个 nvim 闪退（2026-09-18）
+
+> ★ **2026-10-30 补丁已删**：3.0 的 `util/api.lua` 已改成和补丁一样只看传入的 `win`。
+> 下面留作这个坑的原理记录。
 
 复现：`<leader>z` 开 NNP → `<leader>uz` 开 zen → 再按 `<leader>z` 关 NNP，
 **nvim 直接退出，终端窗口跟着关掉**。执行的是带 `!` 的 `quitall!`（disable 里有一道
@@ -202,9 +219,10 @@ end
 - **关**：`<leader>uz` 只退 zen；`<leader>z` 两层一起退。后者的机制是 NNP 拆除时
   会把焦点交还给主窗口（`nvim_set_current_win(curr)`），而 zen 的契约是「焦点离开即销毁」，
   于是一个动作触发了两层退出 —— 两个插件互不知情，是两个正交设计恰好对接上了。
-- `<C-w>w` 从 zen 切出去会掉进左边那条空白 scratchpad（NNP 默认
+- `<C-w>w` 从 zen 切出去会掉进左边那条空白边距（2.x 默认
   `skipEnteringNoNeckPainBuffer = false`，不自动跳过边距窗口）。用 `<C-w>h`/`l`
-  或直接 `<leader>uz` 更稳。
+  或直接 `<leader>uz` 更稳。3.0 把默认值改成了 `true`，草稿本关掉后理应会跳过边距，
+  但没实测过。
 
 ⚠ **别在 toggleterm 的浮动终端里按 `<leader>uz`。** 两者是同一个契约（失焦即销毁）：
 zen 一创建窗口，`WinLeave` 就触发 toggleterm 的 `handle_term_leave` → `term:close()`
@@ -701,7 +719,7 @@ icons = {} }`，于是标题只剩颜色、`#` 原样保留。`render-markdown.l
   是很烦的事。要录宏用 `@` 系列或临时 `:unmap q`。
 - **tokyonight 透明**：`transparent = true` + sidebars/floats 也透明，配合 kitty 的
   `background_opacity 0.6` 才能真的透出壁纸。只改一边是没用的。
-- **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，scratchPad 存在 `~/doc/`。
+- **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，两侧是纯空白边距（scratchPad 2026-10-30 已关）。
   它和 `<leader>uz`（snacks.zen）是两层关系，另有一个「在 zen 里按 `<leader>z`
   会闪退」的上游补丁 —— 都在上面「专注模式」一节。
 - **dadbod 数据库客户端已关**（2026-10-15，`disabled.lua`）：`lang.sql` 扩展会顺带装

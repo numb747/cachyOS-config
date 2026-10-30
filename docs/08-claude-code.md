@@ -575,6 +575,13 @@ Claude Code ──stdio──> bin/chrome-ai-mcp ──npx──> chrome-devtool
   （默认 `~/.cache/chrome-devtools-mcp/chrome-profile`），你手动开的窗口和 AI 操作的不是同一个，
   登录状态不通。现在两边是**同一个实例**：你在 AI Chrome 里登录过的网站，AI 直接能用，AI 在干什么你也看得见。
 - **独立 profile 是硬性要求**：Chrome 136 起不许在默认 profile 上开 `--remote-debugging-port`。
+- **`--password-store=basic`：不碰系统钥匙环**（2026-10-30 加）。默认 Chrome 把加密密钥存进
+  gnome-keyring / freedesktop Secret portal，于是全新 profile 首次启动（或钥匙环还没解锁时）会弹
+  「解锁登录钥匙环」密码框。AI Chrome 按设计不登敏感账号（见下方坑 1），所以直接 `basic`——
+  加密密钥落在 profile 目录里，**任何机器、任何时候都不再弹密码框**，也绕开 Chrome 156 那个
+  `prev_init_success:false`、时好时坏的 Secret portal 后端。代价是 profile 里存的密码等于明文，
+  但这个 profile 本就不该存密码。切到 basic 前若已用钥匙环起过一次，旧密钥不通，清掉
+  `~/.config/chrome-ai` 重新起最干净（里面没有值得留的数据）。
 - **注册在 `~/.claude.json`（user 作用域），不入包**。新机器装完要手动执行一次：
   `claude mcp add --scope user chrome-devtools -- ~/.local/bin/chrome-ai-mcp`。
   在**新开的** Claude Code 会话里才能用（第 11 节：会话中途别动 MCP）。
