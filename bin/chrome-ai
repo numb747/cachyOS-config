@@ -6,6 +6,9 @@
 #   - Chrome 136+ 不许在默认 profile 上开调试端口，独立 --user-data-dir 是硬性要求。
 #   - 端口只监听 127.0.0.1，但本机任何进程都能连上来操控这个浏览器。
 #   - 已经开着时再运行：Chrome 把参数转给已有进程，只是多开一个窗口，端口不冲突。
+#   - --password-store=basic：加密密钥放进 profile 目录而不是系统钥匙环。这个 profile
+#     按设计不登敏感账号，用 basic 存储换来「任何机器、任何时候都不弹钥匙环密码框」，
+#     也绕开 Chrome 156 那个时好时坏的 freedesktop Secret portal 后端。见 docs/08 第 12 节。
 #
 # 手动打开：启动器搜「AI Chrome」或 SUPER+CTRL+W；MCP 那边由 chrome-ai-mcp 按需拉起。
 
@@ -13,6 +16,7 @@ exec google-chrome-stable \
     --user-data-dir="$HOME/.config/chrome-ai" \
     --remote-debugging-port=9222 \
     --class=chrome-ai \
+    --password-store=basic \
     --no-first-run \
     --no-default-browser-check \
     "$@"
