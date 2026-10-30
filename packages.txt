@@ -81,6 +81,8 @@ dolphin
 # 和手机免确认互传文件 + 剪贴板同步；bin/send-to-phone（Dolphin 右键「发送到手机」）靠它
 kdeconnect
 firefox
+# google-chrome (AUR) bin/chrome-ai（给 Claude Code 的 chrome-devtools MCP 用）和 bin/excalidraw 靠它；
+#                     MCP 本体走 npx 现拉，靠上面的 nodejs/npm。见 docs/08 第 12 节。
 satty
 jq
 yay

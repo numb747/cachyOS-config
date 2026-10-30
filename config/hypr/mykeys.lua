@@ -79,12 +79,25 @@ hl.unbind("SUPER + E")
 -- ────────────────────────────────────────────────────────────────────────────
 local rack = {}
 
+--  Android 覆盖层（第 19 节）开着时，导航键的第一下只负责把它收起来。
+--  否则 m±1 切的是底下那个桌面，Android 盖在最上面纹丝不动，看起来像按键失灵。
+local ANDROID_WS = "special:android"
+local function android_open()
+    local mon = hl.get_active_monitor()
+    local sw  = mon and mon.active_special_workspace
+    return sw ~= nil and tostring(sw.name) == ANDROID_WS
+end
+
 --  把「工作平面的行为」和「抽屉架里的行为」打包成一个键。
 --    work    —— 工作平面的行为，可以是 dispatcher 对象也可以是函数
 --                （实测预先构造的 dispatcher 可以延后 hl.dispatch，不必每次重建）
 --    in_rack —— 抽屉架里的行为，收到当前格号
 local function two_planes(work, in_rack)
     return function()
+        if android_open() then
+            hl.dispatch(hl.dsp.workspace.toggle_special("android"))
+            return
+        end
         local slot = rack.current_slot()
         if slot then return in_rack(slot) end
         if type(work) == "function" then work() else hl.dispatch(work) end
@@ -587,6 +600,10 @@ function rack.move_window()
     local target = mon.active_workspace          -- 底下的工作桌面，抽屉浮出时也不变
     local w      = hl.get_active_window()
 
+    -- Android 覆盖层不归抽屉架管（第 19 节），这个键在那里什么都不做，
+    -- 免得走进 ① 把 Waydroid 窗口捞到工作桌面上去
+    if android_open() then return end
+
     -- ① 焦点已在抽屉架里
     if w and w.workspace and w.workspace.special then
         if target then
@@ -948,29 +965,53 @@ hl.bind("SUPER + V", hl.dsp.exec_cmd("walker -m clipboard"))
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 19. Waydroid：整屏界面独占 name:android 桌面，真全屏
+-- 19. Waydroid：整屏界面住在覆盖层 special:android，真全屏 ／ ALT + A 开合
 --
 --      Waydroid 的 Android 显示分辨率在窗口【创建那一刻】就定死了，之后窗口
 --      怎么缩放它都不跟 —— 平铺开出来是 1265x705，就一直是 1265x705。
 --      所以不去追「自适应」，而是让窗口一出生就是整屏：
---        · 这条规则：送到独立桌面 + 真全屏（实测 fullscreen 模式 2 = 盖住顶栏）
+--        · 这条规则：送进覆盖层 + 真全屏（实测 fullscreen 模式 2 = 盖住顶栏）
 --        · Android 侧：persist.waydroid.width/height = 2560/1440（见 docs/12）
 --      两边对上，Android 按原生分辨率渲染，不拉伸。
 --
---      name:android 是命名工作区，id 固定为 -1337。对各导航键的影响（2026-09-28 实测）：
---        · ALT+[ ] / CTRL+2/3（m±1）：按 id 排序 + 到头回绕，android 排最左，
---          体感上夹在「最后一个」和「第一个」工作桌面之间 —— 两头都能一步够到
---        · CTRL+1/4、ALT+T：只认 w.id > 0，看不见 android，工作桌面编号不受干扰
---        · 抽屉架：android 不是 special，两个平面照旧互不相干
+--      ★ 为什么是覆盖层（special）而不是命名桌面（2026-10-30 改）
+--        原来送的是 name:android。它挤在 m±1 的环里，排在最后一个桌面和 1 号之间，
+--        而切桌面的 slide 动画按 id 大小定方向、不看按的是哪个键 —— android 的 id
+--        比谁都小（0.56 是 -1337，0.57 是 nil），于是从 3 号按 CTRL+3 进 android，
+--        画面却往左滑，出来时同样反着。改成覆盖层后：
+--          · 环里只剩工作桌面：1 → 2 → 3 → 1，绕圈保留
+--          · 进出 Android 是纵向的 specialWorkspaceIn/Out 动画，和左右切桌面分得开
+--          · 收起即回原处，同抽屉架（第 10 节）
+--        实测（0.57.0）：规则把窗口送进 special 时覆盖层会自动打开，所以开 Waydroid
+--        就直接弹出来；挪进 special 后真全屏和 2560x1440 都保留，画面正常。
+--
+--      覆盖层开着时，第 1b 节 two_planes 管的那些导航键第一下只负责收起它
+--      （否则切的是底下的桌面，Android 盖着不动，像是按键失灵）；
+--      ALT+SHIFT+S 在这里什么都不做（见第 10 节 rack.move_window 开头）。
+--      ALT+S 照常：抽屉架的格子直接替换掉 Android 覆盖层。
+--
 --      只配整屏界面（class = Waydroid）。多窗口模式（persist.waydroid.multi_windows）
 --      下每个应用的 class 是 waydroid.<包名>，不归这条管 —— 本机没开那个模式。
 -- ────────────────────────────────────────────────────────────────────────────
 hl.window_rule({
     name       = "waydroid-fullscreen",
     match      = { class = "^(Waydroid)$" },
-    workspace  = "name:android",
+    workspace  = ANDROID_WS,
     fullscreen = true,
 })
+
+-- ALT + A：开合 Android 覆盖层，手感同 ALT + S。
+-- 还没开 Waydroid 就把它拉起来（命令同 Waydroid.desktop 的 Exec），上面的规则会让它直接弹出。
+-- ALT + A 在所有绑定里都没被占用（官方只有 SUPER + A），纯新增。
+hl.bind("ALT + A", function()
+    for _, w in ipairs(hl.get_windows()) do
+        if w.class == "Waydroid" then
+            hl.dispatch(hl.dsp.workspace.toggle_special("android"))
+            return
+        end
+    end
+    hl.exec_cmd("waydroid")
+end)
 
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -1001,3 +1042,26 @@ hl.window_rule({
     center = true,
     size   = { "monitor_w*0.45", "monitor_h*0.50" },
 })
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 21. AI Chrome：SUPER + CTRL + W（给 Claude Code 的 chrome-devtools MCP 用）
+--
+--      分工：日常浏览是 Firefox（SUPER + W，官方绑定，仍是系统默认浏览器）；
+--      AI Chrome 是独立 profile（~/.config/chrome-ai）+ 9222 调试端口，Claude Code
+--      经 MCP 连上去读网页、点按钮。手动打开它是为了登录网站、看 AI 在干什么 ——
+--      和 MCP 操作的是同一个实例。没开着时 MCP 会自己拉起，所以这个键不是必须的。
+--      细节在 bin/chrome-ai 与 bin/chrome-ai-mcp 开头。
+--
+--      键位跟 SUPER + W 成对：同一个 W，多按 CTRL =「另一个浏览器」。
+--      没用 ALT（本文件动作类修饰键）：ALT + B 在 zsh/readline 里是「后退一个词」，
+--      全局 bind 会截掉；ALT + W 已是关窗。SUPER + CTRL + W 全局无人占用，纯新增。
+--      ★ 绝对路径，理由同第 20 节（exec 环境 PATH 不含 ~/.local/bin）。
+--
+--      透明度：官方 windowrules.lua 只给 firefox|zen 做了 opacity 1.0 override，
+--      这个窗口 class 是 chrome-ai（bin/chrome-ai 里 --class 设的），会吃到
+--      inactive_opacity 0.85，网页发虚，这里补上同样的规则。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.bind("SUPER + CTRL + W", hl.dsp.exec_cmd(launchPrefix .. "$HOME/.local/bin/chrome-ai"))
+
+hl.window_rule({ match = { class = "^(chrome-ai)$" }, opacity = "1.0 override" })

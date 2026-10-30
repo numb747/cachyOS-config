@@ -25,7 +25,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     17 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── system/                   一次性系统修复脚本（改 /etc、不走 manifest.map）：keyring-autounlock.sh 钥匙环开机自动解锁，见 docs/05
@@ -109,7 +109,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改配色 / 顶栏 / 字体 / 壁纸 / 输入法 | `docs/05-theme-ui.md` |
 | 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
-| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节） |
+| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节） |
 | wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
@@ -291,9 +291,12 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   （0.56 是负数；`hyprctl workspaces -j` 里也是 `null`）。抽屉架里只要有窗口，`ALT+T` 和
   `CTRL+1/4` 就会在 `w.id > …` 处抛 compare-nil，表现是按键没反应、右上角弹红色报错。
   `mykeys.lua` 的 `next_ws()` / `edge_ws()` 已加判空。抽屉架引擎只认名字不认 id，没受影响。
-  ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来；
-  `name:android` 的 id 在 0.57 下还没复验。见 `docs/02-hyprland.md`「纯动态工作区」
-- Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
+  ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来。
+  见 `docs/02-hyprland.md`「纯动态工作区」
+- **Waydroid 改住覆盖层**（2026-10-30）：`name:android` → `special:android`，`ALT+A` 开合。
+  原因是 slide 动画按 id 定方向，android 夹在环里时 `3 → CTRL+3 → android` 画面反着滑。
+  `CTRL+2/3` 的绕圈（`1 → 2 → 3 → 1`）是用户**有意保留**的，别改成到头停住。见 `docs/02`「Android 覆盖层」
+- Hyprland 绑定 **124** 条（自定义 39 条）；`hyprctl binds -j | jq length` 可验
   （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
@@ -404,8 +407,8 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
   ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
   非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
-- **Waydroid**（2026-09-28 新增，**不是** install.sh 模块）：Android 13 容器，整屏界面独占
-  `name:android` 桌面（`mykeys.lua` 第 19 节，包里唯一纳管的部分），网络自动走 TUN、
+- **Waydroid**（2026-09-28 新增，**不是** install.sh 模块）：Android 13 容器，整屏界面住在
+  覆盖层 `special:android`，`ALT+A` 开合（`mykeys.lua` 第 19 节，包里唯一纳管的部分；2026-10-30 前是 `name:android` 桌面），网络自动走 TUN、
   libndk 转译、fcitx5-android + Rime 输入法。其余全是 root 手动步骤，照 `docs/12` 第 2 节做。
   ⚠ 两条反直觉的：**① 挡网络的是 docker 的 FORWARD DROP，不是 TUN** —— Waydroid 自己的
   accept 写在它的 `inet lxc` 表里，挡不住别的表的 drop，要 `/etc` 下一个 systemd drop-in
