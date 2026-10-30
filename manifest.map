@@ -127,11 +127,14 @@ share/icons/hicolor/scalable/apps/excalidraw.svg  ~/.local/share/icons/hicolor/s
 bin/adb-wifi                              ~/.local/bin/adb-wifi
 share/applications/adb-wifi.desktop       ~/.local/share/applications/adb-wifi.desktop
 # AI Chrome：独立 profile + 9222 调试端口的 Chrome，给 Claude Code 的 chrome-devtools MCP 连。
-# chrome-ai-mcp 是 MCP 入口（没开就先拉起 Chrome）；MCP 注册在 ~/.claude.json，不入包，
-# 新机器要手动 claude mcp add。键位 SUPER+CTRL+W 在 mykeys.lua 第 21 节。见 docs/08 第 12 节。
+# chrome-ai-mcp 是 MCP 入口（没开就先拉起 Chrome）。2026-10-31 起 chrome-devtools 不再常驻
+# ~/.claude.json，改成 ccx 的「web」套餐按需加载（claude/mcp/web.json）。
+# 键位 SUPER+CTRL+W 在 mykeys.lua 第 21 节。见 docs/08 第 12 / 13 节。
 bin/chrome-ai                             ~/.local/bin/chrome-ai
 bin/chrome-ai-mcp                         ~/.local/bin/chrome-ai-mcp
 share/applications/chrome-ai.desktop      ~/.local/share/applications/chrome-ai.desktop
+# ccx：按 MCP 套餐名启动 Claude Code（经 ccm 保留 Matrix 同步），用 claude/mcp/*.json。见 docs/08 第 13 节。
+bin/ccx                                   ~/.local/bin/ccx
 # Dolphin 右键文件 →「发送到手机」：经 KDE Connect 推到已配对的手机，对方免确认直接收下。
 # 配对和插件开关（~/.config/kdeconnect/<设备ID>/）绑死设备 ID，不入包。见 docs/05-theme-ui.md「KDE Connect」。
 bin/send-to-phone                         ~/.local/bin/send-to-phone
@@ -194,6 +197,14 @@ claude/agents/reviewer.md                 ~/.claude/agents/reviewer.md
 claude/agents/docs-reader.md              ~/.claude/agents/docs-reader.md
 claude/agents/tester.md                   ~/.claude/agents/tester.md
 claude/team-log.sh                        ~/.claude/team-log.sh
+# MCP 按需套餐（2026-10-31 加）：默认会话不挂任何 MCP，用 bin/ccx <套餐名> 启动时才 --mcp-config 带上。
+# 一个文件一个 MCP：web=chrome-devtools、cap=mitmweb、rev=ida（原插件 ida-mcp 已停用改这里）、burp。
+# ⚠ cap.json 的 token 用 ${MITMWEB_TOKEN} 占位，真值在 ~/.claude/mcp/secrets.env（不入包，gitignore）。
+# 新机器要手动建 secrets.env。见 docs/08 第 13 节。
+claude/mcp/web.json                        ~/.claude/mcp/web.json
+claude/mcp/cap.json                        ~/.claude/mcp/cap.json
+claude/mcp/rev.json                        ~/.claude/mcp/rev.json
+claude/mcp/burp.json                       ~/.claude/mcp/burp.json
 # 全局 CLAUDE.md（2026-10-14 加）：所有项目都生效的用户指令（中文回答 + 多智能体并行策略，见 docs/14 第 8 节）。
 # ⚠ 包内故意不叫 CLAUDE.md：Claude Code 读到子目录里的文件时会把同目录的 CLAUDE.md 当项目指令加载，
 #   放在 claude/ 下同名会被误当成「改 cc 工具时的规矩」。

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mitmweb": {
+      "command": "/home/david/.local/share/venvs/mitmweb-mcp/bin/mitmweb-mcp",
+      "args": [],
+      "env": {
+        "MITMWEB_URL": "http://127.0.0.1:8081",
+        "MITMWEB_TOKEN": "${MITMWEB_TOKEN}",
+        "MITMPROXY_PORT": "8080"
+      }
+    }
+  }
+}
