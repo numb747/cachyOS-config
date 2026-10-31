@@ -19,17 +19,17 @@
 
 ---
 
-## 笔记本：13 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个）
+## 笔记本：17 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个，2026-10-31 加 chrome-ai 与 MCP 套餐四个）
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
-> 拉取远程后默认**全量对齐**，只有下面这 13 个文件例外——它们要么绑死在本机硬件上、
+> 拉取远程后默认**全量对齐**，只有下面这 17 个文件例外——它们要么绑死在本机硬件上、
 > 要么绑死在 `/home/monkey` 这个用户路径上，照搬远程会真的变坏。
 > `./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
 
 | 文件 | 笔记本（正确） | 包里（源机） | 为什么不能同步 |
 |---|---|---|---|
 | `~/.config/kitty/kitty.conf` | `font_size 10.0` | `13.5` | 笔记本 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
-| `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套 |
+| `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套。⚠ 2026-10-31 被包里那份整个 `cp` 覆盖成 120 过一次（那条 `cp` 是给源机器的）；包里这个文件有改动时，笔记本只搬 `width` 以外的部分 |
 | `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
 | `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / 几个 .desktop），只能手工改；顺手按 `CLAUDE.md` 自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
@@ -41,6 +41,17 @@
 | `~/.local/share/kio/servicemenus/send-to-phone.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它（Dolphin 右键菜单，`Exec` 要绝对路径）。随 `58ef096` 进包，2026-10-13 补登 |
 | `~/.local/share/applications/mmd-view.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它。随 `61cedbb` 进包，2026-10-13 补登 |
 | `~/.config/kdeglobals` | 多一段 `[KFileDialog Settings]`，段顺序被重排 | 原样 | KDE 程序（Dolphin 的文件对话框）运行时往里写的；配色段（noctalia 模板生成，坑 2）两边内容一致。⚠ 覆盖不会坏，只丢文件对话框的视图偏好，下次又会写回来 |
+| `~/.local/share/applications/chrome-ai.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同 excalidraw 那条。它归 `ui` 模块，而 `install.sh ui` 在笔记本禁跑，所以是手工 `sed` 换路径放的（2026-10-30） |
+| `~/.claude/mcp/web.json` | `/home/monkey/.local/bin/chrome-ai-mcp` | `/home/david/...` | `cc` 模块**不跑** `rewrite_home`，原样装过来路径就是错的。下面三条都是 2026-10-31 随 `ccx`（`docs/08` 第 13 节）手工放的 |
+| `~/.claude/mcp/cap.json` | `~/.local/share/mitmweb-mcp/venv/bin/mitmweb-mcp` | `~/.local/share/venvs/mitmweb-mcp/bin/...` | 两台机器 mitmweb-mcp 的 venv **装的位置不一样**，不只是用户名不同，`sed` 换不过来 |
+| `~/.claude/mcp/rev.json` | ida-mcp 插件 `20261003.0.1` | `20261008.0.1` | 路径里锁了插件版本号，两台装的版本不同。插件已停用不会自更新 |
+
+> ★ **`ccx` 在笔记本的落地（2026-10-31）**：全局 `mcpServers` 里的 `mitmweb`、`chrome-devtools` 已用
+> `claude mcp remove --scope user` 撤掉，`ida-mcp@HexRaysSA` 插件已 `claude plugin disable`，和源机器一致；
+> `~/.claude/mcp/secrets.env`（0600）里的 `MITMWEB_TOKEN` 是从原来全局配置里搬过来的。
+> `cap` / `rev` 两个套餐按本机路径做过 MCP 握手验证。改前的 `~/.claude.json` 和 `settings.json` 留了 `.bak-20261031-185357`。
+> **项目级**的 `jadx` MCP（只挂在 `~/androidProjects/App01check`）不属于这次改动，没动。
+> ⚠ 别直接 `./install.sh cc` 覆盖这三个 JSON：会装回源机器路径，套餐全部起不来。
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
 > `background_color` 要取当前壁纸的主色，而两台机器壁纸不同。现在笔记本壁纸也跟远程换成了
@@ -55,8 +66,10 @@
 2. **不要跑不带参数的 `./install.sh`。** `mod_term` 会 put `kitty.conf` 和 `.zshrc`、
    `mod_nvim` 是**整目录 mv 走再替换**、`mod_ui` 的 `put_module ui` 含 `settings.toml`
    —— 三个模块各自会把上表对应项打回源机的值；**`launcher` 也一样**（`put_module launcher` 会把 Walker 那两个主题文件打回源机尺寸）（有 `.bak-*` 备份，但等你发现字变大了
-   才想起来就晚了）。**安全的是 `./install.sh hypr cc ocr wall`**；`term` / `nvim` / `ui` / `launcher`
+   才想起来就晚了）。**安全的是 `./install.sh hypr ocr wall`**；`term` / `nvim` / `ui` / `launcher`
    要装就先看 `./sync.sh --diff`，手工只搬新增的段。
+   ⚠ **`cc` 2026-10-31 起也不安全了**：它会把 `~/.claude/mcp/` 下三个套餐 JSON 打回源机路径（见上表）。
+   cc 模块其余文件有更新时，逐文件 `cp`，或装完再把这三个 JSON 从 `.bak-*` 恢复回来。
 
 > ★ **「`mod_nvim` 整目录 mv」这条对源机器同样成立**，只是后果不同：它会把
 > `~/.config/nvim` 下的 lazy 插件目录等运行时产物一起搬进 `.bak-<时间戳>`。
@@ -77,7 +90,7 @@
 ./sync.sh --manifest && ./check.sh
 ```
 
-`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 13 个「永远不一致」的文件
+`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 17 个「永远不一致」的文件
 是 `./sync.sh`（系统 vs 包）的事，不影响 `check.sh`。
 
 > 此前这里还记着一条「MANIFEST 把 `.git/` 卷了进去」的上游缺陷——**2026-09-11 的
