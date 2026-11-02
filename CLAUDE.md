@@ -97,11 +97,22 @@ cd ~/cachyOS-config && ./sync.sh --pull
 
 ---
 
+## 下载软件的原则：pacman → 原生的包 → yay（2026-11-02 定的主旨）
+
+**上一级有就不往下降。** ① 有 pacman 就用 pacman 下载 → ② pacman 没有，直接下载原生的包
+（软件官网 / 官方 Releases，验校验和，不 `curl | sh`）→ ③ 原生的包也没有才考虑 yay，
+**yay 不值得信任**：降到这级先说明前两级为什么不行，用 yay 之前 `yay -G` 审 PKGBUILD /
+`.install`、看维护者与评论、`clamscan` 扫源码和成品包，可疑就停。
+完整清单与理由在 `docs/00-install-os.md` 第 5 节；同一条也在全局
+`~/.claude/CLAUDE.md` 里，所以任何目录下的会话都会照做。
+
+---
+
 ## 文档索引 —— 按你要解决的问题找
 
 | 我想… | 看 |
 |---|---|
-| 装系统本身（Ventoy / 镜像 / CachyOS 取舍 / 动态壁纸） | `docs/00-install-os.md` |
+| 装系统本身（Ventoy / 镜像 / CachyOS 取舍 / 动态壁纸）/ 下载软件该走 pacman、原生的包还是 yay | `docs/00-install-os.md`（下载原则在第 5 节） |
 | 搞懂各部分怎么咬合、有哪些设计原则 | `docs/01-architecture.md` |
 | 改快捷键、窗口行为、工作区 | `docs/02-hyprland.md` |
 | 改终端 / zsh / 提示符 | `docs/03-terminal.md` |

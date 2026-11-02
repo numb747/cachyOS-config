@@ -205,7 +205,7 @@ claude/mcp/web.json                        ~/.claude/mcp/web.json
 claude/mcp/cap.json                        ~/.claude/mcp/cap.json
 claude/mcp/rev.json                        ~/.claude/mcp/rev.json
 claude/mcp/burp.json                       ~/.claude/mcp/burp.json
-# 全局 CLAUDE.md（2026-10-14 加）：所有项目都生效的用户指令（中文回答 + 多智能体并行策略，见 docs/14 第 8 节）。
+# 全局 CLAUDE.md（2026-10-14 加）：所有项目都生效的用户指令（中文回答 + 多智能体并行策略，见 docs/14 第 8 节；下载软件的原则 pacman → 原生的包 → yay，见 docs/00 第 5 节）。
 # ⚠ 包内故意不叫 CLAUDE.md：Claude Code 读到子目录里的文件时会把同目录的 CLAUDE.md 当项目指令加载，
 #   放在 claude/ 下同名会被误当成「改 cc 工具时的规矩」。
 # ⚠ 笔记本若已有自己的 ~/.claude/CLAUDE.md，装 cc 会覆盖它（有 .bak-*），先 ./sync.sh --diff 看一眼。

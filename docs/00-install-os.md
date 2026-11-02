@@ -144,6 +144,37 @@ CachyOS 上**多一层**：若它针对你的 CPU 重编译了某个包，会优
 （`cachyos-v3`/`v4`）取，那份列表在 `/etc/pacman.d/cachyos-mirrorlist`，与 Arch 官方列表
 并行存在。**所以要关心两份 mirrorlist。**
 
+### ★ 下载软件的原则：pacman → 原生的包 → yay（降级顺序）
+
+（2026-11-02 定）下载任何软件都按这个顺序往下降，**上一级有就不往下走**，版本旧一点也认：
+
+| 级 | 从哪下载 | 为什么排这里 |
+|---|---|---|
+| 1 | **pacman**：官方仓库（含 CachyOS 仓库），先 `pacman -Ss` / `-Si` 查 | 有签名、有维护者把关、`-Syu` 统一更新、`pacman -R` 卸得干净 |
+| 2 | **pacman 没有 → 直接下载原生的包**：软件官网 / 官方 GitHub Releases 的二进制、AppImage、tar.gz | 来自作者本人，信任链只有一环；代价是要自己更新 |
+| 3 | **原生的包也没有 → 才考虑 yay（AUR）** | **yay 不值得信任**：AUR 谁都能传，包靠一份没人审过的 PKGBUILD，`.install` 还以 root 执行 |
+
+第 2 级的规矩：只认项目本身的域名 / 组织，不用第三方转载；有校验和、签名就验；
+安装脚本先下载读完再跑，不 `curl | sh`；放 `~/.local/bin` 或 `/opt`。
+
+**第 3 级不是「下不到就 yay」，而是用 yay 之前必须查毒。** AUR 真出过投毒（2025-07
+`librewolf-fix-bin` 等三个包被植入 CHAOS RAT）。查法：
+
+1. `yay -G <包>` 拉到临时目录先审，**不直接 `yay -S` 一路回车**（本机 yay 的
+   `diffmenu` 只在升级时给 diff，首次下载看不到全文）。读完 `PKGBUILD`、`.install`、所有补丁。
+2. 看来路：维护者、票数、首次提交时间、最近是否换过维护者（弃包被接手是常见投毒路径）、评论区有没有人报毒。
+3. 看内容：`source` 指向上游官方地址；校验和不是 `SKIP`（`-git` 包除外）；没有额外下载、
+   `base64`/`eval`、往 `$HOME` / systemd / cron / shell 启动文件写东西；`-bin` 包和上游 release 比哈希。
+4. 扫毒：`makepkg -o`（只下载解包）后 `clamscan -r` 扫源码目录，构建出的 `.pkg.tar.zst` 装前再扫一遍。
+5. 依赖链里的其他 AUR 包同样过一遍；任何一项可疑就停，不装。
+6. 装完 `pacman -Qlq <包>` 看产物没越界。
+
+最强的一招是和上游发布物逐文件比哈希，`python-rapidocr` 做过一次完整示范，见
+[`aur/README.md`](../aur/README.md)。已装的 AUR 包升级时同样要过 diff，见 [16](16-security.md) 第 6 节。
+
+这条同时写进了全局 `~/.claude/CLAUDE.md`（包内 `claude/global-CLAUDE.md`），
+Claude Code 在任何目录下载软件都照这个顺序走。
+
 ### AUR 的行为不一样
 
 AUR 只存 PKGBUILD 脚本，不存编译好的包，也不存源码：
