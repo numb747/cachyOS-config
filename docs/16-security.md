@@ -122,7 +122,7 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 **每月第一周**（复核完周报之后顺手）：
 - `sudo lynis audit system` 全量，挑一条建议修掉，`sudo lynis show details <ID>` 看说明
 - `sudo sec-audit --scan ~`：clamav 整个家目录扫一遍
-- AUR 包升级时看 PKGBUILD diff（yay 会给，别一路回车）
+- AUR 包升级时看 PKGBUILD diff（yay 会给，别一路回车）；下载**新**软件时 yay 是最后一级，用前查毒流程见 [00 第 5 节「下载软件的原则」](00-install-os.md#-下载软件的原则pacman--原生的包--yay降级顺序)
 - 浏览器扩展：每周只报新增，每月把整个列表过一遍，用不上的删掉（扩展越少越安全）
 - 轮换明文 token：`~/.claude/settings.json` 里的 `ANTHROPIC_AUTH_TOKEN`、discord-sync 的 `.env`
 
