@@ -465,7 +465,7 @@ hyprctl dispatch 'hl.dsp.cursor.move({x = 1280, y = 720})'
 | 顶栏不见了 | 是 `auto_hide = true`，鼠标移到屏幕顶边。或按 `ALT+9` |
 | noctalia 面板（控制中心等）一闪就没 | 2026-10-09 起 `SUPER+V` 已改走 Walker，不再经过 noctalia 面板。其他面板仍可能撞上，可套 `bin/noct-panel <面板名>`。手工验证：把指针挪进面板矩形，犯病时面板立刻常驻。⚠ 根因**没查清**，别信「这是上游既有行为、重启没用」那套旧说法，见坑 10 |
 | `SUPER+V` 的剪贴板历史一重启就空 | 看日志有没有 `[secret-store] ... provider-unavailable`：没有 Secret Service 时它拒绝落盘、只留内存。解法是 `[storage]` 文件密钥，见 [05](05-theme-ui.md#剪贴板supervsuper-的历史靠-storage-文件密钥才能活过重启)。⚠ 改完**必须重启 noctalia 进程**，`config-reload` 不重新初始化存储 |
-| 换壁纸/换主题每次都要输密码 | `greeter_sync` 在推给登录界面。noctalia 默认用 `run0` 提权，绕开了自带的 polkit policy——**看 journalctl 里真正被拒的 action id**（是 `systemd1.manage-units` 不是 `apply-appearance`）。要 `privilege_command = "pkexec"` + `/etc/polkit-1/rules.d/` 规则两步，见 [05](05-theme-ui.md#greeter-同步换壁纸主题为什么每次都要输密码) |
+| 换壁纸/换主题每次都要输密码 | `greeter_sync` 在推给登录界面。noctalia 默认用 `run0` 提权，绕开了自带的 polkit policy——**看 journalctl 里真正被拒的 action id**（是 `systemd1.manage-units` 不是 `apply-appearance`）。要 `privilege_command = "pkexec"` + `/etc/polkit-1/rules.d/` 规则两步。**两步都做了还弹**：多半是升级后 action 改名、规则失配（1.7.0 起叫 `sync-appearance`），见 [05](05-theme-ui.md#greeter-同步换壁纸主题为什么每次都要输密码) |
 | 提示符全是豆腐块 | 缺 `ttf-meslo-nerd` |
 | 提示符变成没见过的样子 / 弹配置向导 | `~/.p10k.zsh` 没了。`./sync.sh` 一眼看出，`./install.sh term` 修。见坑 1 |
 | 终端打开不进 nvim | `kitty.conf` 的 `shell` 那行；或者是从 alacritty 开的（它本来就不进） |

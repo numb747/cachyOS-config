@@ -485,7 +485,7 @@ hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'   # 用 hyprctl 拉起，会话�
 
 ### 根因：它默认用 `run0`，绕开了自带的 policy（2026-08-27）
 
-`noctalia-greeter` 包装了 polkit policy `org.noctalia.greeter.apply-appearance`，
+`noctalia-greeter` 包装了 polkit policy `org.noctalia.greeter.apply-appearance`（1.7.0 起改名 `sync-appearance`，见下），
 但 noctalia **默认挑 `run0`** 提权。run0 是靠起临时 systemd unit 干活的，请求的 action 是
 `org.freedesktop.systemd1.manage-units`，**根本不经过那个 policy**：
 
@@ -518,7 +518,8 @@ privilege_command = "pkexec"
 
 ```javascript
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.noctalia.greeter.apply-appearance" &&
+    if ((action.id == "org.noctalia.greeter.sync-appearance" ||
+         action.id == "org.noctalia.greeter.apply-appearance") &&
         subject.isInGroup("wheel") && subject.local && subject.active) {
         return polkit.Result.YES;
     }
@@ -528,10 +529,17 @@ polkit.addRule(function(action, subject) {
 `49-` 要排在 `50-default.rules` 前面；`/etc/` 优先级高于包自带的 `/usr/share/polkit-1/rules.d/`。
 polkit 127 会自动重载，不用重启。
 
+⚠ **noctalia-greeter 1.7.0（2026-10-23 随升级装上）把 action 改名成 `sync-appearance`**，
+旧名 `apply-appearance` 已不再注册。规则失配后又开始每次换壁纸都弹密码，2026-11-09 才发现。
+所以规则里两个名字都写上，上游再改回去也不会失效。以后再弹窗，先查当前名字叫什么：
+`grep 'action id=' /usr/share/polkit-1/actions/*noctalia*`。
+⚠ 弹窗连续失败 3 次会触发 `pam_faillock`，**锁定 10 分钟，锁着的时候 `sudo` 也进不去**，
+密码对也没用。要么等锁过期，要么 root 下跑 `faillock --user david --reset`。
+
 ### 验收
 
 ```bash
-pkcheck --action-id org.noctalia.greeter.apply-appearance --process $$   # → polkit.result=yes
+pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$   # → polkit.result=yes
 noctalia msg greeter-sync                                                # 应无提示直接完成
 ```
 

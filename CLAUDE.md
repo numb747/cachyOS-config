@@ -220,6 +220,8 @@ cd ~/cachyOS-config && ./sync.sh --pull
       而 `manage-units` 又不能安全放行（run0 的 unit 名随机，放行 = 全局 root 免密）。
       解法：`privilege_command = "pkexec"` 掰回来 + `/etc/polkit-1/rules.d/49-*.rules` 放行。
       **通则：先看 journalctl 里真正被拒的 action id，别照着 policy 文件猜。**
+      ⚠ noctalia-greeter 1.7.0 把 action 改名成 `sync-appearance`，旧规则失配又开始弹窗
+      （2026-11-09 修，规则现在两个名字都认）。弹窗连续失败 3 次会被 faillock 锁 10 分钟，锁着时 sudo 也进不去。
     - **剪贴板历史重启就空**：不是「不支持持久化」，是它**坚持加密后才落盘**、
       主密钥默认取自 Secret Service，而本机没有 provider（日志
       `[secret-store] ... provider-unavailable`），于是降级成仅本会话。

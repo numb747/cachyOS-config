@@ -108,7 +108,8 @@ kill -TERM $(pgrep -x noctalia); setsid -f noctalia -d    # ★ 必须重启进�
 ```bash
 sudo tee /etc/polkit-1/rules.d/49-noctalia-greeter.rules >/dev/null <<'EOF'
 polkit.addRule(function(action, subject) {
-    if (action.id == "org.noctalia.greeter.apply-appearance" &&
+    if ((action.id == "org.noctalia.greeter.sync-appearance" ||
+         action.id == "org.noctalia.greeter.apply-appearance") &&
         subject.isInGroup("wheel") && subject.local && subject.active) {
         return polkit.Result.YES;
     }
@@ -225,7 +226,7 @@ grep 'loaded encrypted clipboard history' ~/.cache/noctalia/noctalia.log
 换壁纸不再要密码（步骤 7 的 ②，仅装了 noctalia-greeter 时）：
 
 ```bash
-pkcheck --action-id org.noctalia.greeter.apply-appearance --process $$   # → polkit.result=yes
+pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$   # → polkit.result=yes
 ```
 
 - [ ] 换一次壁纸，全程无密码弹窗

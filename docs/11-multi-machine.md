@@ -117,7 +117,8 @@
 - ⚠ **待办**：`/etc/polkit-1/rules.d/49-noctalia-greeter.rules` 还没建（要 sudo）。
   没有它 `privilege_command = "pkexec"` 只是换了个提权程序，换壁纸/主题**照样弹密码框**。
   内容见 `docs/05-theme-ui.md`；验收 `pkcheck --action-id
-  org.noctalia.greeter.apply-appearance --process $$` 应从 `auth_admin` 变 `yes`。
+  org.noctalia.greeter.sync-appearance --process $$` 应从 `auth_admin` 变 `yes`
+  （noctalia-greeter 1.7.0 起 action 改名，旧名 `apply-appearance` 查不到，规则里两个都写）。
 - ~~`wine` 模块有意未装~~ —— 2026-10-09 源机器卸载了 wine，`wine` 模块和 `packages.txt` 里那 4 个
   wine 包已从包里删掉。笔记本 `git pull` 后 `./sync.sh` 不会再报那 4 个文件「系统上不存在」。
 - ⚠ **待办**：`python-pynvim` + `python-ipykernel` 还没装（要 sudo，笔记本 sudo 需要密码）。
