@@ -328,7 +328,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
   三套共用一个分工：**`Shift` = 框选，`Alt` = 整屏**
-- 默认打开方式：图片 → imv（17 类型）· 音视频 → mpv（122 类型），
+- 默认打开方式：图片 → imv（17 类型）· 音视频 → mpv（122 类型）· 文本 → Kate（41 类型，2026-11-04），
   见 `config/mimeapps.list`，坑在 `docs/05-theme-ui.md`
 - **抽屉架**（2026-08-26）：`ALT+S` 切换的是**第二套工作平面**，不是单个抽屉。
   一组 `special:rack1/rack2/…`，`ALT+[ ] · CTRL+1-4 · ALT+T` 在架内是**模态**的

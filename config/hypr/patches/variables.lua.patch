@@ -1,6 +1,17 @@
 --- /etc/skel/.config/hypr/config/variables.lua	2026-09-13 17:48:20.000000000 +0800
-+++ /home/david/cachyOS-config/config/hypr/config/variables.lua	2026-08-26 10:32:46.004048527 +0800
-@@ -13,4 +13,9 @@
++++ /home/david/cachyOS-config/config/hypr/config/variables.lua	2026-11-04 10:38:16.592886049 +0800
+@@ -3,7 +3,9 @@
+ TERMINAL     = "kitty"
+ FILE_MANAGER = "dolphin"
+ BROWSER      = "firefox"
+-EDITOR       = "gnome-text-editor --new-window"
++-- ★ 原为 gnome-text-editor --new-window；2026-11-04 换成 Kate（gnome 那个只是被
++--   cachyos-hypr-noctalia 依赖拉进来的）。-n = 新开实例窗口，对应原来的 --new-window。
++EDITOR       = "kate -n"
+ CALCULATOR   = "gnome-calculator"
+ 
+ -- Monitors
+@@ -13,4 +15,9 @@
  PRIMARY_MONITOR = MONITOR1
  
  -- Workspaces

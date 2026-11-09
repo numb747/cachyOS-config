@@ -731,6 +731,37 @@ imv 上游写的 `multimedia-photo-viewer` 在本机 Adwaita 和 breeze 里**都
 不是 VAAPI——`auto-safe` 会按顺序试 vulkan → nvdec → vaapi，AMD 上 vulkan 先命中。
 两者都是硬解，日志里 `Using hardware decoding (vulkan)` 即为生效。
 
+### 文本 → Kate（2026-11-04）
+
+原来双击文本文件、`Super+T` 打开的都是基座带的 gnome-text-editor，功能太少：
+没有 Markdown 预览、没有文件树，语法高亮也不全。现在换成 **Kate + markdownpart**，
+都在官方仓库里（`packages.txt`）。选它是因为 Dolphin/Konsole/KIO 已经装了，
+KDE 的底层库大多已经在机器上，装 Kate 本身只多出几十 MB。
+
+- **关联**：`config/mimeapps.list` 把 41 种文本类型钉给 `org.kde.kate.desktop`。
+  ⚠ 这次**不能**照抄图片那套「从 `.desktop` 的 `MimeType=` 生成」：Kate 只声明了
+  `text/plain` 和 `inode/directory`（后者不能给它，否则文件夹会用 Kate 打开）。
+  只设 `text/plain` 也不够——`.md`、`.json` 这类子类型确实会回退到父类型的默认程序，
+  但凡有别的程序**点名**声明了某个子类型，就轮不到父类型：`.py`/`.css`/`.patch`/`.sql`
+  原来是 micro（终端程序），`.c`/`.tex` 是 nvim，`.xml` 是 Chrome。所以清单是手列的。
+  类型名用 `gio info -a standard::content-type <文件>` 查，**别用 `xdg-mime query filetype`**：
+  本机它走 `file` 按内容猜，什么都报 `text/plain`。
+  `text/csv` 刻意留给 LibreOffice Calc，`text/vnd.mermaid` 仍是 mmd-view。
+- **配色**：`config/katerc` 里是 `Color Theme=Tokyo Night`，这是 KSyntaxHighlighting
+  **自带**的主题（还有 Tokyo Night Storm/Light），不用装任何东西。界面颜色
+  `[UiSettings] ColorScheme=noctalia` 跟着 noctalia 生成的 `kdeglobals` 走，换壁纸时一起变。
+  正文字体是 `Sarasa Mono SC`（中英等宽对齐）。
+- **Markdown 预览**：右上角那个「文档+放大镜」图标打开侧栏预览，渲染靠 `markdownpart`。
+  ⚠ 插件开关**不在 `katerc`**，在会话文件 `~/.local/share/kate/anonymous.katesession`
+  的 `[Kate Plugins] ktexteditorpreviewplugin=true`（写进 `katerc` 不会生效，实测过）。
+  会话文件里还有窗口布局和打开过的文档，所以不入包；新机器在「设置 → 配置 Kate → 插件」
+  里勾上「文档预览」就行。改这个文件之前要先关掉 Kate，否则退出时会被覆盖。
+- **`Super+T`**：`variables.lua` 的 `EDITOR` 改成 `kate -n`（`-n` 表示新开一个实例窗口，
+  对应原来的 `--new-window`）。这个文件本来就是改过的官方文件（坑 4），不算多改了一个文件。
+- **gnome-text-editor 没卸**：它是 `cachyos-hypr-noctalia` 元包的依赖，元包又提供 hypr
+  补丁的 `/etc/skel` 基准，所以不能删元包。只能用 `-Rdd` 强行卸载，而元包以后升级时
+  可能会把它装回来。它已经不占任何关联，也不绑任何键位，所以就留着没管。
+
 ## 本地 Excalidraw 白板（2026-10-09）
 
 启动器里搜「Excalidraw」/「白板」点开即用，关掉窗口就停，不用时**零占用**。

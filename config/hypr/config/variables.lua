@@ -3,7 +3,9 @@
 TERMINAL     = "kitty"
 FILE_MANAGER = "dolphin"
 BROWSER      = "firefox"
-EDITOR       = "gnome-text-editor --new-window"
+-- ★ 原为 gnome-text-editor --new-window；2026-11-04 换成 Kate（gnome 那个只是被
+--   cachyos-hypr-noctalia 依赖拉进来的）。-n = 新开实例窗口，对应原来的 --new-window。
+EDITOR       = "kate -n"
 CALCULATOR   = "gnome-calculator"
 
 -- Monitors

@@ -1,0 +1,39 @@
+[General]
+Days Meta Infos=30
+PinnedDocuments=
+Quickopen Filter Mode=0
+Quickopen List Mode=true
+Save Meta Infos=true
+Show Full Path in Title=false
+Show Menu Bar=true
+Show Status Bar=true
+Show Tab Bar=true
+Show Url Nav Bar=true
+
+[KTextEditor Renderer]
+Animate Bracket Matching=false
+Auto Color Theme Selection=false
+Color Theme=Tokyo Night
+Line Height Multiplier=1
+Show Indentation Lines=false
+Show Whole Bracket Expression=false
+Text Font=Sarasa Mono SC,12,-1,7,400,0,0,0,0,0,0,0,0,0,0,1,,0,0
+Text Font Features=
+Word Wrap Marker=false
+
+[MainWindow]
+2560x1440 screen: Window-Maximized=true
+
+[UiSettings]
+ColorScheme=noctalia
+
+[filetree]
+editShade=62,69,106
+listMode=false
+middleClickToClose=false
+shadingEnabled=true
+showCloseButton=false
+showFullPathOnRoots=false
+showToolbar=true
+sortRole=0
+viewShade=110,92,106

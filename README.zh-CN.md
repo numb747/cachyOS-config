@@ -132,7 +132,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 │   ├── noctalia/          顶栏与 shell 行为
 │   ├── gtk-4.0/ gtk-3.0/ qt6ct/ btop/ kdeglobals   主题产物
 │   ├── uwsm/env           会话级环境变量
-│   ├── mimeapps.list      默认打开方式：图片 → imv，音视频 → mpv
+│   ├── mimeapps.list      默认打开方式：图片 → imv，音视频 → mpv，文本 → Kate
 │   ├── mpv/mpv.conf       只有一行 hwdec=auto-safe（mpv 出厂是软解）
 │   ├── fcitx5/            中文输入法（rime）+ 候选框外观 classicui.conf
 │   └── fontconfig/        字体优先级（修掉汉字默认用韩文字形的系统默认）

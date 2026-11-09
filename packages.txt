@@ -41,6 +41,10 @@ tree-sitter-cli
 #   在项目 venv 里装 ipykernel 注册成独立 kernel，molten 照样连得上。
 python-pynvim
 python-ipykernel
+# Kate：图形界面文本编辑器（Super+T、双击文本文件都走它），取代基座带的 gnome-text-editor。
+# markdownpart 是 Kate 预览插件渲染 .md 用的 KPart，不装则预览栏是空的。见 docs/05「默认打开方式」。
+kate
+markdownpart
 
 # ── 字体 ────────────────────────────────────────────────────
 # kitty 是 Adwaita Mono（正文）+ Meslo（Nerd 图标）两个拼的，缺一不可

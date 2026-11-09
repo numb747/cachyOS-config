@@ -109,11 +109,14 @@ config/qt6ct/colors/noctalia.conf         ~/.config/qt6ct/colors/noctalia.conf
 config/kdeglobals                         ~/.config/kdeglobals
 config/btop/btop.conf                     ~/.config/btop/btop.conf
 config/btop/themes/noctalia.theme         ~/.config/btop/themes/noctalia.theme
-# 默认打开方式三件套：图片 → imv，音视频 → mpv。见 docs/05-theme-ui.md。
+# 默认打开方式：图片 → imv，音视频 → mpv，文本 → Kate。见 docs/05-theme-ui.md。
 # imv-viewer.desktop 是自建条目（不是覆盖系统的 imv-dir.desktop），去掉了 NoDisplay
 # 好让它出现在 dolphin 的「打开方式」里；mimeapps.list 指向的就是它。
 config/mimeapps.list                      ~/.config/mimeapps.list
 config/mpv/mpv.conf                       ~/.config/mpv/mpv.conf
+# Kate 的 katerc 里是 Tokyo Night 配色（KSyntaxHighlighting 自带）+ 更纱等宽；
+# 预览插件的开关不在这里，在会话文件里，见 docs/05。
+config/katerc                             ~/.config/katerc
 share/applications/imv-viewer.desktop     ~/.local/share/applications/imv-viewer.desktop
 # 启动器里的「Waydroid 重启」：Android 没网时点它（停会话再重开），见 docs/12 第 7 节。
 share/applications/waydroid-restart.desktop  ~/.local/share/applications/waydroid-restart.desktop

@@ -149,7 +149,7 @@ cachyOS-config/            repo root = the package itself (no intermediate dir)
 │   ├── noctalia/          bar and shell behavior
 │   ├── gtk-4.0/ gtk-3.0/ qt6ct/ btop/ kdeglobals   theme output
 │   ├── uwsm/env           session environment variables
-│   ├── mimeapps.list      default apps: images → imv, audio/video → mpv
+│   ├── mimeapps.list      default apps: images → imv, audio/video → mpv, text → Kate
 │   ├── mpv/mpv.conf       one line, hwdec=auto-safe (mpv ships with software decoding)
 │   ├── fcitx5/            Chinese input method (rime) + candidate bar appearance
 │   └── fontconfig/        font priority (fixes the system default of rendering Han characters with Korean glyphs)
