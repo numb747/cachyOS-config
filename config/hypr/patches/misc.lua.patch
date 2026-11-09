@@ -1,5 +1,5 @@
 --- /etc/skel/.config/hypr/config/misc.lua	2026-09-13 17:48:20.000000000 +0800
-+++ /home/david/cachyOS-config/config/hypr/config/misc.lua	2026-08-27 14:14:30.791825262 +0800
++++ /home/david/cachyOS-config/config/hypr/config/misc.lua	2026-11-03 09:32:58.016387515 +0800
 @@ -10,6 +10,14 @@
          col = {
              splash = CACHYLGREEN,
@@ -15,12 +15,16 @@
          middle_click_paste = false,
          enable_swallow = true,
          swallow_regex = "(kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce[0-9]?-terminal)",
-@@ -17,8 +25,6 @@
+@@ -17,8 +25,10 @@
      },
      render = {
          direct_scanout = 2,
 -        -- Use the option below if you find games constantly black screening for a couple seconds whenever direct scanout enables/disables
 -        -- non_shader_cm = 0,
++        -- 默认 1：全屏窗口放 HDR 内容时自动把显示器切到 HDR，退出再切回。
++        -- 每切一次都要 modeset（黑屏 + 输入卡 200ms+）；2026-11-03 Chrome 全屏放
++        -- HDR 视频时 11 秒内来回切了 10 次。这台 HKC G27H4Max 的 HDR 也不值得用，关掉。
++        cm_auto_hdr = 0,
      },
      xwayland = {
          force_zero_scaling = true

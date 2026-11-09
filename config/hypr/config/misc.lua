@@ -25,6 +25,10 @@ hl.config({
     },
     render = {
         direct_scanout = 2,
+        -- 默认 1：全屏窗口放 HDR 内容时自动把显示器切到 HDR，退出再切回。
+        -- 每切一次都要 modeset（黑屏 + 输入卡 200ms+）；2026-11-03 Chrome 全屏放
+        -- HDR 视频时 11 秒内来回切了 10 次。这台 HKC G27H4Max 的 HDR 也不值得用，关掉。
+        cm_auto_hdr = 0,
     },
     xwayland = {
         force_zero_scaling = true
