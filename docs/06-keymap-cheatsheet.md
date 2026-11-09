@@ -87,11 +87,14 @@
 ## Android 覆盖层（Waydroid）
 
 和抽屉架同一种「盖在桌面上方」的层，但只放 Waydroid、只有一层。两者同一时间只显示一个，
-`Alt+S` / `Alt+A` 互相替换。原因见 [02](02-hyprland.md)「Android 覆盖层」。
+打开抽屉架会替换掉 Android。原因见 [02](02-hyprland.md)「Android 覆盖层」。
+
+⚠ 2026-11-09 起**没有开合键**：原来的 `Alt+A` 和 tmux 的窗格总览撞了，已停用，让给 tmux
+（`mykeys.lua` 第 19 节节末，注释掉的代码还在）。从启动器打开 Waydroid 会自动弹出 Android 覆盖层。
 
 | 键 | 动作 |
 |---|---|
-| `Alt+A` | 开合 Android（从上滑下 / 往下收走）；Waydroid 没开时启动它 |
+| ~~`Alt+A`~~ | 已停用，让给 tmux `Alt+a`（窗格总览） |
 | `Alt+[` `]` · `Ctrl+1~4` · `Alt+T` | Android 开着时，第一下只负责**收起**它 |
 | `Alt+Shift+S` | Android 开着时不做任何事 |
 
@@ -114,7 +117,7 @@
 | `Super+Return` | 终端（kitty） |
 | `Super+W` | 浏览器（firefox） |
 | ★ `Super+Ctrl+W` | AI Chrome（独立配置，给 Claude Code 的 chrome-devtools MCP 用，见 [08](08-claude-code.md) 第 12 节） |
-| `Super+T` | 文本编辑器 |
+| `Super+T` | 文本编辑器（Kate） |
 | `Super+C` / `Calculator 键` | 计算器 |
 | `Ctrl+Shift+Escape` | 在终端里开 btop |
 | `Super+X` | 控制中心 |

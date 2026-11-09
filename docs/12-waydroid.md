@@ -1,7 +1,7 @@
 # 12 · Waydroid：Android 容器
 
 > Android 13（LineageOS VANILLA）跑在 LXC 容器里，AMD 核显硬件加速，
-> 整屏界面住在覆盖层 `special:android`（`ALT+A` 开合），网络自动走 v2rayN 的 TUN，带 ARM 转译和 Rime 输入法。
+> 整屏界面住在覆盖层 `special:android`（开合键 `ALT+A` 已于 2026-11-09 停用，让给 tmux），网络自动走 v2rayN 的 TUN，带 ARM 转译和 Rime 输入法。
 > 2026-09-28 新增。
 >
 > ⚠ **这不是 `install.sh` 的模块。** 需要 root 的系统级步骤（装包、`/etc` 下的 drop-in、
@@ -180,6 +180,7 @@ drop-in 做的就是把 iptables 分支那两条补进 docker 所在的那张表
 ### 覆盖层 `special:android` 和 `ALT+A`（2026-10-30 起）
 
 整屏界面现在住在覆盖层里，`ALT+A` 开合（Waydroid 没开时拉起它），开 Waydroid 会自动弹出。
+⚠ 2026-11-09 起 `ALT+A` 已停用，让给 tmux 的窗格总览，见 [docs/02](02-hyprland.md)「Android 覆盖层」。
 从命名工作区改过来，是因为它在 `CTRL+2/3` 的环里会让左右切换的动画方向反过来。
 原因、方案取舍和实测见 [docs/02](02-hyprland.md)「Android 覆盖层」。
 

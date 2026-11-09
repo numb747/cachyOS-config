@@ -465,6 +465,11 @@ end
 Waydroid 整屏界面被窗口规则送进覆盖层 `special:android`（真全屏），`ALT+A` 开合，
 手感同 `ALT+S`；Waydroid 没开时 `ALT+A` 直接拉起它（命令同 `Waydroid.desktop` 的 `waydroid`）。
 
+⚠ **2026-11-09 停用了 `ALT+A`**：和 tmux 的 `Alt+a` 窗格总览撞了（见 [14](14-tmux.md) 第 9 节）。
+Hyprland 的绑定会先把按键截走，tmux 收不到。用户选择保留 tmux 那个，于是把 `hl.bind` 注释掉了。
+窗口规则还在，开 Waydroid 照样直接弹出覆盖层，只是没有键能开合它了。
+要恢复就去掉注释，或者把 `"ALT + A"` 改成别的键。下文提到 `ALT+A` 的地方都是停用前的记录。
+
 **以前是命名工作区 `name:android`（2026-09-28 起），方向感是乱的，所以改了。**
 它挤在 `m±1` 的环里，排在最后一个桌面和 1 号之间：`1 → 2 → 3 → android → 1`。
 而 `slide` 动画的方向是**按两个工作区的 id 大小定的，不看按的是哪个键**，android 的 id
@@ -515,7 +520,7 @@ Waydroid 整屏界面被窗口规则送进覆盖层 `special:android`（真全�
 | `config/binds.lua` | 注释掉 `SUPER+ALT+数字`（绝对编号跳转）那个循环 | 按绝对编号跳会**凭空创建**该编号的工作区，与动态策略直接冲突 |
 | `config/variables.lua` | `NUM_WPM` 3 → 9 | 它不再决定「有几个桌面」，只决定生成多少个**按位置跳转**的键位。绑满 9 个没代价：位置不存在时按下即空操作 |
 | `config/windowrules.lua` | 曾加企业微信幽灵窗规则（2026-10-09 随 wine 卸载已删）；曾给第 4 行「所有浮动窗」加 `center = true`（2026-10-29 撤掉，回到官方原样）。现存差异只剩 satty 那行 | 企业微信经验见 `docs/09-wine-apps.md` 第 3 节（`initial_title` 而非 `title`，坑 14）；撤 center 见下节 |
-| `config/misc.lua` | 关掉 Hyprland 内置壁纸与 logo，底色改成壁纸主色 | 见下节「开机时先闪一张陌生壁纸」 |
+| `config/misc.lua` | 关掉 Hyprland 内置壁纸与 logo，底色改成壁纸主色；`render.cm_auto_hdr = 0` | 见下节「开机时先闪一张陌生壁纸」和「全屏放视频时屏幕连闪」 |
 
 **pacman 升级把它们覆盖回去了怎么办**：
 
@@ -626,6 +631,27 @@ done
   那是合成器的地盘。
 - **别装 swww/hyprpaper 来「提前铺好」**——那只会多一个和 noctalia 抢 background 层的
   进程，闪烁变成两次。真正该做的是把底层那张关掉。
+
+### 全屏放视频时屏幕连闪（自动切 HDR）
+
+现象（2026-11-03）：Chrome 全屏开着「可灵 AI」，屏幕在 11 秒里黑了 10 来下，
+鼠标键盘卡顿（libinput 报 `event processing lagging behind by 212ms`）。
+
+根因：`render.cm_auto_hdr` 默认 1——**全屏窗口放 HDR 内容时，Hyprland 自动把显示器切到 HDR**，
+内容一变或退出全屏再切回 SDR。每次切换都是一次完整 modeset，必然黑一下。证据：
+
+```bash
+journalctl -k -b | grep 'HDR SB:01 1a'   # 02 = 切到 HDR(PQ)，00 = 切回 SDR，成对交替出现
+grep -c 'Modesetting DP-1' $XDG_RUNTIME_DIR/hypr/*/hyprland.log
+```
+
+**解法**——`config/misc.lua` 的 `render` 里加 `cm_auto_hdr = 0`。这台 HKC G27H4Max 的 HDR
+效果有限，用户评估后不要 HDR。验证：`hyprctl getoption render:cm_auto_hdr` 应为 `int: 0  set: true`。
+
+⚠ 同时会看到的 `amdgpu: [drm] *ERROR* LTTPR count is nonzero but invalid lane count reported`
+**是噪音**：每次 modeset 做 DP 链路训练都会打，自 10-28 起每次开机都有十几条。
+显示器固件报了一个不合法的中继器参数，驱动按「无中继器」处理，没有实际影响。
+它在这次刷屏只是因为 modeset 次数多，别把它当根因去查。
 
 ---
 

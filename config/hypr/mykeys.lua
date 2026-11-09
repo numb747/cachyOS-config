@@ -965,7 +965,7 @@ hl.bind("SUPER + V", hl.dsp.exec_cmd("walker -m clipboard"))
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 19. Waydroid：整屏界面住在覆盖层 special:android，真全屏 ／ ALT + A 开合
+-- 19. Waydroid：整屏界面住在覆盖层 special:android，真全屏（ALT + A 开合已停用，见节末）
 --
 --      Waydroid 的 Android 显示分辨率在窗口【创建那一刻】就定死了，之后窗口
 --      怎么缩放它都不跟 —— 平铺开出来是 1265x705，就一直是 1265x705。
@@ -1002,16 +1002,18 @@ hl.window_rule({
 
 -- ALT + A：开合 Android 覆盖层，手感同 ALT + S。
 -- 还没开 Waydroid 就把它拉起来（命令同 Waydroid.desktop 的 Exec），上面的规则会让它直接弹出。
--- ALT + A 在所有绑定里都没被占用（官方只有 SUPER + A），纯新增。
-hl.bind("ALT + A", function()
-    for _, w in ipairs(hl.get_windows()) do
-        if w.class == "Waydroid" then
-            hl.dispatch(hl.dsp.workspace.toggle_special("android"))
-            return
-        end
-    end
-    hl.exec_cmd("waydroid")
-end)
+-- ⚠ 2026-11-09 停用：和 tmux 的 Alt+a 窗格总览撞了（Hyprland 先截走，tmux 收不到），
+--   用户选择保留 tmux 那个。上面的窗口规则不受影响，开 Waydroid 仍会直接弹出覆盖层。
+--   要恢复就去掉下面的注释；想换个键，改 "ALT + A" 即可。
+-- hl.bind("ALT + A", function()
+--     for _, w in ipairs(hl.get_windows()) do
+--         if w.class == "Waydroid" then
+--             hl.dispatch(hl.dsp.workspace.toggle_special("android"))
+--             return
+--         end
+--     end
+--     hl.exec_cmd("waydroid")
+-- end)
 
 
 -- ────────────────────────────────────────────────────────────────────────────

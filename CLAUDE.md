@@ -308,10 +308,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `mykeys.lua` 的 `next_ws()` / `edge_ws()` 已加判空。抽屉架引擎只认名字不认 id，没受影响。
   ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来。
   见 `docs/02-hyprland.md`「纯动态工作区」
-- **Waydroid 改住覆盖层**（2026-10-30）：`name:android` → `special:android`，`ALT+A` 开合。
+- **Waydroid 改住覆盖层**（2026-10-30）：`name:android` → `special:android`，`ALT+A` 开合（2026-11-09 停用，让给 tmux 的 `Alt+a` 窗格总览）。
   原因是 slide 动画按 id 定方向，android 夹在环里时 `3 → CTRL+3 → android` 画面反着滑。
   `CTRL+2/3` 的绕圈（`1 → 2 → 3 → 1`）是用户**有意保留**的，别改成到头停住。见 `docs/02`「Android 覆盖层」
-- Hyprland 绑定 **124** 条（自定义 39 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **123** 条（自定义 38 条）；`hyprctl binds -j | jq length` 可验
   （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
@@ -423,7 +423,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
   非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
 - **Waydroid**（2026-09-28 新增，**不是** install.sh 模块）：Android 13 容器，整屏界面住在
-  覆盖层 `special:android`，`ALT+A` 开合（`mykeys.lua` 第 19 节，包里唯一纳管的部分；2026-10-30 前是 `name:android` 桌面），网络自动走 TUN、
+  覆盖层 `special:android`，~~`ALT+A` 开合~~（2026-11-09 停用，让给 tmux；`mykeys.lua` 第 19 节，包里唯一纳管的部分；2026-10-30 前是 `name:android` 桌面），网络自动走 TUN、
   libndk 转译、fcitx5-android + Rime 输入法。其余全是 root 手动步骤，照 `docs/12` 第 2 节做。
   ⚠ 两条反直觉的：**① 挡网络的是 docker 的 FORWARD DROP，不是 TUN** —— Waydroid 自己的
   accept 写在它的 `inet lxc` 表里，挡不住别的表的 drop，要 `/etc` 下一个 systemd drop-in
