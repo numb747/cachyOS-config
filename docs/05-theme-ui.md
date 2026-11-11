@@ -770,6 +770,38 @@ KDE 的底层库大多已经在机器上，装 Kate 本身只多出几十 MB。
   补丁的 `/etc/skel` 基准，所以不能删元包。只能用 `-Rdd` 强行卸载，而元包以后升级时
   可能会把它装回来。它已经不占任何关联，也不绑任何键位，所以就留着没管。
 
+### 办公 / 电子书 / PDF 及其余（2026-11-11）
+
+起因：Dolphin 里双击 `.docx` 打开的是 **calibre**。`xdg-mime query default` 却说是 Writer——
+**两套查法在「没钉默认值」时各猜各的**：`xdg-open`/`gio` 按 `mimeinfo.cache` 顺序取第一个，
+Dolphin 走 KDE 的 KService（`KApplicationTrader`），把 calibre 排在 LibreOffice 前面。
+所以只看 `xdg-mime` 验不出问题，**唯一让两边一致的办法是在 `mimeapps.list` 里逐条钉死**。
+
+当时 318 种没钉的类型里有几十种两边分歧或都不合理，这次补钉了 199 条：
+
+| 类型 | 原来 | 现在 |
+|---|---|---|
+| docx 及 Office/WPS 老格式、宏格式、ODF flat-xml | Dolphin 是 calibre 主程序 | LibreOffice 对应组件（从各组件 `MimeType=` 生成） |
+| epub/mobi/azw3/fb2/djvu/cbz/cbr | calibre 主程序（会把文件**导入书库**）或电子书**编辑器** | `calibre-ebook-viewer`（lrf 给 `calibre-lrfviewer`） |
+| PDF | LibreOffice Draw（之前在「打开方式」里手选的） | **Papers**（pacman 装）；Draw 仍在 `[Added Associations]`，右键可选 |
+| html/xhtml | `xdg` 侧是 calibre 电子书编辑器 | Firefox |
+| c++/php/perl/sql/tcl 等源码 | micro / nvim / Chrome | Kate |
+| `.vbs`/`.reg`/`.bat`/`application/x-sh` | **wine 直接执行 / 导入注册表**、kitty-open（会运行脚本） | Kate——双击只看内容，不执行 |
+| ico/tga/pnm/psd/xcf 等 imv 不支持的图片 | 部分落到 noctalia 标注工具 | qView |
+| `.crt` | `xdg` 侧落到 wine | gcr-viewer |
+
+`.exe`/`.msi` 仍归 wine（wine-staging 2026-10-26 为个别程序有意装回），`.chm`/`.hlp` 仍归 wine 自动生成的
+`~/.local/share/applications/wine-extension-*.desktop`。
+
+- **怎么验**：`xdg-mime query default <type>` 只代表 `xdg-open` 那边。Dolphin 那边没有现成命令行工具，
+  当时临时编了个十几行的 `KApplicationTrader::queryByMimeType` 小程序（链 `KF6Service`）比对。
+  对 KDE 不认识的别名（如 `application/x-doc`、`text/x-c++`）它返回空，属正常——KDE 会先归一到正名，正名也钉了。
+- **handlr**（`handlr-regex`，pacman 装）：命令行改关联最顺手的工具，能直接按扩展名设
+  （`handlr set .pdf org.gnome.Papers.desktop`、`handlr get .docx`），不会踩坑 1 那种多类型畸形 key。
+  ⚠ 但它**每次写入都重排整个 `mimeapps.list`**：去掉空行、`[Default Applications]` 值全部补上 `;`、
+  **MIME 名统一转小写**（`macroEnabled` → `macroenabled`、`audio/AMR` → `audio/amr`），同名去重。
+  实测 `xdg-mime` 和 `gio` 都认小写，语义没丢；只是 `sync.sh --diff` 会出现一大片格式差异，别当成配置被改乱了。
+
 ## 本地 Excalidraw 白板（2026-10-09）
 
 启动器里搜「Excalidraw」/「白板」点开即用，关掉窗口就停，不用时**零占用**。

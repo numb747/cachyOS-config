@@ -331,7 +331,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
   三套共用一个分工：**`Shift` = 框选，`Alt` = 整屏**
 - 默认打开方式：图片 → imv（17 类型）· 音视频 → mpv（122 类型）· 文本 → Kate（41 类型，2026-11-04），
-  见 `config/mimeapps.list`，坑在 `docs/05-theme-ui.md`
+  办公 → LibreOffice、电子书 → calibre 阅读器、PDF → Papers（2026-11-11 补钉 199 条），
+  见 `config/mimeapps.list`，坑在 `docs/05-theme-ui.md`。
+  ⚠ **没钉的类型 Dolphin（KService）和 `xdg-open`（mimeinfo.cache）各猜各的**，`xdg-mime` 查着对不代表 Dolphin 对
+  （`.docx` 就是这样被 calibre 抢走的）；改关联可用 `handlr`，但它会重排整个文件、MIME 名转小写
 - **抽屉架**（2026-08-26）：`ALT+S` 切换的是**第二套工作平面**，不是单个抽屉。
   一组 `special:rack1/rack2/…`，`ALT+[ ] · CTRL+1-4 · ALT+T` 在架内是**模态**的
   （切抽屉格而非工作桌面）。零新增键位。见 `docs/02-hyprland.md`

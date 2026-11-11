@@ -45,6 +45,10 @@ python-ipykernel
 # markdownpart 是 Kate 预览插件渲染 .md 用的 KPart，不装则预览栏是空的。见 docs/05「默认打开方式」。
 kate
 markdownpart
+# Papers：PDF 阅读器（双击 PDF 走它，原来落在 LibreOffice Draw）。
+# handlr-regex：命令行查/改默认打开方式，可按扩展名设（handlr set .pdf …）。见 docs/05「办公 / 电子书 / PDF」。
+papers
+handlr-regex
 
 # ── 字体 ────────────────────────────────────────────────────
 # kitty 是 Adwaita Mono（正文）+ Meslo（Nerd 图标）两个拼的，缺一不可
