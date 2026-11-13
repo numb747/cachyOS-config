@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# mpv 的 ytdl_hook 专用 yt-dlp 包装：等到 YouTube 取流链接「解禁」再把 JSON 交给 mpv。
+#
+#   - 2026-11 起 YouTube 给取流链接加了等待期：yt-dlp 刚拿到的 googlevideo 链接
+#     访问是 403，要等 JSON 里 available_at 那个时间戳过了才 206（实测匿名约 14 秒，
+#     带登录 cookie 约 5 秒）。yt-dlp 自己下载时会等（"Sleeping … as required by the site"），
+#     但 ytdl_hook 只拿 -J 的 JSON、立刻让 mpv 去连，于是每个 YouTube 链接都打不开。
+#     ymc（youtube-music-cli）就是这样：每首开播几秒报 EOF、自动跳下一首，全程无声。
+#   - 由 ~/.config/mpv/script-opts/ytdl_hook.conf 的 ytdl_path 指过来；只在 -J 调用时等，
+#     其他调用原样透传。等待上限 120 秒，超出当作时间戳异常、不等。
+#   - 上游 yt-dlp / mpv 哪天自己处理了 available_at，删掉那行 ytdl_path 就回到原样。
+
+import json
+import subprocess
+import sys
+import time
+
+p = subprocess.run(["/usr/bin/yt-dlp", *sys.argv[1:]], stdout=subprocess.PIPE)
+
+if p.returncode == 0 and ("-J" in sys.argv or "--dump-single-json" in sys.argv):
+    try:
+        info = json.loads(p.stdout)
+        fmts = info.get("requested_formats") or [info]
+        wait = max(f.get("available_at") or 0 for f in fmts) - time.time()
+        if 0 < wait < 120:
+            time.sleep(wait + 1)
+    except (ValueError, AttributeError, TypeError):
+        pass
+
+sys.stdout.buffer.write(p.stdout)
+sys.exit(p.returncode)

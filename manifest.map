@@ -115,6 +115,9 @@ config/btop/themes/noctalia.theme         ~/.config/btop/themes/noctalia.theme
 # 好让它出现在 dolphin 的「打开方式」里；mimeapps.list 指向的就是它。
 config/mimeapps.list                      ~/.config/mimeapps.list
 config/mpv/mpv.conf                       ~/.config/mpv/mpv.conf
+# mpv 放 YouTube：取流链接有等待期，ytdl_hook 改走包装脚本先等再播，见 docs/05「mpv 放 YouTube」。
+config/mpv/script-opts/ytdl_hook.conf     ~/.config/mpv/script-opts/ytdl_hook.conf
+bin/yt-dlp-wait                           ~/.local/bin/yt-dlp-wait
 # Kate 的 katerc 里是 Tokyo Night 配色（KSyntaxHighlighting 自带）+ 更纱等宽；
 # 预览插件的开关不在这里，在会话文件里，见 docs/05。
 config/katerc                             ~/.config/katerc

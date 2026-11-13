@@ -739,6 +739,31 @@ imv 上游写的 `multimedia-photo-viewer` 在本机 Adwaita 和 breeze 里**都
 不是 VAAPI——`auto-safe` 会按顺序试 vulkan → nvdec → vaapi，AMD 上 vulkan 先命中。
 两者都是硬解，日志里 `Using hardware decoding (vulkan)` 即为生效。
 
+### mpv 放 YouTube 要先等链接解禁（2026-11-13）
+
+现象：mpv 打开任何 YouTube 链接都是 `HTTP error 403 Forbidden` → `No video or audio streams selected`；
+终端版 YouTube Music 客户端 ymc（youtube-music-cli，`~/.local/bin`，不入包）表现为每首开播几秒就 EOF、自动跳下一首，全程无声。
+
+根因：YouTube 给取流链接加了**等待期**，yt-dlp 输出的 JSON 里每个格式带 `available_at` 时间戳，
+时间没到之前访问 googlevideo 一律 403（实测匿名约 14 秒，带登录 cookie 约 5 秒，
+`curl` 在 t+0/8 秒 403、t+16 秒 206）。yt-dlp **自己下载时会等**（`Sleeping … as required by the site`），
+但 mpv 的 ytdl_hook 只拿 `-J` 的 JSON、立刻去连，于是必挂。
+
+解法：`config/mpv/script-opts/ytdl_hook.conf` 写 `ytdl_path=yt-dlp-wait:yt-dlp`，
+让 ytdl_hook 改调 `bin/yt-dlp-wait`——它原样跑 `/usr/bin/yt-dlp`，碰到 `-J` 就按 `available_at`
+睡到解禁再把 JSON 交出去。代价是每个 YouTube 链接起播慢 5～15 秒，这是 YouTube 定的，绕不过。
+冒号后的 `yt-dlp` 是兜底：从桌面拉起的 mpv 的 PATH 里可能没有 `~/.local/bin`，那时退回原样（照旧 403）。
+⚠ 上游 yt-dlp / mpv 哪天自己认了 `available_at`，删掉那行配置即可。
+
+ymc 的登录复用 Pear Desktop 的 cookie（`~/.config/YouTube Music/Cookies`，Electron 没加密、明文可读），
+导成 cookies.txt 喂 `ymc login --cookies-file`。⚠ **只能导 `.youtube.com` 的、且只要 `top_frame_site_key = ''`
+的那份**：混进 `.google.com` 的同名 SID/SAPISID，或分区（CHIPS）的重复项，ymc 底层的 youtubei.js 照样报
+「logged_in: true」，但 YouTube 每个请求都回「请登录」页——表现为 Account Library 喜欢/歌单全是 0、
+日志 `getLibrary failed: Expected node … got ItemSection`。yt-dlp 用同一份混杂 cookie 却正常，所以别拿它当判据。
+
+ymc 自己还有个 bug：**自动续播会抢歌**——点一首后约 1 秒它判定「没在播」，就跳到推荐歌
+（等待期把这个窗口拉长了，但没等待期时日志里也有）。自动续播用户要留着，没关。
+
 ### 文本 → Kate（2026-11-04）
 
 原来双击文本文件、`Super+T` 打开的都是基座带的 gnome-text-editor，功能太少：
