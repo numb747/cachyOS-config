@@ -42,16 +42,16 @@ clipboard_history_max_entries = 300
 
 [theme]
 builtin = "Nord"
-community_palette = "Tokyo Night Moon"
+community_palette = "Rose Pine Moon"
 mode = "dark"
 source = "community"
 wallpaper_scheme = "m3-content"
 
 [wallpaper.default]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
+path = "/home/david/Pictures/Wallpapers/rosepine/ogjg3l.png"
 
 [wallpaper.last]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
+path = "/home/david/Pictures/Wallpapers/rosepine/ogjg3l.png"
 
 [wallpaper.monitors.DP-1]
-path = "/home/david/Pictures/Wallpapers/tokyonight/D-ASCII/a1-紫调少女.png"
+path = "/home/david/Pictures/Wallpapers/rosepine/ogjg3l.png"
