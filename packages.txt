@@ -94,6 +94,8 @@ firefox
 satty
 jq
 yay
+# zfortune 随机读一首古诗（home/.zshrc 的 alias）。诗库不随包走，见 docs/03「古诗」。
+fortune-mod
 
 # ── 截图 / 录屏 / 看图看片 ──────────────────────────────────
 # grim / slurp / hyprpicker 由 cachyos-hypr-noctalia 基座带，不重复列；

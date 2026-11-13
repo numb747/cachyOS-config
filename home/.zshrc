@@ -109,6 +109,11 @@ if [[ -n $TMUX_PANE ]] && (( $+commands[tmux] )); then
     add-zsh-hook precmd _tmux_track_precmd
 fi
 
+# ─── 古诗：fortune-mod + ruanyf/fortunes（tang300 唐诗 / song100 宋诗）────────
+# 诗库在 ~/.local/share/fortune/poems（不进配置包，换机按 docs 重新拉）。
+command -v fortune >/dev/null 2>&1 && \
+    alias zfortune='fortune ~/.local/share/fortune/poems'   # 随机一首
+
 
 # Added by Antigravity CLI installer
 export PATH="/home/david/.local/bin:$PATH"

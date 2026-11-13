@@ -286,10 +286,38 @@ powerlevel10k 在 `precmd` 里重新赋值 `PROMPT`，任何静态赋值都会�
 | AI sandbox | 探测 `docker` 命令存在才定义 |
 | 可选工具链 | rvm / zoxide / uv，全部探测后才启用 |
 | tmux 窗格状态 | 只在 `$TMUX_PANE` 存在时生效：`preexec`/`precmd` 把正在跑的命令、上一条的退出码/耗时写进 tmux 窗格选项，给 tmux 的 `Alt+a` 总览用（2026-10-13，见 [14](14-tmux.md) 第 9 节） |
+| 古诗 | 探测 `fortune` 命令存在才定义 `zfortune`（2026-11-12，见下方「古诗」） |
 
 **所有外部依赖一律写成「探测存在才启用」**，目录/命令不存在时整段静默跳过。
 这样同一份 `.zshrc` 扔到任何机器都不会在每次开 shell 时刷报错。
 hacktools 的路径也从硬编码的 `/home/david/` 改成了相对 `$HOME`，换用户名不用回来改。
+
+### 古诗（2026-11-12）
+
+敲 `zfortune` 随机读一首（alias，`fortune ~/.local/share/fortune/poems`）。
+程序是 pacman 的 `fortune-mod`，诗库取自
+[ruanyf/fortunes](https://github.com/ruanyf/fortunes)（作者本人仓库，纯文本，简体）：
+
+| 文件 | 内容 | 条数 |
+|---|---|---|
+| `tang300` | 唐诗三百首 | 313 |
+| `song100` | **宋诗**一百首（不是宋词） | 101 |
+
+同仓库的 `chinese`（2 万多条格言）**故意没放进来**，会把诗淹掉。
+
+诗库**不入包**，换机器重新拉：
+
+```bash
+git clone --depth 1 https://github.com/ruanyf/fortunes.git /tmp/ruanyf-fortunes
+mkdir -p ~/.local/share/fortune/poems
+cp /tmp/ruanyf-fortunes/data/{tang300,song100} ~/.local/share/fortune/poems/
+cd ~/.local/share/fortune/poems && strfile tang300 && strfile song100
+```
+
+用户**只要手动敲命令随机读**：开终端自动弹诗、回想测验、搜索、收藏这些
+当天做过又撤掉了，嫌冗余，别再加回来。
+
+颜色码是数据文件自带的（题目绿、作者黄），跟着终端配色走。
 
 ### p10k
 
