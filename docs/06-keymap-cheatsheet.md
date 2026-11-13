@@ -188,6 +188,9 @@
 |---|---|
 | `Ctrl+/` | 开/关浮动终端（normal / terminal 模式都能按） |
 | `Esc Esc` | 从终端模式回普通模式（kitty 和 toggleterm 都绑了） |
+| `Ctrl+Shift+F1` / `F2` | kitty 终端壁纸：下一张 / 上一张（`bin/kitty-bg`，见 `docs/03`「终端壁纸」） |
+| `Ctrl+Shift+F3` / `F4` | kitty 终端壁纸：更暗 / 更亮（每次 10%） |
+| `Ctrl+Shift+F12` | kitty 终端壁纸开关（关 = 回到毛玻璃） |
 | `Alt+=` | 浮动终端在阅读档 / 大档之间切换（浮窗里开 tmux 看团队分屏用，见 `docs/04`） |
 | `<leader>th` / `<leader>tv` | 水平 / 垂直终端 |
 | `<leader>tn` / `Ctrl+r` | 给当前终端命名 |

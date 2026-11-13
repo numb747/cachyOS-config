@@ -22,6 +22,7 @@ window_padding_width        25 25 12 25   # 下边 12，见下文「kitty 标签
 shell nvim -c terminal -c startinsert -c 'tnoremap <Esc><Esc> <C-\><C-n>'
 
 include themes/noctalia.conf
+include wallpaper.conf        # 终端壁纸，见下文「终端壁纸」；注释掉 = 纯毛玻璃
 ```
 
 ### 字体：Adwaita Mono + Meslo 补图标
@@ -274,6 +275,39 @@ hyprctl getoption decoration:blur:xray     # bool: false · set: false ← 没�
 窗口铺满整屏时，「玻璃悬浮在壁纸上」的层次感不存在了，模糊只等于给终端加了个色调。
 毛玻璃真正好看是在平铺/浮动状态下——`gaps_out` 露出的那圈壁纸和窗口内模糊后的延续
 接得上，才有玻璃压在图上的感觉。本机终端常年全屏，所以这部分收益是拿不到的。
+
+### 终端壁纸：毛玻璃之外加的一种背景（2026-11-14）
+
+**是新增，不是替换。** 毛玻璃那套（`background_opacity 0.6` + Hyprland blur）一行没动，
+壁纸是叠在上面的一层：kitty 画了背景图，窗口就不透明了，Hyprland 无处可糊；
+图一关（`Ctrl+Shift+F12`，或注释掉 `kitty.conf` 末行 `include wallpaper.conf`），
+`background_opacity` 重新生效，立刻回到毛玻璃。
+
+| 文件 | 作用 |
+|---|---|
+| `config/kitty/wallpaper.conf` | `background_image ~/.cache/kitty-bg/current.jpg`、`cscaled` 铺满、键位 |
+| `bin/kitty-bg` | 切图 / 调暗 / 开关；按亮度把原图压暗后缓存进 `~/.cache/kitty-bg/L<亮度>/`，当前那张软链成 `current.jpg` |
+| `~/Pictures/Wallpapers/kitty-bg/*.jpg` | 原图，**不入包**（同壁纸全库）。没有图时 glob 匹配不到，kitty 自动退回毛玻璃 |
+
+键位：`Ctrl+Shift+F1/F2` 下一张/上一张 · `F3/F4` 更暗/更亮（每次 10%，10%～100%，默认 40%）· `F12` 开关。
+选了哪张、多暗记在 `~/.cache/kitty-bg/state`，**所有 kitty 窗口一起变**，新开的窗口也沿用。
+
+现有 8 张是 wallhaven 动漫类年度榜里挑的冷色夜景插画（缩到 2560×1440，人物偏右/偏中，左边留给字），
+重新拉按 id：`yq2mll zpqp6g rq6151 6l2rk7 d8v5jm xe93pd 1q19l1 21293g`（`d8v5jm` 做过左右镜像，让人物到右边）。
+第一版用的是 `wallpaper/` 那批黑底单色剪影，用户评价「很滑稽、不是二次元」，当天换掉。
+
+**为什么调暗不用 kitty 的 `background_tint`**：它是把图往主题背景色 `#232136` 上混，而这个色本身不够黑，
+实测 tint 从 0 开到 0.95 屏幕平均亮度只从 0.21 降到 0.18，用户仍嫌太亮。`kitty-bg` 改成直接
+`magick -fill black -colorize (100-亮度)%` 把原图往黑里压，`background_tint` 固定为 0。
+⚠ 别用 `-modulate 亮度` 压：它在 HSL 里算，暗部会冒出橙色/红色色块。
+
+**快捷键怎么遥控 kitty**：本机没开 `allow_remote_control`（见上文「远程控制：开过又撤了」），
+键位用的是 `launch --type=background --allow-remote-control kitty-bg …`——kitty 只给**这一个子进程**
+发一条专用的 socket pair（`KITTY_LISTEN_ON`），不对外开监听。在命令行直接跑 `kitty-bg` 没有这个变量，
+只会更新软链，影响新开的窗口。
+
+与毛玻璃那几节的结论并不冲突：那里说的「字后面有图案累眼」是**糊不透的残影**；这里是**清楚的整图压暗**，
+暗度可随手调。真觉得累，按 `F3` 压暗或 `F12` 关掉即可。
 
 ---
 

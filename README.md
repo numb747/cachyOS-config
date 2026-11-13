@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 17 documents under
-> `docs/` — roughly 479 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 482 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -191,7 +191,7 @@ migrate machines.
 | What | Why |
 |---|---|
 | `~/.ssh/`, `~/.gnupg/`, `~/.claude/settings.json` | Contain secrets, see above |
-| The full `~/Pictures/Wallpapers/` library (438 MB) | Too large; ships 1 reference image + 8 rendered ASCII pieces + a script to re-fetch |
+| The full `~/Pictures/Wallpapers/` library (445 MB) | Too large; ships 1 reference image + 8 rendered ASCII pieces + a script to re-fetch |
 | `~/.zsh_history` | Personal trace, nothing to reuse |
 | `~/.bashrc`, wezterm and fish fragments | Abandoned; the login shell is zsh |
 | `qt5ct/`, `xsettingsd/` | The config files exist but neither program is installed here — pure skel leftovers, dead config |

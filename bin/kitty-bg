@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# kitty 终端壁纸：切图 / 调暗 / 开关。由 kitty.conf（wallpaper.conf）里的快捷键调用：
+#   kitty-bg next|prev|darker|lighter|toggle
+# 原图在 ~/Pictures/Wallpapers/kitty-bg/*.jpg；按亮度级别压暗后缓存到 ~/.cache/kitty-bg/L<亮度>/，
+# 当前这张软链成 ~/.cache/kitty-bg/current.jpg，新开的 kitty 直接读它（wallpaper.conf 的 background_image）。
+# 为什么不用 kitty 自带的 background_tint：它是往主题背景色 #232136 上混，背景色本身不够黑，
+# 0.95 也只比原图暗一点点；直接压原图亮度才压得下去。
+set -euo pipefail
+
+SRC=~/Pictures/Wallpapers/kitty-bg
+CACHE=~/.cache/kitty-bg
+STATE=$CACHE/state            # 一行：序号 亮度百分比 on|off
+STEP=10 MIN=10 MAX=100
+
+mkdir -p "$CACHE"
+mapfile -t imgs < <(find "$SRC" -maxdepth 1 -name '*.jpg' | sort)
+n=${#imgs[@]}
+(( n > 0 )) || { echo "no images in $SRC" >&2; exit 1; }
+
+idx=0 level=40 power=on
+[[ -f $STATE ]] && read -r idx level power < "$STATE"
+
+case ${1:-apply} in
+  next)    idx=$(( (idx + 1) % n )); power=on ;;
+  prev)    idx=$(( (idx - 1 + n) % n )); power=on ;;
+  darker)  level=$(( level - STEP < MIN ? MIN : level - STEP )); power=on ;;
+  lighter) level=$(( level + STEP > MAX ? MAX : level + STEP )); power=on ;;
+  toggle)  [[ $power == on ]] && power=off || power=on ;;
+  apply)   ;;
+  *) echo "usage: kitty-bg next|prev|darker|lighter|toggle" >&2; exit 2 ;;
+esac
+idx=$(( idx % n ))
+echo "$idx $level $power" > "$STATE"
+
+# 只在 kitty 用 launch --allow-remote-control 调起时才能遥控；命令行直接跑只更新软链（影响新窗口）
+rc() { [[ -n ${KITTY_LISTEN_ON:-} ]] && kitten @ set-background-image --all --configured "$@" || true; }
+
+if [[ $power == off ]]; then
+  rm -f "$CACHE/current.jpg"
+  rc none
+  exit 0
+fi
+
+src=${imgs[$idx]}
+out=$CACHE/L$level/$(basename "$src")
+if [[ ! -f $out ]]; then
+  mkdir -p "$CACHE/L$level"
+  magick "$src" -fill black -colorize "$(( 100 - level ))%" -quality 92 "$out.tmp.jpg"
+  mv "$out.tmp.jpg" "$out"
+fi
+ln -sfn "$out" "$CACHE/current.jpg"
+rc "$out"

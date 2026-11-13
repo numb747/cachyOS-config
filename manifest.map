@@ -37,6 +37,10 @@ share/applications/floating-terminal.desktop  ~/.local/share/applications/floati
 config/kitty/kitty.conf                   ~/.config/kitty/kitty.conf
 config/kitty/tab_bar.py                   ~/.config/kitty/tab_bar.py
 config/kitty/themes/noctalia.conf         ~/.config/kitty/themes/noctalia.conf
+# 终端壁纸（毛玻璃之外的另一种背景）：kitty.conf 末行 include wallpaper.conf；切图/调暗/开关都走 kitty-bg，
+# 键位 Ctrl+Shift+F1/F2/F3/F4/F12。图本身不入包（~/Pictures/Wallpapers/kitty-bg/），没图时自动退回毛玻璃。见 docs/03「终端壁纸」。
+config/kitty/wallpaper.conf               ~/.config/kitty/wallpaper.conf
+bin/kitty-bg                              ~/.local/bin/kitty-bg
 config/alacritty/alacritty.toml           ~/.config/alacritty/alacritty.toml
 config/alacritty/themes/noctalia.toml     ~/.config/alacritty/themes/noctalia.toml
 # Konsole 只给 Dolphin 底部终端面板（F4）用：不设 profile 时字体落到 qt6ct 的 Noto Sans（比例字体），
