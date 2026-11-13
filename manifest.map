@@ -224,10 +224,9 @@ claude/skills/arch-map/scripts/check.py   ~/.claude/skills/arch-map/scripts/chec
 claude/skills/arch-map/FORMAT.md          ~/.claude/skills/arch-map/FORMAT.md
 # arch-design：先和用户讨论、画 planned 地图，定稿后照图拆步骤写代码。格式和 arch-map 共用 FORMAT.md。
 claude/skills/arch-design/SKILL.md        ~/.claude/skills/arch-design/SKILL.md
-# 启动器「今日花费」（2026-11-13 加）：读 ~/.claude/projects 的会话记录，按官方价折算当天花费弹通知；
-# 终端里 cc-cost 看分类 / 项目 / 会话明细。价格表手抄在脚本里，出新模型要补。见 docs/08 第 14 节。
+# cc-cost（2026-11-13 加）：读 ~/.claude/projects 的会话记录，按官方价折算某天 / 某段时间的花费，
+# 分类 / 项目 / 会话 / 按天明细。只做终端命令，启动器弹通知试过、用户说不用。价格表手抄在脚本里，出新模型要补。见 docs/08 第 14 节。
 bin/cc-cost                               ~/.local/bin/cc-cost
-share/applications/cc-cost.desktop        ~/.local/share/applications/cc-cost.desktop
 
 #@module wall
 # ⚠ D-ASCII 成品（wallpaper/ascii/*，含 settings.toml 默认指向的 a1-紫调少女.png）

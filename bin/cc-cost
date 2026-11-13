@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-# cc-cost — 今天 Claude Code 按官方价折算花了多少钱（启动器「今日花费」就是调它）
+# cc-cost — Claude Code 按官方价折算花了多少钱（终端命令；2026-11-13 试过启动器弹通知，用户觉得命令就够）
 #
-#   cc-cost              终端里看明细：分类 / 按项目 / 最贵会话 / 按小时
-#   cc-cost 2026-11-12   看某一天
-#   cc-cost --notify     只弹一条桌面通知（启动器用）
+#   cc-cost                          今天
+#   cc-cost 昨天 | 11-12 | 2026-11-12   某一天
+#   cc-cost 7d                       最近 7 天（含今天）；本月 / 上月 同理
+#   cc-cost 11-01 11-13              一段日期，两头都算
+#   cc-cost 09:00 | 09:00 11:30      今天某个钟点起到现在 / 到某个钟点
+#   cc-cost "11-12 20:00" "11-13 02:00"   精确到分钟的任意一段
+#
+# 输出：分类表 / 按项目 / 最贵会话；一天以内附「按小时」，跨天附「按天」。
 #
 # 数据来自 ~/.claude/projects/**/*.jsonl（含子代理），每条 assistant 消息带 API 返回的 usage，
 # 是真实消耗而不是估算。⚠ 流式输出时同一次请求会记好几行，必须按 message.id + requestId 去重，
-# 不去重会多算一倍多。日期按本地时区切。
+# 不去重会多算一倍多。时间按本地时区。
 #
 # ⚠ 金额是 Anthropic 官方标价折算，本机走中转，实付看中转后台（倍率不一定是 1）。
 # ⚠ 价格表是手抄的，出新模型要补；没补的模型不计入金额，并在输出里列出来提醒。
 import glob
 import json
 import os
-import subprocess
+import re
 import sys
 import unicodedata
 from collections import defaultdict
@@ -36,15 +41,17 @@ PRICE = {
 FAST = 2          # fast mode：Opus 5.5 $8/$40、Opus 5 $10/$50，都正好是 2 倍
 CNY = 7.1         # 只为给个人民币量级，不追汇率
 CAT = ["输入", "缓存写5m", "缓存写1h", "缓存读", "输出"]
+DAY = timedelta(days=1)
 
 
-def collect(day):
-    start = datetime.combine(day, datetime.min.time()).timestamp()
+def collect(start, end):
+    """统计 [start, end) 这段时间，start/end 是本地时区的 naive datetime。"""
     r = {"tok": defaultdict(int), "usd": defaultdict(float), "proj": defaultdict(float),
-         "sess": {}, "hour": defaultdict(float), "unknown": set(), "req": 0}
+         "sess": {}, "hour": defaultdict(float), "day": defaultdict(float),
+         "unknown": set(), "req": 0}
     seen = set()
     for f in glob.glob(os.path.expanduser("~/.claude/projects/**/*.jsonl"), recursive=True):
-        if os.path.getmtime(f) < start:      # 当天没写过的文件不可能有当天的记录
+        if os.path.getmtime(f) < start.timestamp():   # 最后写入早于起点，不可能有这段的记录
             continue
         sub = "/subagents/" in f
         proj = None      # 按会话【启动】目录归项目；逐条 cwd 会被会话里的 cd 拆碎成一堆子目录
@@ -58,8 +65,8 @@ def collect(day):
             proj = proj or d.get("cwd")
             if not u or not d.get("timestamp"):
                 continue
-            t = datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).astimezone()
-            if t.date() != day:
+            t = datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).astimezone().replace(tzinfo=None)
+            if not start <= t < end:
                 continue
             k = (m.get("id"), d.get("requestId"))
             if k[0] and k in seen:
@@ -86,6 +93,7 @@ def collect(day):
             name = os.path.basename(proj or "?") or "/"
             r["proj"][name] += s
             r["hour"][t.hour] += s
+            r["day"][t.date()] += s
             sid = (d.get("sessionId") or "?")[:8] + (" 子代理" if sub else "")
             e = r["sess"].setdefault(sid, [0.0, 0, name, 0])
             e[0] += s
@@ -95,55 +103,102 @@ def collect(day):
     return r
 
 
+# ---------- 时间段解析 ----------
+
+def parse_point(s, today):
+    """一个时间点 → (datetime, 是否只给了日期)。只给日期时作终点要算到当天结束。"""
+    s = s.strip()
+    words = {"今天": today, "today": today, "昨天": today - DAY, "yesterday": today - DAY,
+             "前天": today - 2 * DAY}
+    if s in words:
+        return datetime.combine(words[s], datetime.min.time()), True
+    m = re.fullmatch(r"(?:(\d{4})-)?(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?", s)
+    if m:
+        y, mo, d, hh, mm = m.groups()
+        dt = datetime(int(y or today.year), int(mo), int(d), int(hh or 0), int(mm or 0))
+        return dt, hh is None
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
+    if m:
+        return datetime.combine(today, datetime.min.time()).replace(hour=int(m[1]), minute=int(m[2])), False
+    sys.exit(f"cc-cost：看不懂时间「{s}」。可用：今天 昨天 11-12 2026-11-12 09:00 \"11-12 20:00\" 7d 本月 上月")
+
+
+def parse_range(args):
+    """参数 → (start, end, 标题)。end 是开区间。"""
+    today = date.today()
+    midnight = datetime.combine(today, datetime.min.time())
+    if not args:
+        return midnight, midnight + DAY, f"{today}（今天）"
+    if len(args) == 1:
+        a = args[0]
+        m = re.fullmatch(r"(\d+)d", a)
+        if m:
+            n = int(m[1])
+            return midnight - (n - 1) * DAY, midnight + DAY, f"最近 {n} 天（{today - (n - 1) * DAY} ~ {today}）"
+        if a in ("本月", "month"):
+            s = midnight.replace(day=1)
+            return s, midnight + DAY, f"本月（{s.date()} ~ {today}）"
+        if a in ("上月", "lastmonth"):
+            e = midnight.replace(day=1)
+            s = (e - DAY).replace(day=1)
+            return s, e, f"上月（{s.date()} ~ {(e - DAY).date()}）"
+        dt, whole_day = parse_point(a, today)
+        if whole_day:
+            return dt, dt + DAY, str(dt.date())
+        return dt, datetime.now(), f"{dt:%Y-%m-%d %H:%M} 至今"
+    if len(args) == 2:
+        s, _ = parse_point(args[0], today)
+        e, whole_day = parse_point(args[1], today)
+        if whole_day:
+            e += DAY
+        if e <= s:
+            sys.exit("cc-cost：结束时间要晚于开始时间")
+        label_e = (e - DAY).date() if whole_day else f"{e:%Y-%m-%d %H:%M}"
+        label_s = s.date() if (s.hour, s.minute) == (0, 0) and whole_day else f"{s:%Y-%m-%d %H:%M}"
+        return s, e, f"{label_s} ~ {label_e}"
+    sys.exit("cc-cost：最多两个参数（开始 结束）")
+
+
+# ---------- 输出 ----------
+
 def pad(s, w):
     """按显示宽度补空格：中文占两格，str.ljust 会把中文项目名那列挤歪。"""
     return s + " " * max(0, w - sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s))
 
 
-def notify(day):
-    r = collect(day)
-    T = r["total"]
-    if not r["req"]:
-        body = "今天还没有用量"
-    else:
-        tok = sum(r["tok"].values())
-        u = r["usd"]
-        pct = lambda v: f"{v / T * 100:.0f}%"
-        top, tv = max(r["proj"].items(), key=lambda x: x[1])
-        body = (f"token {tok / 1e8:.2f} 亿 · 请求 {r['req']} 次\n"
-                f"缓存读 {pct(u['缓存读'])} · 缓存写 {pct(u['缓存写5m'] + u['缓存写1h'])}"
-                f" · 输出 {pct(u['输出'])}\n"
-                f"最多：{top} ${tv:.0f}（{pct(tv)}）")
-        if day == date.today():
-            y = collect(day - timedelta(days=1))
-            if y["req"]:
-                body += f"\n昨天全天 ${y['total']:.0f}"
-    if r["unknown"]:
-        body += f"\n⚠ 价格表缺 {', '.join(sorted(r['unknown']))}，未计入"
-    subprocess.run(["notify-send", "-a", "Claude Code", "-i", "utilities-system-monitor",
-                    f"今日花费 ${T:.0f}（≈¥{T * CNY:.0f}）", body])
-
-
-def report(day):
-    r = collect(day)
+def report(start, end, title):
+    r = collect(start, end)
     T = r["total"] or 1
-    print(f"== {day}  请求 {r['req']} 次  （官方价折算，实付以中转后台为准）")
+    print(f"== {title}  请求 {r['req']} 次  （官方价折算，实付以中转后台为准）")
     print(f"{pad('类别', 10)}{'token':>16}{pad('', 7)}美元{pad('', 4)}占比")
     for k in CAT:
         print(f"{pad(k, 10)}{r['tok'][k]:>16,}{r['usd'][k]:>11.2f}{r['usd'][k] / T * 100:>7.1f}%")
     print(f"{pad('合计', 10)}{sum(r['tok'].values()):>16,}{r['total']:>11.2f}   ≈ ¥{r['total'] * CNY:.0f}")
     if r["unknown"]:
         print(f"⚠ 价格表缺这些模型，未计入金额：{', '.join(sorted(r['unknown']))}")
+    # Claude Code 默认删掉 30 天没动过的会话记录（settings.json 的 cleanupPeriodDays），更早的查不到
+    files = glob.glob(os.path.expanduser("~/.claude/projects/**/*.jsonl"), recursive=True)
+    oldest = min((os.path.getmtime(f) for f in files), default=0)
+    if oldest and start.timestamp() < oldest:
+        print(f"⚠ 本机最早的会话记录是 {datetime.fromtimestamp(oldest):%Y-%m-%d}，"
+              f"更早的已被 Claude Code 自动清理（cleanupPeriodDays），这段数字偏少")
+    if not r["req"]:
+        return
     print("\n按项目:")
     for p, v in sorted(r["proj"].items(), key=lambda x: -x[1]):
         print(f"  {pad(p, 32)}${v:8.2f} {v / T * 100:5.1f}%")
     print("\n最贵的会话（$ / 请求数 / 单次最大上下文）:")
     for sid, (v, n, p, mx) in sorted(r["sess"].items(), key=lambda x: -x[1][0])[:8]:
         print(f"  {pad(sid, 15)} {pad(p, 24)}${v:7.2f} {n:5}次 {mx / 1000:6.0f}K")
-    print("\n按小时:", "  ".join(f"{h}点${v:.0f}" for h, v in sorted(r["hour"].items())))
+    if len(r["day"]) > 1:
+        days = sorted(r["day"].items())
+        print(f"\n按天（有用量的 {len(days)} 天，日均 ${r['total'] / len(days):.0f}）:")
+        top = max(v for _, v in days)
+        for d, v in days:
+            print(f"  {d:%m-%d} {'日一二三四五六'[d.isoweekday() % 7]}  ${v:7.2f}  {'█' * round(v / top * 30)}")
+    else:
+        print("\n按小时:", "  ".join(f"{h}点${v:.0f}" for h, v in sorted(r["hour"].items())))
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a != "--notify"]
-    day = date.fromisoformat(args[0]) if args else date.today()
-    (notify if "--notify" in sys.argv else report)(day)
+    report(*parse_range(sys.argv[1:]))
