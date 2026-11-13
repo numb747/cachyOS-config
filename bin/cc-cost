@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 # cc-cost — Claude Code 按官方价折算花了多少钱（终端命令；2026-11-13 试过启动器弹通知，用户觉得命令就够）
 #
-#   cc-cost                          今天
-#   cc-cost 昨天 | 11-12 | 2026-11-12   某一天
-#   cc-cost 7d                       最近 7 天（含今天）；本月 / 上月 同理
-#   cc-cost 11-01 11-13              一段日期，两头都算
-#   cc-cost 09:00 | 09:00 11:30      今天某个钟点起到现在 / 到某个钟点
-#   cc-cost "11-12 20:00" "11-13 02:00"   精确到分钟的任意一段
-#
-# 输出：分类表 / 按项目 / 最贵会话；一天以内附「按小时」，跨天附「按天」。
+# 用法见下面的 USAGE（cc-cost -h 打印的就是它，改用法只改那一处）。
 #
 # 数据来自 ~/.claude/projects/**/*.jsonl（含子代理），每条 assistant 消息带 API 返回的 usage，
 # 是真实消耗而不是估算。⚠ 流式输出时同一次请求会记好几行，必须按 message.id + requestId 去重，
@@ -42,6 +35,30 @@ FAST = 2          # fast mode：Opus 5.5 $8/$40、Opus 5 $10/$50，都正好是 
 CNY = 7.1         # 只为给个人民币量级，不追汇率
 CAT = ["输入", "缓存写5m", "缓存写1h", "缓存读", "输出"]
 DAY = timedelta(days=1)
+
+USAGE = """\
+cc-cost — Claude Code 按官方价折算花了多少钱
+
+用法：
+  cc-cost                                    今天
+  cc-cost 昨天 | 前天 | 11-12 | 2026-11-12   某一天
+  cc-cost 7d                                 最近 7 天（含今天），数字随便换
+  cc-cost 本月 | 上月                        整月
+  cc-cost 11-01 11-13                        一段日期，起止两天都算
+  cc-cost 09:00                              今天 9 点到现在
+  cc-cost 09:00 11:30                        今天两个钟点之间
+  cc-cost "11-12 20:00" "11-13 02:00"        精确到分钟，可跨天（带空格要加引号）
+  cc-cost -h | help | 帮助                   显示这段说明
+
+输出：分类表（输入 / 缓存写 5m / 缓存写 1h / 缓存读 / 输出）、按项目、最贵的 8 个会话；
+      一天以内附「按小时」，跨天附「按天」。
+
+注意：
+  · 金额按 Anthropic 官方标价折算，本机走中转，实付以中转后台为准。
+  · 价格表在脚本顶部 PRICE，出新模型要补；没收录的模型不计金额，输出里会提示。
+  · Claude Code 默认只留 30 天的会话记录（cleanupPeriodDays），更早的查不到。
+  · 文档：~/cachyOS-config/docs/08-claude-code.md 第 14 节
+"""
 
 
 def collect(start, end):
@@ -120,7 +137,7 @@ def parse_point(s, today):
     m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
     if m:
         return datetime.combine(today, datetime.min.time()).replace(hour=int(m[1]), minute=int(m[2])), False
-    sys.exit(f"cc-cost：看不懂时间「{s}」。可用：今天 昨天 11-12 2026-11-12 09:00 \"11-12 20:00\" 7d 本月 上月")
+    sys.exit(f"cc-cost：看不懂时间「{s}」，cc-cost -h 看用法")
 
 
 def parse_range(args):
@@ -156,7 +173,7 @@ def parse_range(args):
         label_e = (e - DAY).date() if whole_day else f"{e:%Y-%m-%d %H:%M}"
         label_s = s.date() if (s.hour, s.minute) == (0, 0) and whole_day else f"{s:%Y-%m-%d %H:%M}"
         return s, e, f"{label_s} ~ {label_e}"
-    sys.exit("cc-cost：最多两个参数（开始 结束）")
+    sys.exit("cc-cost：最多两个参数（开始 结束），cc-cost -h 看用法")
 
 
 # ---------- 输出 ----------
@@ -201,4 +218,6 @@ def report(start, end, title):
 
 
 if __name__ == "__main__":
+    if any(a in ("-h", "--help", "help", "帮助") for a in sys.argv[1:]):
+        sys.exit(print(USAGE, end=""))
     report(*parse_range(sys.argv[1:]))
