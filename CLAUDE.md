@@ -160,7 +160,8 @@ cd ~/cachyOS-config && ./sync.sh --pull
    刻意做成**换壁纸不用重调**的通用值：认不出原图 = 永远不会有亮块压在代码上，
    氛围靠 `vibrancy` 留色调而非透出图案。⚠ **别再试「降 passes 保留剪影」**——
    2026-08-28 试过 `passes=1, size=13`，对稀疏 ASCII 壁纸好看，换实心插画立刻
-   「一张脸压在文字上」。保留结构的方案没法通用。见 `docs/03-terminal.md`。
+   「一张脸压在文字上」。保留结构的方案没法通用。2026-11-11 配暗色单色壁纸又试了一次
+   43PR 风格轻糊（`passes=1` 会重影，2·3 不重影但字后有图案仍累眼），同日退回。见 `docs/03-terminal.md`。
 
 5. **`vim.opt.shell` 必须设在 `lua/config/options.lua`。** 设晚了 toggleterm 在 spec
    构造那一刻就取走了旧值。

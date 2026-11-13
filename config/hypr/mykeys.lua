@@ -728,6 +728,13 @@ hl.bind("SUPER + period", hl.dsp.exec_cmd("walker -m symbols"))
 --     ★ 策略：【糊透 + 微压暗】—— 这是一组**通用**值，换壁纸不用重调。
 --     2026-08-28 用 grim 逐版截图比出来的，理由逐行写在下面。
 --
+--     ⚠️ 2026-11-11 试过「轻糊」（学 43PR/dotfiles：passes=1 / size=5 /
+--     vibrancy=0.2，配暗色单色二次元壁纸），用户看着眼睛不舒服，当天退回。
+--     细节见 docs/03-terminal「轻糊（43PR 风格）：试过，退回」，要点：
+--       ▸ passes=1 会重影：边缘叠成几层半透明副本，网点壁纸还起摩尔纹。
+--         43PR 看不出来是因为他窗口 opacity 0.9 只透 10%，这里 kitty 透 40%。
+--       ▸ 2·3 能去掉重影，但字后面有图案本身就累眼 —— 问题不在参数。
+--
 --     调参手册：括号里是 Hyprland 默认值，验证一律看
 --     `hyprctl getoption decoration:blur:<键>` 的 set: true —— set: false 是在报默认值。
 --     实时试参数：hyprctl eval 'hl.config({ decoration = { blur = { size = 20 } } })'，

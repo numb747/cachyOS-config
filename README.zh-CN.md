@@ -171,7 +171,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 | 东西 | 为什么不带 |
 |---|---|
 | `~/.ssh/`、`~/.gnupg/`、`~/.claude/settings.json` | 含密钥，见上 |
-| `~/Pictures/Wallpapers/` 全库（426 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
+| `~/Pictures/Wallpapers/` 全库（438 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
 | `~/.zsh_history` | 个人痕迹，无复用价值 |
 | `~/.bashrc`、wezterm、fish 片段 | 已弃用，登录 shell 是 zsh |
 | `qt5ct/`、`xsettingsd/` | 配置文件在，但这两个程序本机没装，纯 skel 残留，是死配置 |

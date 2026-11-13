@@ -191,7 +191,7 @@ migrate machines.
 | What | Why |
 |---|---|
 | `~/.ssh/`, `~/.gnupg/`, `~/.claude/settings.json` | Contain secrets, see above |
-| The full `~/Pictures/Wallpapers/` library (426 MB) | Too large; ships 1 reference image + 8 rendered ASCII pieces + a script to re-fetch |
+| The full `~/Pictures/Wallpapers/` library (438 MB) | Too large; ships 1 reference image + 8 rendered ASCII pieces + a script to re-fetch |
 | `~/.zsh_history` | Personal trace, nothing to reuse |
 | `~/.bashrc`, wezterm and fish fragments | Abandoned; the login shell is zsh |
 | `qt5ct/`, `xsettingsd/` | The config files exist but neither program is installed here — pure skel leftovers, dead config |
