@@ -25,7 +25,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     17 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome、cc-cost 启动器「今日花费」）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── system/                   一次性系统修复脚本（改 /etc、不走 manifest.map）：keyring-autounlock.sh 钥匙环开机自动解锁，见 docs/05
@@ -120,7 +120,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改配色 / 顶栏 / 字体 / 壁纸 / 输入法 | `docs/05-theme-ui.md` |
 | 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
-| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP）/ MCP 按需加载（ccx 套餐，不让 mitmweb/ida/chrome 等常驻） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节，MCP 按需/ccx 在第 13 节） |
+| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP）/ MCP 按需加载（ccx 套餐，不让 mitmweb/ida/chrome 等常驻）/ 今天 token 花了多少钱（启动器「今日花费」、`cc-cost`） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节，MCP 按需/ccx 在第 13 节，今日花费在第 14 节） |
 | wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |

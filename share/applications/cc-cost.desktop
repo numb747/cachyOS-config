@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=今日花费
+GenericName=Claude Code Cost Today
+Comment=Claude Code 今天按官方价折算花了多少钱，弹通知（~/.local/bin/cc-cost；终端里跑 cc-cost 看明细）
+Exec=/home/david/.local/bin/cc-cost --notify
+Icon=utilities-system-monitor
+Terminal=false
+Categories=Development;
+Keywords=claude;token;cost;usage;花费;用量;费用;claude code;jinri;huafei;yongliang;

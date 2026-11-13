@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+# cc-cost — 今天 Claude Code 按官方价折算花了多少钱（启动器「今日花费」就是调它）
+#
+#   cc-cost              终端里看明细：分类 / 按项目 / 最贵会话 / 按小时
+#   cc-cost 2026-11-12   看某一天
+#   cc-cost --notify     只弹一条桌面通知（启动器用）
+#
+# 数据来自 ~/.claude/projects/**/*.jsonl（含子代理），每条 assistant 消息带 API 返回的 usage，
+# 是真实消耗而不是估算。⚠ 流式输出时同一次请求会记好几行，必须按 message.id + requestId 去重，
+# 不去重会多算一倍多。日期按本地时区切。
+#
+# ⚠ 金额是 Anthropic 官方标价折算，本机走中转，实付看中转后台（倍率不一定是 1）。
+# ⚠ 价格表是手抄的，出新模型要补；没补的模型不计入金额，并在输出里列出来提醒。
+import glob
+import json
+import os
+import subprocess
+import sys
+import unicodedata
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+
+# $/MTok：输入, 5 分钟缓存写, 1 小时缓存写, 缓存读, 输出
+# 来源 platform.claude.com/docs/en/about-claude/pricing（2026-11-13 抄）。
+# 注意 Opus/Sonnet 5.5 的缓存读是输入价的 0.05x，不是常说的 0.1x。
+PRICE = {
+    "claude-opus-5-5":   (4,  5,    8,  0.20, 20),
+    "claude-opus-5":     (5,  6.25, 10, 0.50, 25),
+    "claude-opus-4-8":   (5,  6.25, 10, 0.50, 25),
+    "claude-opus-4-7":   (5,  6.25, 10, 0.50, 25),
+    "claude-sonnet-5-5": (2,  2.5,  4,  0.10, 10),
+    "claude-sonnet-5":   (2,  2.5,  4,  0.20, 10),
+    "claude-fable-5-1":  (10, 12.5, 20, 0.25, 50),
+    "claude-haiku-4-5-20251001": (1, 1.25, 2, 0.10, 5),
+}
+FAST = 2          # fast mode：Opus 5.5 $8/$40、Opus 5 $10/$50，都正好是 2 倍
+CNY = 7.1         # 只为给个人民币量级，不追汇率
+CAT = ["输入", "缓存写5m", "缓存写1h", "缓存读", "输出"]
+
+
+def collect(day):
+    start = datetime.combine(day, datetime.min.time()).timestamp()
+    r = {"tok": defaultdict(int), "usd": defaultdict(float), "proj": defaultdict(float),
+         "sess": {}, "hour": defaultdict(float), "unknown": set(), "req": 0}
+    seen = set()
+    for f in glob.glob(os.path.expanduser("~/.claude/projects/**/*.jsonl"), recursive=True):
+        if os.path.getmtime(f) < start:      # 当天没写过的文件不可能有当天的记录
+            continue
+        sub = "/subagents/" in f
+        proj = None      # 按会话【启动】目录归项目；逐条 cwd 会被会话里的 cd 拆碎成一堆子目录
+        for line in open(f, errors="ignore"):
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            m = d.get("message")
+            u = m.get("usage") if isinstance(m, dict) else None
+            proj = proj or d.get("cwd")
+            if not u or not d.get("timestamp"):
+                continue
+            t = datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).astimezone()
+            if t.date() != day:
+                continue
+            k = (m.get("id"), d.get("requestId"))
+            if k[0] and k in seen:
+                continue
+            seen.add(k)
+            model = m.get("model", "?")
+            if model == "<synthetic>":       # 本地生成的占位消息，没走 API
+                continue
+            p = PRICE.get(model)
+            if not p:
+                r["unknown"].add(model)
+                continue
+            cw = u.get("cache_creation_input_tokens") or 0
+            w1h = (u.get("cache_creation") or {}).get("ephemeral_1h_input_tokens") or 0
+            n = [u.get("input_tokens") or 0, cw - w1h, w1h,
+                 u.get("cache_read_input_tokens") or 0, u.get("output_tokens") or 0]
+            mult = FAST if u.get("speed") == "fast" else 1
+            c = [n[i] * p[i] * mult / 1e6 for i in range(5)]
+            for i in range(5):
+                r["tok"][CAT[i]] += n[i]
+                r["usd"][CAT[i]] += c[i]
+            s = sum(c)
+            r["req"] += 1
+            name = os.path.basename(proj or "?") or "/"
+            r["proj"][name] += s
+            r["hour"][t.hour] += s
+            sid = (d.get("sessionId") or "?")[:8] + (" 子代理" if sub else "")
+            e = r["sess"].setdefault(sid, [0.0, 0, name, 0])
+            e[0] += s
+            e[1] += 1
+            e[3] = max(e[3], sum(n[:4]))
+    r["total"] = sum(r["usd"].values())
+    return r
+
+
+def pad(s, w):
+    """按显示宽度补空格：中文占两格，str.ljust 会把中文项目名那列挤歪。"""
+    return s + " " * max(0, w - sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s))
+
+
+def notify(day):
+    r = collect(day)
+    T = r["total"]
+    if not r["req"]:
+        body = "今天还没有用量"
+    else:
+        tok = sum(r["tok"].values())
+        u = r["usd"]
+        pct = lambda v: f"{v / T * 100:.0f}%"
+        top, tv = max(r["proj"].items(), key=lambda x: x[1])
+        body = (f"token {tok / 1e8:.2f} 亿 · 请求 {r['req']} 次\n"
+                f"缓存读 {pct(u['缓存读'])} · 缓存写 {pct(u['缓存写5m'] + u['缓存写1h'])}"
+                f" · 输出 {pct(u['输出'])}\n"
+                f"最多：{top} ${tv:.0f}（{pct(tv)}）")
+        if day == date.today():
+            y = collect(day - timedelta(days=1))
+            if y["req"]:
+                body += f"\n昨天全天 ${y['total']:.0f}"
+    if r["unknown"]:
+        body += f"\n⚠ 价格表缺 {', '.join(sorted(r['unknown']))}，未计入"
+    subprocess.run(["notify-send", "-a", "Claude Code", "-i", "utilities-system-monitor",
+                    f"今日花费 ${T:.0f}（≈¥{T * CNY:.0f}）", body])
+
+
+def report(day):
+    r = collect(day)
+    T = r["total"] or 1
+    print(f"== {day}  请求 {r['req']} 次  （官方价折算，实付以中转后台为准）")
+    print(f"{pad('类别', 10)}{'token':>16}{pad('', 7)}美元{pad('', 4)}占比")
+    for k in CAT:
+        print(f"{pad(k, 10)}{r['tok'][k]:>16,}{r['usd'][k]:>11.2f}{r['usd'][k] / T * 100:>7.1f}%")
+    print(f"{pad('合计', 10)}{sum(r['tok'].values()):>16,}{r['total']:>11.2f}   ≈ ¥{r['total'] * CNY:.0f}")
+    if r["unknown"]:
+        print(f"⚠ 价格表缺这些模型，未计入金额：{', '.join(sorted(r['unknown']))}")
+    print("\n按项目:")
+    for p, v in sorted(r["proj"].items(), key=lambda x: -x[1]):
+        print(f"  {pad(p, 32)}${v:8.2f} {v / T * 100:5.1f}%")
+    print("\n最贵的会话（$ / 请求数 / 单次最大上下文）:")
+    for sid, (v, n, p, mx) in sorted(r["sess"].items(), key=lambda x: -x[1][0])[:8]:
+        print(f"  {pad(sid, 15)} {pad(p, 24)}${v:7.2f} {n:5}次 {mx / 1000:6.0f}K")
+    print("\n按小时:", "  ".join(f"{h}点${v:.0f}" for h, v in sorted(r["hour"].items())))
+
+
+if __name__ == "__main__":
+    args = [a for a in sys.argv[1:] if a != "--notify"]
+    day = date.fromisoformat(args[0]) if args else date.today()
+    (notify if "--notify" in sys.argv else report)(day)
