@@ -1024,32 +1024,37 @@ hl.window_rule({
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 20. Dolphin 目录跳转：ALT + Z（文件管理器里的 zi）
+-- 20. 浮动终端：Walker 里搜「浮动终端」（没有快捷键）
 --
---      弹一个浮动 kitty，里面就是终端 zi 那套 zoxide + fzf 模糊搜索，
---      选中的目录在 Dolphin 里以新标签页打开（已开着就切过去）。
---      落到哪个窗口：焦点在 Dolphin 上就是它，否则是最近用过的那个，
---      一个都没开就新开 —— 所以在任何地方按都能用，不限于 Dolphin 里。
+--      一个小的、无边框、居中浮动的 kitty，里面直接是 zsh（不进 nvim），
+--      像个桌面挂件，拖（SUPER + 左键）到哪算哪。入口是
+--      ~/.local/share/applications/floating-terminal.desktop（文件名故意和 class 不同，见那个文件开头），尺寸（86x22 字符格）写在那里的 Exec 上。
+--      走启动器不绑键：用户习惯从启动器开东西；每开一次就是一个新窗口，开几个都行。
 --
---      为什么不用 Dolphin 自带的 F4 终端面板（它确实会跟着 cd 走）：
---      那个面板要 konsole 的 KPart，本机没装 konsole；而且每次要先开面板。
---      ⚠ 只能「新标签页」不能「当前标签页跳转」：Dolphin 的 D-Bus 接口没有
---        改当前视图 URL 的方法。来龙去脉在 bin/dolphin-jump 开头。
+--      窗口规则：
+--        border_size = 0 / no_shadow  像挂件不像窗口；毛玻璃照样有
+--        opacity override  不吃全局 inactive_opacity，透明度交给 kitty 自己（同终端类规则）
 --
---      键位：ALT 是本文件的「动作类」修饰键（第 14 节清单），Z 取自 zoxide/zi；
---      ALT + Z 在所有绑定里都没被占用（官方只有 SUPER + Z = noctalia 设置），
---      纯新增，不需要 hl.unbind。
---      ★ 绝对路径，理由同第 16/17 节（Hyprland 的 exec 环境 PATH 不含 ~/.local/bin）。
---      不加 launchPrefix，理由同第 15 节：几秒就结束的短命进程，直接继承会话环境。
+--      历史（2026-11-13）：这一节原是 ALT + Z = Dolphin 目录跳转（bin/dolphin-jump），
+--      用户说用得少，撤掉了，ALT + Z 现在空着。中间试过一版「ALT + Z 前导键 + 字母
+--      收放挂件」（bin/hud：pin、藏进 special 工作区记住位置），用户觉得没必要，
+--      改成现在这个启动器入口。两者原实现都在 git 历史里。
+--      做 hud 时实测的几条留着备查：
+--        · 挂件用普通窗口不用 kitten panel：layer 拖不动，而且 layer 的毛玻璃在本机不生效
+--          （第 12 节 Walker 那条注释）
+--        · pin 住的窗口 window.move 挪不动工作区（静默无效），要先取消 pin
+--        · dispatcher 的 window 参数只认 hl.get_windows() 拿到的窗口对象，
+--          传 "class:..." 字符串静默无效
+--        · 浮窗初始大小可以交给 kitty：-o initial_window_width=86c（单位字符格），不用写 size 规则
 -- ────────────────────────────────────────────────────────────────────────────
-hl.bind("ALT + Z", hl.dsp.exec_cmd("$HOME/.local/bin/dolphin-jump"))
-
 hl.window_rule({
-    name   = "dolphin-jump-picker",
-    match  = { class = "^(dolphin-jump)$" },
-    float  = true,
-    center = true,
-    size   = { "monitor_w*0.45", "monitor_h*0.50" },
+    name        = "float-term",
+    match       = { class = "^(float-term)$" },
+    float       = true,
+    center      = true,
+    border_size = 0,
+    no_shadow   = true,
+    opacity     = "1.0 override",
 })
 
 

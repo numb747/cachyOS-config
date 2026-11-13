@@ -1,0 +1,21 @@
+# 浮动终端：小的无边框浮窗 kitty 跑 zsh。窗口规则在 mykeys.lua 第 20 节（按 class float-term 匹配）。
+#
+# ⚠ 这个条目刻意不让 Walker 把它和任何已开窗口对上号。elephant 开了 window_integration，
+#   回车时只要认为「这个应用已经有窗口」，就去聚焦那个窗口而不是新开。它拿窗口的 app_id 去比：
+#   StartupWMClass、Icon、Exec 的第一个词，以及（本机补丁版）.desktop 文件名。
+#   第一版写的 Icon=kitty / Exec=kitty …，于是主 kitty 窗口被当成了它，回车只是聚焦主 kitty，
+#   看起来就是「点了没反应」（2026-11-13）。所以：
+#     · Exec 用 env 开头，第一个词就不是 kitty
+#     · Icon 用 utilities-terminal，不用 kitty
+#     · 不写 StartupWMClass；文件名 floating-terminal 也故意和 class float-term 不同
+#   副作用正是想要的：每次回车都新开一个浮窗。
+[Desktop Entry]
+Type=Application
+Name=浮动终端
+GenericName=纯净的小浮窗 kitty
+Comment=居中弹一个小的无边框浮动 kitty，里面直接是 zsh（不进 nvim），拖到哪算哪
+Exec=env kitty --class float-term -o remember_window_size=no -o initial_window_width=86c -o initial_window_height=22c -o window_padding_width=14 zsh
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=float;terminal;kitty;zsh;浮动;终端;fudong;zhongduan;

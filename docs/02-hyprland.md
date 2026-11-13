@@ -668,7 +668,6 @@ Wayland 下这些键**应用完全收不到**：
 | `ALT+Space` | Windows / 传统 GTK 应用的窗口菜单（Wine 里会感觉到） |
 | `ALT+W` | 带菜单栏应用的「Window」菜单助记键（影响很小） |
 | `ALT+E` | 带菜单栏应用的「Edit」菜单助记键（影响很小） |
-| `ALT+Z` | VS Code 的「切换自动换行」 |
 
 **如果这台机器上要用 IDEA / PyCharm / CLion，前两个基本等于废掉。**
 规避：把 `mykeys.lua` 里的 `CONTROL + ALT` 批量换成 `SUPER + ALT`（目前只占了一个 `C` 键）。
@@ -702,41 +701,34 @@ ALT 这一组才是完整的。
 代价是 `ALT+E` 会吃掉带菜单栏应用的「Edit」菜单助记键，同 `ALT+W` / `ALT+Space`
 一个性质，见上一节。
 
-### Dolphin 目录跳转 `ALT+Z`：文件管理器里的 `zi`（第 20 节，2026-10-09）
+### 浮动终端：Walker 里的「浮动终端」（第 20 节，2026-11-13）
 
-需求是「在 Dolphin 里也能像终端 `zi xxx` 那样一下跳到常去的目录」。按 `ALT+Z` 弹出一个
-浮动居中的 kitty（class `dolphin-jump`，同节的窗口规则管尺寸），里面跑的就是 `zi`
-背后那条 `zoxide query -i`，同一套 fzf 界面和预览；选中后 `bin/dolphin-jump`
-把目录交给 Dolphin，并 `zoxide add` 记一次访问（终端里靠 cd 钩子记，这里没有 cd，
-不手动记的话排序学不到 Dolphin 里的使用习惯）。
+一个小的、无边框、居中浮动的 kitty，里面直接是 zsh（不进 nvim），像桌面挂件，拖到哪算哪。
+入口是 `share/applications/floating-terminal.desktop`（Walker 搜「浮动」/`float`/`fudong`），
+尺寸写在它的 `Exec` 上：`-o initial_window_width=86c -o initial_window_height=22c`，单位是字符格，
+浮窗会照 kitty 要的大小开，所以窗口规则里不用写 `size`。
+窗口规则在 `mykeys.lua` 第 20 节：`float` + `center` + `border_size = 0` + `no_shadow`，
+外加 `opacity = "1.0 override"`（同终端类规则，透明度交给 kitty）。每开一次是一个新窗口。
 
-**落到哪个窗口**：按键时焦点在 Dolphin 上就是它；否则是 `focusHistoryID` 最小
-（最近用过）的那个 Dolphin，先聚焦再开；一个都没有就新开窗口。所以这个键在任何地方都能用。
+⚠ **这个 .desktop 刻意不让 Walker 认出任何窗口**，否则回车不开新窗口、只聚焦「已有窗口」。
+elephant 开着 `window_integration`，拿窗口 app_id 去比条目的 `StartupWMClass`、`Icon`、`Exec` 第一个词
+（本机补丁版还比 .desktop 文件名，见 [13](13-launcher.md)）。第一版写的 `Icon=kitty` / `Exec=kitty …`，
+主 kitty 窗口就被当成了它：回车 = 聚焦主 kitty，人就在主 kitty 里，看起来就是「点了没反应」。
+排查方法：`elephant activate 'desktopapplications;<文件名>;start;<查询>;'` 不出窗口、
+换成 `new_instance` 动作就出窗口，就是这个问题。现在的写法：`Exec=env kitty …`、`Icon=utilities-terminal`、
+不写 `StartupWMClass`、文件名 `floating-terminal` 和 class `float-term` 故意不同。
 
-**排除掉的方案：Dolphin 的 F4 终端面板。** 它确实会跟着面板里的 `cd` 走（`zi` 在里面
-原生可用），但面板是 konsole 的 KPart，本机没装 konsole；而且每次要先开面板、占掉窗口
-底部一块。不值得为它装一整个用不上的终端。
+**不绑快捷键、不做框架，是用户定的**：中间试过一版「`ALT+Z` 前导键（submap）+ 字母收放挂件」
+（`bin/hud`：窗口 pin 住跟着换工作区、收起时藏进 `special:hud` 记住位置、挂件是 `~/.config/hud/` 下的脚本），
+能用，但用户觉得没必要，要的只是一个纯净的小浮窗终端，从启动器开、自己拖。更早还试过 `kitten panel`
+（Wayland layer 上的 kitty），拖不动、layer 毛玻璃在本机不生效（同 Walker），放弃。
+做 hud 时实测的几条 API 约束记在 `mykeys.lua` 第 20 节注释里（pin 住的窗口挪不动工作区、
+dispatcher 的 `window` 参数只认窗口对象等），以后再做类似东西先看那里。
 
-几条实测出来的约束（Dolphin 26.08）：
-
-- **不能直接 `dolphin <目录>`**：`OpenExternallyCalledFolderInNewTab` 默认 `false`，
-  那样每次都新开窗口。改走 D-Bus，直接调窗口对象
-  `org.kde.dolphin-<pid> /dolphin/Dolphin_N` 的
-  `org.kde.dolphin.MainWindow.openDirectories(as, b)`，不受这个设置影响；
-  目录已在某个标签页开着时它会切过去，不会重复开。
-- **只能开新标签页，没法让当前标签页跳转**：`MainWindow` 接口只有 `openDirectories` /
-  `openFiles` / `activateWindow` / `isUrlOpen` 这些，`changeUrl` 因为参数是 `QUrl`
-  根本没导出（日志 `Skipped method "changeUrl" : Type not registered with QtDBus`）。
-  走 `replace_location` 动作再模拟键入路径理论上可行，但要装 wtype，而且模拟键入会被
-  fcitx5 中文模式截走，不做。
-- **必须传 `file://` URL**：传裸路径会开出一个「Malformed URL」的空标签页。
-  中文和空格 QUrl 能容错，`%` `#` `?` 要先转义（脚本里有）。
-- **用 `busctl call`，别用 `busctl introspect`**：Dolphin 的内省数据里 `openDirectories`
-  有重载，`busctl introspect` 直接报 `duplicate method` 拒绝解析；
-  要看接口用 `gdbus introspect`。
-- **D-Bus 对象和 Hyprland 窗口没有直接对应**：实测 Dolphin 每新开一个窗口通常是新进程
-  （服务名带 pid，可以按窗口的 pid 找），但同一进程多窗口时有 `Dolphin_1`、`_2`……
-  脚本的做法是先把目标窗口聚焦，再问哪个对象 `isActiveWindow` 为真。
+**`ALT+Z` 现在空着。** 原来是 Dolphin 目录跳转（`bin/dolphin-jump`，弹 zoxide 模糊搜索、选中的目录经 D-Bus
+在 Dolphin 开新标签页），2026-11-13 用户说用得少，连脚本一起撤了。实现和当时踩的 Dolphin D-Bus 坑
+（只能开新标签页、必须传 `file://` URL、`busctl introspect` 遇到重载方法报错等）都在 git 历史里：
+`git log --diff-filter=D -- bin/dolphin-jump`。
 
 ## 兼容性前提
 

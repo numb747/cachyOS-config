@@ -15,8 +15,9 @@ modify_font                 cell_height 108%
 symbol_map U+E0A0-U+E0A3,U+E700-U+E8EF,…  MesloLGS Nerd Font
 
 background_opacity          0.6
+dynamic_background_opacity  yes
 cursor_trail                1
-window_padding_width        25
+window_padding_width        25 25 12 25   # 下边 12，见下文「kitty 标签栏」
 
 shell nvim -c terminal -c startinsert -c 'tnoremap <Esc><Esc> <C-\><C-n>'
 
@@ -92,6 +93,9 @@ kitty zsh        # 命令行给了程序就会覆盖 shell 那一行
 
 或者进 nvim 后 `:q` 退出——因为内置终端跑的就是 zsh，`:q` 之后终端窗口还在。
 
+想要一个**小的浮动窗口**跑纯 zsh（像桌面挂件，拖到哪算哪）：Walker 里搜「浮动终端」，
+见 [02](02-hyprland.md)「浮动终端」。
+
 ### 远程控制：开过又撤了（2026-10-15）
 
 为了在当前 kitty 开新标签页跑终端版 Discord（discordo），一度开了
@@ -100,6 +104,33 @@ kitty 标签页和 nvim 的 tab 是**两套**，新标签页整个盖住 nvim，
 Equibop（见 `docs/15-discord.md`），远程控制随之撤掉。以后真要开，记住两点：用 `socket-only` 不用 `yes`
 （后者让终端里打印的转义序列就能控制 kitty）；套接字放 `$XDG_RUNTIME_DIR`，别用 `unix:@名字`
 （Linux 抽象套接字不受文件权限保护）。
+
+### kitty 标签栏 = 底部药丸 / 页码点（2026-11-13）
+
+kitty 自己有标签（`Ctrl+Shift+T` 开、`Ctrl+Shift+←/→` 或 `Ctrl+Tab` 切、`Ctrl+Shift+Q` 关、
+`Ctrl+Shift+Alt+T` 起名），每个标签都跑一份 `shell` 那行，也就是**又一个独立的 nvim**，
+和原来那个不共享 buffer。只有一个标签时标签栏不显示，所以平时看不到。
+
+层级从外到内是：kitty 标签 → nvim tab（tabby，顶部）→ tmux 窗口（底部状态栏）→ tmux 窗格（顶部边框标题）。
+标签栏用 `tab_bar_style custom` + `config/kitty/tab_bar.py` 自己画，居中贴窗口最底下。
+有两种画法，改 `tab_bar.py` 里的 `STYLE` 一行切换：
+
+- `"pill"`（当前）：照 tabby 的圆头药丸 + 序号，当前标签实心，其余不给背景块。
+- `"dot"`：手机桌面那种页码点 `● ○ ○`。
+- **两种都留着的原因**：药丸单看好看，但底部已有 tmux 窗口列表（同样是「序号 + 药丸」）和 lualine，
+  顶部有 tmux 窗格标题和 tabby，kitty 这排长得像标签，就容易被认成又一排 tmux 标签，
+  所以中途改成过点；用户想再看看药丸，就两种都保留。觉得认错了就切到 `dot`，改变形状比换位置管用。
+- **为什么不显示标题**：每个 kitty 标签跑的都是同一条 nvim 命令，标题全一样。起过名的标签，点后面跟名字。
+- **颜色**取 `draw_data` 里的 `active_tab_background` / `inactive_tab_foreground`，来自 noctalia 生成的
+  `themes/noctalia.conf`，换壁纸自动跟上。背景用 0（默认色），所以标签栏和窗口一样透明。
+- `tab_bar_margin_height 10 0`：外侧不留空的话，标签栏贴着窗口下沿，会被 Hyprland 的圆角裁掉一截。
+- `window_padding_width 25 25 12 25`（下边从 25 改成 12）：25 时标签栏离 lualine 41px、离窗口下沿 14px，
+  看着像掉在窗框上；12 时是 21/14。只有一个标签时，格子取整剩下的零头会补到四周，lualine 离下沿实测仍有 28px，
+  和左右差不多，平时的样子没变。量间距的办法：`grim` 截底边，用 PIL 找 lualine 青色和药丸粉色所在的像素行。
+- ⚠ **`tab_bar.py` 只在 kitty 进程启动时读一次**（`load_custom_draw_tab` 带 `@run_once`），改完要开新的 kitty 进程才看得到，
+  `Ctrl+Shift+F5` 不够。从别的样式**第一次**切到 `custom` 时例外，因为那时才会第一次去读它。
+- 试样式的办法：`kitty --class kt-tabtest --session <文件>`，开一个带三个标签的测试窗口，用 `grim` 截底边。
+  关测试窗口时按 `hyprctl clients -j` 里拿到的 pid 去杀，**别用 `pkill -f`**，它会连执行这条命令的 shell 一起杀掉（又踩了一次）。
 
 ### 主题从哪来
 

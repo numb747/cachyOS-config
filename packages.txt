@@ -22,7 +22,7 @@ zsh-theme-powerlevel10k
 # tmux：复制走 wl-copy（wl-clipboard 已由 cachyos-hypr-noctalia 带进来），见 docs/14-tmux.md
 tmux
 zoxide
-# fzf：zi 的交互选择 + bin/dolphin-jump（ALT+Z）都靠它
+# fzf：zi 的交互选择靠它
 fzf
 
 # ── 编辑器与其工具链 ────────────────────────────────────────

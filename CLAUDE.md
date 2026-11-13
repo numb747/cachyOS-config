@@ -25,7 +25,7 @@
 ├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
 ├── docs/                     17 篇，见下表（配图在 docs/img/）
 ├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、dolphin-jump Dolphin 里的 zi、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome）
+├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome）
 ├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
 ├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
 ├── system/                   一次性系统修复脚本（改 /etc、不走 manifest.map）：keyring-autounlock.sh 钥匙环开机自动解锁，见 docs/05
@@ -312,7 +312,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
 - **Waydroid 改住覆盖层**（2026-10-30）：`name:android` → `special:android`，`ALT+A` 开合（2026-11-09 停用，让给 tmux 的 `Alt+a` 窗格总览）。
   原因是 slide 动画按 id 定方向，android 夹在环里时 `3 → CTRL+3 → android` 画面反着滑。
   `CTRL+2/3` 的绕圈（`1 → 2 → 3 → 1`）是用户**有意保留**的，别改成到头停住。见 `docs/02`「Android 覆盖层」
-- Hyprland 绑定 **123** 条（自定义 38 条）；`hyprctl binds -j | jq length` 可验
+- Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
   （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
   （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
   2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位

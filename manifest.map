@@ -28,13 +28,14 @@ bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
 # 「指针在不在面板矩形内」是决定性变量。这个脚本开完面板把指针挪进去钉住、关掉后还原，
 # 不判断当前是不是坏状态（坏状态下是解药，好状态下只是多挪一次指针）。见 docs/07 坑 10。
 bin/noct-panel                            ~/.local/bin/noct-panel
-# Dolphin 目录跳转（文件管理器里的 zi），配合 mykeys.lua 第 20 节的 ALT+Z。
-# 弹 kitty 跑 zoxide query -i，选中的目录经 D-Bus 在已有 Dolphin 窗口里开新标签页。
-# 依赖 zoxide + fzf + kitty（都在 packages.txt）。见 docs/02-hyprland.md。
-bin/dolphin-jump                          ~/.local/bin/dolphin-jump
+# 浮动终端：Walker 里搜「浮动终端」，小的无边框浮窗 kitty 跑 zsh。窗口规则在 mykeys.lua 第 20 节，
+# 两个文件缺一个就不成立（没规则会被平铺进布局）。见 docs/02-hyprland.md。
+# （第 20 节原是 ALT+Z = bin/dolphin-jump，2026-11-13 撤掉，原实现在 git 历史里。）
+share/applications/floating-terminal.desktop  ~/.local/share/applications/floating-terminal.desktop
 
 #@module term
 config/kitty/kitty.conf                   ~/.config/kitty/kitty.conf
+config/kitty/tab_bar.py                   ~/.config/kitty/tab_bar.py
 config/kitty/themes/noctalia.conf         ~/.config/kitty/themes/noctalia.conf
 config/alacritty/alacritty.toml           ~/.config/alacritty/alacritty.toml
 config/alacritty/themes/noctalia.toml     ~/.config/alacritty/themes/noctalia.toml
