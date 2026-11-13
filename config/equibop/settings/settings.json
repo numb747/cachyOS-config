@@ -23,7 +23,7 @@
     "nativeTitleBar": false,
     "plugins": {
         "ChatInputButtonAPI": {
-            "enabled": false
+            "enabled": true
         },
         "CommandsAPI": {
             "enabled": true
@@ -167,9 +167,6 @@
             "enabled": false
         },
         "Experiments": {
-            "enabled": false
-        },
-        "ExpressionCloner": {
             "enabled": false
         },
         "F8Break": {
@@ -1176,7 +1173,8 @@
             "noBulletPoints": false,
             "accountStandingButton": false,
             "disableHolidayNotifications": false,
-            "showAllBadges": false
+            "showAllBadges": false,
+            "gifPickerTyping": false
         },
         "FavoriteAnything": {
             "enabled": false
@@ -1188,9 +1186,26 @@
             "enabled": false
         },
         "BetterBackreading": {
-            "enabled": true
+            "enabled": true,
+            "imageScrollMargin": "1500",
+            "messageLoadBuffer": "1500"
         },
         "ExternalPlayer": {
+            "enabled": false
+        },
+        "ExpressionManager": {
+            "enabled": false
+        },
+        "BetterSearch": {
+            "enabled": false
+        },
+        "MutedServersActivityBadge": {
+            "enabled": false
+        },
+        "BetterMutualServers": {
+            "enabled": false
+        },
+        "DraftNavigator": {
             "enabled": false
         }
     },
@@ -1209,7 +1224,8 @@
         "authenticated": false,
         "url": "https://cloud.equicord.org/",
         "settingsSync": false,
-        "settingsSyncVersion": 1792978196558
+        "settingsSyncVersion": 1794300324100
     },
-    "ignoreResetWarning": false
+    "ignoreResetWarning": false,
+    "noRoundCorners": false
 }
