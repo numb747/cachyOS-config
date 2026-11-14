@@ -622,14 +622,56 @@ MCP 不是：只要配在**全局**（`~/.claude.json` 的 `mcpServers`）或由
 ```
 ccx            # 干净，只有 matrix-sync（手机同步）
 ccx web        # + chrome-devtools
-ccx cap web    # + mitmweb + chrome
+ccx web cap    # 叠多个 = 自动组合：浏览器自动走抓包代理 + 自动生成「怎么串起来用」的说明
 ccx rev        # + ida 逆向
-ccx -l         # 列出可用套餐
+ccx hunt       # 别名，= web cap（re = rev cap）；别名和套餐可以混着叠
+ccx -s 名字 套餐…  # 增改别名
+ccx -l         # 列出套餐和别名
 ccx web -- "帮我看下这个页面"   # -- 之后原样透传给 claude
 ```
 
 套餐名 → MCP：`web`=chrome-devtools、`cap`=mitmweb、`rev`=ida、`burp`=burp。加新套餐直接往 `~/.claude/mcp/`
 丢一个 `{"mcpServers":{...}}` 文件，`ccx` 自动认。
+
+### 自动组合（2026-11-14）
+
+「同时加载几个」一直都有（多拼几个 `--mcp-config`），缺的是两层：几个 MCP 之间**不会接线**
+（浏览器和抓包同在，浏览器却不走代理），模型也**不知道怎么串着用**。第一版试过每个组合手写一份说明
+（`hunt.md`、`re.md`），被否了——组合数随套餐数爆炸，每加一个 MCP 还要回头补一堆。
+
+现在的做法是**知识按套餐写，组合现算**。每个套餐 json 在 `mcpServers` 之外多一个 `"ccx"` 块
+（Claude Code 会忽略未知顶层键，实测过）：
+
+| 键 | 作用 |
+|---|---|
+| `role` | 一行：这个 MCP 干什么、产出什么 |
+| `needs` | 依赖服务，对应 `claude/mcp/services.sh` 里的 `ensure_<名字>`（启动前拉起/检查，可 export 变量） |
+| `with` | `{"<另一个套餐>": {"env": {...}, "hint": "..."}}`：两者**同时加载时**才生效的接线 |
+
+带 ≥2 个套餐时，`ccx` 把各自 `role` + 命中的 `hint` 拼成一段说明，经 `--append-system-prompt` 追加。
+工作量 = N 条 role + 少数几条真实接线，加一个新 MCP 只写它自己的 json。眼下的接线只有两条：
+
+- **web × cap**：`web.json` 的 `with.cap.env` 设 `CHROME_AI_MODE=mitm`，`bin/chrome-ai-mcp` 见到就不连 9222 那个
+  日常登录的 AI Chrome，改由 chrome-devtools-mcp 另起一个 `--proxyServer=127.0.0.1:8080`、profile 在
+  `~/.cache/chrome-ai-mitm` 的 Chrome。**故意不用日常 profile**：登录态不该流经抓包。mitmproxy 的 CA 已在
+  用户级 NSS 库，不用 `--acceptInsecureCerts`。Chrome 默认不代理 localhost，本机目标抓不到。
+- **rev × cap**：只有说明（流量里的常量去 IDA 搜、IDA 推出的算法用 replay_flow 验证）。
+
+依赖服务：`ensure_mitmweb` 在 8081 没人听时**后台起一个不带 Chrome 的 mitmweb**（参数、env 文件、日志都和
+`mitm-start` 对齐，停用照旧 `mitm-stop`；代理只听 127.0.0.1，要抓手机请手动 `mitm-start`）。不调 `mitm-start`
+是因为它会顺带开自己的 Chrome，web 同在时由 AI 浏览器顶替、rev 同在时根本用不着。`ensure_burp` 只检查 9876，
+Burp 没开就拦下。`ensure_ida` 自动取插件缓存里最新版本目录 export 成 `IDA_MCP_DIR`（见坑 2）。
+
+### 工具延迟加载（2026-11-14）
+
+**走中转时 Claude Code 默认不开 MCP 工具搜索**，所有工具定义每轮整套带上；`ENABLE_TOOL_SEARCH=true` 强制开启后
+中转照样能用（只放工具名，用到时 ToolSearch 取）。实测 `web + cap` 每轮前缀 **46k → 21k token**。
+`ccx` 带了套餐就默认开，代价是每个工具第一次用多一轮；不要就 `ENABLE_TOOL_SEARCH=false ccx web`。
+
+验收（2026-11-14）：`ccx hunt` 实跑，chrome-devtools 打开 example.com 后 mitmweb 的 `list_flows` 抓到请求
+（证明自动接线生效）、模型先 ToolSearch 再调工具；`ccx burp` 在 Burp 未开时退出码 1 并提示。
+
+> 顺带：shell 历史里常见 `ccx web --dangerously-skip-permissions`，那个 flag 多余，ccx 和 ccm 都已自带。
 
 ### 为什么经 ccm、而不是直接 claude
 
@@ -650,8 +692,9 @@ ccx web -- "帮我看下这个页面"   # -- 之后原样透传给 claude
 **1. `--mcp-config` 是可变参数，会吞后面的裸 token。** `claude --mcp-config a.json mcp list` 会把 `mcp`、`list`
 也当成配置路径。`ccx` 在套餐后补一个布尔 flag `--dangerously-skip-permissions` 当终止符，透传的 prompt 才不被吞。
 
-**2. ida 片段的路径锁了插件版本号**（`…/ida-mcp/20261008.0.1`）。插件已停用不会自更新；将来若报路径不存在，
-去 `~/.claude/plugins/cache/HexRaysSA/ida-mcp/` 看新版本号改 `rev.json`。片段里 MCP 名是 `ida`
+**2. ida 片段原先锁了插件版本号**（`…/ida-mcp/20261008.0.1`）。2026-11-14 起 `rev.json` 写 `${IDA_MCP_DIR}`，
+由 `services.sh` 的 `ensure_ida` 取 `~/.claude/plugins/cache/HexRaysSA/ida-mcp/` 下版本号最大的目录，
+并检查 `~/.idapro/ida-config.json` 里的 IDA 安装目录还在；不用再手改。片段里 MCP 名是 `ida`
 （原插件是 `plugin:ida-mcp:ida`），工具名相应变 `mcp__ida__*`。
 
 **3. 改动只对新会话生效。** 当前已加载的 MCP 不变，下次启动才干净。

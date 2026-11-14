@@ -212,10 +212,14 @@ claude/team-log.sh                        ~/.claude/team-log.sh
 # 一个文件一个 MCP：web=chrome-devtools、cap=mitmweb、rev=ida（原插件 ida-mcp 已停用改这里）、burp。
 # ⚠ cap.json 的 token 用 ${MITMWEB_TOKEN} 占位，真值在 ~/.claude/mcp/secrets.env（不入包，gitignore）。
 # 新机器要手动建 secrets.env。见 docs/08 第 13 节。
+# 2026-11-14 加自动组合：json 里的 "ccx" 块写 role/needs/with，叠几个套餐就自动接线 + 生成说明；
+# services.sh 是依赖服务的 ensure_* 函数（mitmweb 自动起、burp/ida 检查）；aliases 是一行一个的组合别名。
 claude/mcp/web.json                        ~/.claude/mcp/web.json
 claude/mcp/cap.json                        ~/.claude/mcp/cap.json
 claude/mcp/rev.json                        ~/.claude/mcp/rev.json
 claude/mcp/burp.json                       ~/.claude/mcp/burp.json
+claude/mcp/services.sh                     ~/.claude/mcp/services.sh
+claude/mcp/aliases                         ~/.claude/mcp/aliases
 # 全局 CLAUDE.md（2026-10-14 加）：所有项目都生效的用户指令（中文回答 + 多智能体并行策略，见 docs/14 第 8 节；下载软件的原则 pacman → 原生的包 → yay，见 docs/00 第 5 节）。
 # ⚠ 包内故意不叫 CLAUDE.md：Claude Code 读到子目录里的文件时会把同目录的 CLAUDE.md 当项目指令加载，
 #   放在 claude/ 下同名会被误当成「改 cc 工具时的规矩」。

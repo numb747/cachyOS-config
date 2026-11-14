@@ -1,4 +1,8 @@
 {
+  "ccx": {
+    "role": "mitmproxy 抓到的完整 HTTP(S) 流量:按 host 过滤、搜索、看请求响应体、detect_auth 认鉴权、diff_flows 对比、replay_flow 改参数重放、generate_code 出 curl/python 复现脚本。只对已授权目标操作",
+    "needs": "mitmweb"
+  },
   "mcpServers": {
     "mitmweb": {
       "command": "/home/david/.local/share/venvs/mitmweb-mcp/bin/mitmweb-mcp",

@@ -1,55 +1,151 @@
 #!/usr/bin/env bash
-# ccx — 启动 Claude Code(经 ccm 保留 Matrix 手机同步),按名字叠加 MCP「套餐」。
+# ccx — 启动 Claude Code(经 ccm 保留 Matrix 手机同步),按名字叠加 MCP「套餐」,叠几个就自动组合几个。
 #
 # 用法:
-#   ccx                   只有 matrix-sync,最干净
-#   ccx web               + chrome-devtools(AI 浏览器调试)
-#   ccx cap web           + mitmweb + chrome
-#   ccx rev               + ida(逆向)
-#   ccx -l | --list       列出可用套餐
-#   ccx web -- <参数...>   -- 之后原样透传给 claude(prompt / 其他 flag)
+#   ccx                      只有 matrix-sync,最干净
+#   ccx web                  + chrome-devtools(AI 浏览器)
+#   ccx web cap              叠多个套餐:自动接线 + 自动生成「怎么串起来用」的说明
+#   ccx hunt                 别名(~/.claude/mcp/aliases),hunt = web cap;别名和套餐可混着叠
+#   ccx -s <名字> <套餐…>     增改一个别名
+#   ccx -l | --list          列出套餐和别名
+#   ccx web -- <参数...>      -- 之后原样透传给 claude(prompt / 其他 flag)
 #
-# 套餐片段在 ~/.claude/mcp/<名字>.json,一个文件一个 MCP,想加新套餐直接丢文件进去。
+# 组合不靠一个个手写,知识按套餐写,组合现算:
+#   套餐 = ~/.claude/mcp/<名字>.json,mcpServers 之外多一个 "ccx" 块(Claude Code 会忽略它):
+#     role   一行,这个 MCP 干什么、产出什么
+#     needs  依赖服务,对应 ~/.claude/mcp/services.sh 里的 ensure_<名字>(拉起/检查,可 export 变量)
+#     with   { "<另一个套餐>": { "env": {...}, "hint": "..." } },两者同时加载时才生效的接线
+#   带 ≥2 个套餐时,把各自 role + 命中的 hint 拼成一段说明,经 --append-system-prompt 追加。
+#   加一个新 MCP 只写它自己的 json,自动能和已有套餐组合。
+#
+# 带了套餐就默认开 MCP 工具延迟加载(ENABLE_TOOL_SEARCH=true):走中转时 Claude Code 默认关,
+# 工具定义整套常驻;开了以后只放名字,用到才取。实测 web+cap 每轮前缀 46k → 21k token。
+# 不想要就 ENABLE_TOOL_SEARCH=false ccx web。
 set -euo pipefail
 MCPDIR="$HOME/.claude/mcp"
+ALIASES="$MCPDIR/aliases"
 
 # 本地密钥(gitignored)。片段里用 ${VAR} 占位,真值在这里,Claude Code 会展开 env。
 [ -f "$MCPDIR/secrets.env" ] && . "$MCPDIR/secrets.env"
+. "$MCPDIR/services.sh"
 
-if [ "${1:-}" = "-l" ] || [ "${1:-}" = "--list" ]; then
-  echo "可用 MCP 套餐(${MCPDIR}/):"
-  shopt -s nullglob
-  for f in "$MCPDIR"/*.json; do
-    name=$(basename "$f" .json)
-    srv=$(python3 -c "import json,sys;print(','.join(json.load(open(sys.argv[1])).get('mcpServers',{}).keys()))" "$f" 2>/dev/null || echo "?")
-    printf "  %-8s -> %s\n" "$name" "$srv"
-  done
-  exit 0
-fi
+alias_packs() { [ -f "$ALIASES" ] && sed -n "s/^$1[[:space:]]*=[[:space:]]*//p" "$ALIASES" | head -n 1; }
 
-args=()
+case "${1:-}" in
+  -l|--list)
+    shopt -s nullglob
+    echo "套餐(${MCPDIR}/):"
+    python3 - "$MCPDIR"/*.json <<'EOF'
+import json, os, sys
+for f in sys.argv[1:]:
+    d = json.load(open(f))
+    meta = d.get("ccx", {})
+    name = os.path.basename(f)[:-5]
+    srv = ",".join(d.get("mcpServers", {}))
+    extra = []
+    if meta.get("needs"): extra.append("需要 " + meta["needs"])
+    if meta.get("with"): extra.append("可与 " + "/".join(meta["with"]) + " 接线")
+    print(f"  {name:<6} -> {srv:<16} {'; '.join(extra)}")
+    if meta.get("role"): print(f"           {meta['role'][:70]}…" if len(meta["role"]) > 70 else f"           {meta['role']}")
+EOF
+    echo "别名(${ALIASES}):"
+    [ -f "$ALIASES" ] && grep -v '^[[:space:]]*\(#\|$\)' "$ALIASES" | sed 's/^/  /'
+    exit 0 ;;
+  -s|--save)
+    [ $# -ge 3 ] || { echo "用法:ccx -s <名字> <套餐…>" >&2; exit 1; }
+    name=$2; shift 2
+    [ -f "$MCPDIR/$name.json" ] && { echo "ccx: '$name' 已是套餐名,别名换个名字" >&2; exit 1; }
+    for p in "$@"; do
+      [ -f "$MCPDIR/$p.json" ] || { echo "ccx: 未知套餐 '$p'" >&2; exit 1; }
+    done
+    touch "$ALIASES"
+    grep -v "^$name[[:space:]]*=" "$ALIASES" > "$ALIASES.tmp" || true
+    echo "$name = $*" >> "$ALIASES.tmp"
+    mv "$ALIASES.tmp" "$ALIASES"
+    echo "ccx: 别名 $name = $*" >&2
+    exit 0 ;;
+esac
+
 packs=()
+add_pack() {
+  local p
+  for p in "${packs[@]}"; do [ "$p" = "$1" ] && return 0; done
+  if [ ! -f "$MCPDIR/$1.json" ]; then
+    echo "ccx: 未知套餐或别名 '$1'(用 ccx -l 看可用)" >&2
+    exit 1
+  fi
+  packs+=("$1")
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --) shift; break ;;          # 其余原样透传给 claude
     -*) break ;;                 # 以 - 开头的也当成 claude 的参数
     *)
-      f="$MCPDIR/$1.json"
-      if [ ! -f "$f" ]; then
-        echo "ccx: 未知套餐 '$1'(用 ccx -l 看可用)" >&2
-        exit 1
+      if [ ! -f "$MCPDIR/$1.json" ] && expanded=$(alias_packs "$1") && [ -n "$expanded" ]; then
+        for p in $expanded; do add_pack "$p"; done
+      else
+        add_pack "$1"
       fi
-      packs+=("$1")
-      args+=(--mcp-config "$f")
       shift ;;
   esac
 done
 
-if [ ${#packs[@]} -gt 0 ]; then
-  echo "ccx: 本次加载套餐 -> ${packs[*]}" >&2
-else
+if [ ${#packs[@]} -eq 0 ]; then
   echo "ccx: 干净启动(仅 matrix-sync)" >&2
+  exec ccm --dangerously-skip-permissions "$@"
 fi
+
+# 读各套餐的 ccx 块,产出一段 shell:needs 列表、接线 env、组合说明。
+needs=()
+links=()
+brief=""
+eval "$(python3 - "$MCPDIR" "${packs[@]}" <<'EOF'
+import json, shlex, sys
+mcpdir, packs = sys.argv[1], sys.argv[2:]
+cfg = {p: json.load(open(f"{mcpdir}/{p}.json")) for p in packs}
+meta = {p: c.get("ccx", {}) for p, c in cfg.items()}
+out, roles, hints = [], [], []
+for p in packs:
+    m = meta[p]
+    if m.get("needs"):
+        out.append(f"needs+=({shlex.quote(m['needs'])})")
+    roles.append(f"- {'/'.join(cfg[p].get('mcpServers', {}))}({p}):{m.get('role', '(未写 role)')}")
+    for other, link in m.get("with", {}).items():
+        if other not in packs:
+            continue
+        out.append(f"links+=({shlex.quote(p + '×' + other)})")
+        for k, v in link.get("env", {}).items():
+            out.append(f"export {k}={shlex.quote(v)}")
+        if link.get("hint"):
+            hints.append(f"- {p} × {other}:{link['hint']}")
+if len(packs) >= 2:
+    text = ["## 本会话的 MCP 组合(ccx 按套餐自动生成)", "",
+            "同时加载了下面这几个 MCP,把它们串起来用,而不是各用各的:", *roles]
+    if hints:
+        text += ["", "已接好的线:", *hints]
+    text += ["", "串联原则:一个 MCP 的产出(URL、请求、字符串、地址、文件)直接当另一个的输入;"
+             "一个负责触发,另一个负责取证和验证;结论以能复现的证据为准。"]
+    out.append("brief=" + shlex.quote("\n".join(text)))
+print("\n".join(out))
+EOF
+)"
+
+seen=" "
+for n in "${needs[@]}"; do
+  case "$seen" in *" $n "*) continue ;; esac
+  seen+="$n "
+  "ensure_$n"
+done
+
+args=()
+for p in "${packs[@]}"; do args+=(--mcp-config "$MCPDIR/$p.json"); done
+[ -n "$brief" ] && args+=(--append-system-prompt "$brief")
+
+export ENABLE_TOOL_SEARCH="${ENABLE_TOOL_SEARCH:-true}"
+msg="ccx: 套餐 -> ${packs[*]}"
+[ ${#links[@]} -gt 0 ] && msg+=" | 接线 -> ${links[*]}"
+echo "$msg | 工具延迟加载 ${ENABLE_TOOL_SEARCH}" >&2
 
 # 末尾补一个布尔 flag 终止 --mcp-config 的可变参数吞噬,避免把透传的 prompt 误当路径。
 exec ccm "${args[@]}" --dangerously-skip-permissions "$@"

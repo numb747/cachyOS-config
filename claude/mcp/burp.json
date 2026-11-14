@@ -1,4 +1,8 @@
 {
+  "ccx": {
+    "role": "已在跑的 Burp Suite(经它的 MCP Server 扩展):代理历史、发包重放等,具体能力以工具列表为准",
+    "needs": "burp"
+  },
   "mcpServers": {
     "burp": {
       "type": "sse",

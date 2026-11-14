@@ -1,10 +1,19 @@
 {
+  "ccx": {
+    "role": "AI 专用 Chrome:打开页面、点击填表、evaluate_script 读页面状态、截图;看到的是浏览器视角,网络请求只留最近几次导航",
+    "with": {
+      "cap": {
+        "env": { "CHROME_AI_MODE": "mitm" },
+        "hint": "浏览器已切到独立 profile 并走 mitmproxy(127.0.0.1:8080),它发出的请求全在 mitmweb 里:用 chrome-devtools 触发功能,去 mitmweb 用 list_flows(host=…) / inspect_flow 取完整证据,replay_flow 改参数验证,不必回浏览器重点,确认后 generate_code 出复现脚本。Chrome 默认不代理 localhost / 127.0.0.1,本机目标要用局域网 IP 访问"
+      }
+    }
+  },
   "mcpServers": {
     "chrome-devtools": {
       "type": "stdio",
       "command": "/home/david/.local/bin/chrome-ai-mcp",
       "args": [],
-      "env": {}
+      "env": { "CHROME_AI_MODE": "${CHROME_AI_MODE:-}" }
     }
   }
 }

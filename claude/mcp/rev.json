@@ -1,4 +1,13 @@
 {
+  "ccx": {
+    "role": "IDA Pro:open_database 打开二进制,execute_python 跑 IDAPython(搜字符串、reference 查交叉引用、反编译、重命名加注释),改完及时 save_database",
+    "needs": "ida",
+    "with": {
+      "cap": {
+        "hint": "mitmweb 里请求的路径、自定义头、签名参数等常量拿去 IDA 搜字符串和交叉引用,定位拼包/签名/加密函数;IDA 推出的协议字段或算法,先用 diff_flows 确认哪些字段在变,再用 replay_flow 带修改重放,服务端认了才算对。被测程序要走代理 127.0.0.1:8080(HTTP_PROXY / HTTPS_PROXY)并信任 ~/.mitmproxy/mitmproxy-ca-cert.pem;动态 hook 可用本机 frida 命令行(不是 MCP)"
+      }
+    }
+  },
   "mcpServers": {
     "ida": {
       "command": "uv",
@@ -6,7 +15,7 @@
         "run",
         "--no-dev",
         "--project",
-        "/home/david/.claude/plugins/cache/HexRaysSA/ida-mcp/20261008.0.1",
+        "${IDA_MCP_DIR}",
         "ida-mcp",
         "stdio",
         "--agent=claude"

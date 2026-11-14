@@ -1,15 +1,38 @@
 #!/usr/bin/env bash
-# Claude Code 的 chrome-devtools MCP 入口（claude mcp add --scope user chrome-devtools -- 本脚本）。
+# Claude Code 的 chrome-devtools MCP 入口（ccx 的 web 套餐）。
 #
-# 连的是 chrome-ai 那个独立 profile 的 Chrome（127.0.0.1:9222），而不是让 MCP 自己另起一个：
-# 这样你手动开的窗口和 AI 操作的是同一个，登录状态共享，AI 在干什么也看得见。
-# 没开就先拉起来。⚠ stdout 是 MCP 的 stdio 通道，这里任何输出都要扔掉。
+#   chrome-ai-mcp                      连 chrome-ai 那个独立 profile 的 Chrome（127.0.0.1:9222）
+#   CHROME_AI_MODE=mitm chrome-ai-mcp  另起一个走 mitmproxy 的 Chrome，页面流量全进 mitmweb
+#                                      （ccx 看到 web 和 cap 同时加载会自动设；也认 --mitm 参数）
+#
+# 默认模式不让 MCP 自己另起浏览器：你手动开的窗口和 AI 操作的是同一个，登录状态共享，
+# AI 在干什么也看得见。没开就先拉起来。⚠ stdout 是 MCP 的 stdio 通道，这里任何输出都要扔掉。
+#
+# --mitm 模式故意用另一个 profile（~/.cache/chrome-ai-mitm）：日常登录态不该流经抓包代理，
+# 也不和 mitm-start 自带 Chrome 的 ~/.cache/chrome-mitm 抢锁。mitmproxy 的 CA 已在用户级
+# NSS 库里（certutil），所以不用 --acceptInsecureCerts。mitmweb 由 ccx（services.sh）保证在跑。
 #
 # 版本钉死：@latest 每次启动都去 npm 查新版，慢且等于自动更新一段能操控浏览器的代码。
-# 升级就改下面的版本号。
+# 升级就改下面的版本号（两种模式共用）。
 
 PORT=9222
 VERSION=1.12.0
+MITM_PROXY="http://127.0.0.1:${MITMPROXY_PORT:-8080}"
+
+export CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1
+COMMON=(--no-usage-statistics --no-performance-crux)
+
+if [ "${1:-}" = "--mitm" ] || [ "${CHROME_AI_MODE:-}" = "mitm" ]; then
+    # 和 mitmweb-mcp 的 chrome.py 一样关掉浏览器自身的后台请求，免得抓包里混一堆 Google 服务流量。
+    exec npx -y "chrome-devtools-mcp@$VERSION" \
+        --proxyServer="$MITM_PROXY" \
+        --userDataDir="$HOME/.cache/chrome-ai-mitm" \
+        --chromeArg=--disable-background-networking \
+        --chromeArg=--disable-component-update \
+        --chromeArg=--disable-sync \
+        --chromeArg=--disable-features=OptimizationHints \
+        "${COMMON[@]}"
+fi
 
 up() { curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/json/version"; }
 
@@ -21,8 +44,6 @@ if ! up; then
     for _ in $(seq 50); do up && break; sleep 0.2; done
 fi
 
-export CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1
 exec npx -y "chrome-devtools-mcp@$VERSION" \
     --browser-url="http://127.0.0.1:$PORT" \
-    --no-usage-statistics \
-    --no-performance-crux
+    "${COMMON[@]}"
