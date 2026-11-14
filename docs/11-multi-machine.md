@@ -19,7 +19,7 @@
 
 ---
 
-## 笔记本：17 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个，2026-10-31 加 chrome-ai 与 MCP 套餐四个）
+## 笔记本：17 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个，2026-10-31 加 chrome-ai 与 MCP 套餐四个，2026-11-14 rev.json 换成 kitty wallpaper.conf）
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
 > 拉取远程后默认**全量对齐**，只有下面这 17 个文件例外——它们要么绑死在本机硬件上、
@@ -44,14 +44,17 @@
 | `~/.local/share/applications/chrome-ai.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同 excalidraw 那条。它归 `ui` 模块，而 `install.sh ui` 在笔记本禁跑，所以是手工 `sed` 换路径放的（2026-10-30） |
 | `~/.claude/mcp/web.json` | `/home/monkey/.local/bin/chrome-ai-mcp` | `/home/david/...` | `cc` 模块**不跑** `rewrite_home`，原样装过来路径就是错的。下面三条都是 2026-10-31 随 `ccx`（`docs/08` 第 13 节）手工放的 |
 | `~/.claude/mcp/cap.json` | `~/.local/share/mitmweb-mcp/venv/bin/mitmweb-mcp` | `~/.local/share/venvs/mitmweb-mcp/bin/...` | 两台机器 mitmweb-mcp 的 venv **装的位置不一样**，不只是用户名不同，`sed` 换不过来 |
-| `~/.claude/mcp/rev.json` | ida-mcp 插件 `20261003.0.1` | `20261008.0.1` | 路径里锁了插件版本号，两台装的版本不同。插件已停用不会自更新 |
+| `~/.config/kitty/wallpaper.conf` | 5 条快捷键 `/home/monkey/.local/bin/kitty-bg` | `/home/david/...` | `term` 模块不跑 `rewrite_home`，笔记本又禁跑 `install.sh term`，是 2026-11-14 手工 `cp` + `sed` 换路径放的。笔记本没有 `~/Pictures/Wallpapers/kitty-bg/` 图库，`background_image` 匹配不到就退回毛玻璃，F12 等键会报「no images」，属正常 |
 
 > ★ **`ccx` 在笔记本的落地（2026-10-31）**：全局 `mcpServers` 里的 `mitmweb`、`chrome-devtools` 已用
 > `claude mcp remove --scope user` 撤掉，`ida-mcp@HexRaysSA` 插件已 `claude plugin disable`，和源机器一致；
 > `~/.claude/mcp/secrets.env`（0600）里的 `MITMWEB_TOKEN` 是从原来全局配置里搬过来的。
 > `cap` / `rev` 两个套餐按本机路径做过 MCP 握手验证。改前的 `~/.claude.json` 和 `settings.json` 留了 `.bak-20261031-185357`。
 > **项目级**的 `jadx` MCP（只挂在 `~/androidProjects/App01check`）不属于这次改动，没动。
-> ⚠ 别直接 `./install.sh cc` 覆盖这三个 JSON：会装回源机器路径，套餐全部起不来。
+> ⚠ 别直接 `./install.sh cc` 覆盖 `web.json` / `cap.json`：会装回源机器路径，套餐起不来。
+> ★ **`rev.json` 2026-11-14 退出这张表**：远程 `a2f388b` 改写成 `${IDA_MCP_DIR}`，由 `services.sh` 的
+> `ensure_ida` 在启动时取插件缓存里版本号最大的目录，两台机器同一份文件即可。
+> 那次同步时 `web.json` / `cap.json` 也是取远程新版（多了 `"ccx"` 组合块）再 `sed` 换回本机路径。
 
 > ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
 > `background_color` 要取当前壁纸的主色，而两台机器壁纸不同。现在笔记本壁纸也跟远程换成了
