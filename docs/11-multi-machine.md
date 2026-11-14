@@ -160,6 +160,12 @@ sudo ufw allow from 192.168.0.0/24 to any port 8000 proto tcp comment 'SillyTave
 273 MB / 51 张（2026-09-16 数）。两边都靠 `wallpaper/tokyonight/_fetch.py` 重新拉，
 包里只带两张成品（`11-w55gjr.png` 参考图 + `wallhaven-kxwp96.jpg`）。
 
+**2026-11-14 跟远程换成 Rose Pine Moon 配色，但壁纸两台不同**：源机器是 `rosepine/ogjg3l.png`
+（Saber 雪夜提灯，4000×2250），笔记本用的是 `rosepine/wallhaven-m953jy.jpg`
+（黑发少女 + 夜里满城灯火，正好 1920×1080），`rosepine/` 里另放了 `ogjg3l`、`y8m9ox`、`1klodv` 三张给 `theme-switch` 轮换。
+配色走 `community` 模式，跟壁纸无关，所以 6 个模板产物（alacritty / btop / gtk4 / kitty / qt6ct / kdeglobals 的配色段）
+两台逐字节一致；`misc.lua` 的 `background_color` 两台都还是 `rgb(1a1b26)`（这张图主色 `#262428`，差得不多，没重取）。
+
 ---
 
 ## 两个脚本在笔记本上的实测表现（2026-09-16）
