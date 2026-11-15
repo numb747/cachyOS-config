@@ -31,6 +31,17 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 
 `packages.txt` 末尾的「可选」段落是注释掉的，按需自己装。
 
+**Claude Code / Codex 也走 pacman**（2026-11-15 定）：
+
+```bash
+sudo pacman -S --needed claude-code openai-codex   # claude-code 在 cachyos 仓库，openai-codex 在 extra
+```
+
+现有的笔记本当初是用官方原生安装器（`curl -fsSL https://claude.ai/install.sh | bash`）装的，
+装在 `~/.local/share/claude/versions/`，`~/.claude.json` 里记的是 `"installMethod": "native"`，
+用户决定**沿用不换**。新机器按「下载软件的原则」先用 pacman。⚠ 两种别同时装：`~/.local/bin` 在 PATH 前面，
+原生版会盖住 pacman 那份。pacman 版比上游晚几个版本，跟 `-Syu` 一起升级。
+
 **屏幕取字（ocr 模块）的运行时要单独处理** —— `python-rapidocr` 在 AUR，
 而且**不能直接 `yay -S`**（上游 PKGBUILD 的 `makedepends` 写了
 `python-installer>=1.0.1`，Arch 全仓库最新只有 1.0.0，必然报
