@@ -117,17 +117,13 @@
 - `~/.config/noctalia/storage.key`（2026-08-27 生成，64 位 hex / 0600）——
   剪贴板历史落盘的主密钥，**不入包**。验收信号是日志里的
   `[clipboard] loaded encrypted clipboard history`，别看 `noctalia config export`（坑 9）。
-- ⚠ **待办**：`/etc/polkit-1/rules.d/49-noctalia-greeter.rules` 还没建（要 sudo）。
-  没有它 `privilege_command = "pkexec"` 只是换了个提权程序，换壁纸/主题**照样弹密码框**。
-  内容见 `docs/05-theme-ui.md`；验收 `pkcheck --action-id
-  org.noctalia.greeter.sync-appearance --process $$` 应从 `auth_admin` 变 `yes`
-  （noctalia-greeter 1.7.0 起 action 改名，旧名 `apply-appearance` 查不到，规则里两个都写）。
+- ~~**待办**：`/etc/polkit-1/rules.d/49-noctalia-greeter.rules`~~ **2026-11-14 已建**（两个 action 名都认，
+  内容同 `docs/05-theme-ui.md`）。`pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$` → `yes`。
 - ~~`wine` 模块有意未装~~ —— 2026-10-09 源机器卸载了 wine，`wine` 模块和 `packages.txt` 里那 4 个
   wine 包已从包里删掉。笔记本 `git pull` 后 `./sync.sh` 不会再报那 4 个文件「系统上不存在」。
-- ⚠ **待办**：`python-pynvim` + `python-ipykernel` 还没装（要 sudo，笔记本 sudo 需要密码）。
-  这是 molten 的前置——配置文件 `plugins/molten.lua` 已经就位，但**不装这两个包
-  `:MoltenInit` 起不来 kernel**。装法 `sudo pacman -S --needed python-pynvim python-ipykernel`，
-  装完必须在 nvim 里 `:UpdateRemotePlugins` 再重启，否则 `:Molten*` 全是 E492（坑见 `docs/04`）。
+- ~~**待办**：`python-pynvim` + `python-ipykernel`~~ **2026-11-14 已装**，`:UpdateRemotePlugins` 也跑过
+  （`rplugin.vim` 里已登记 molten）。同批还装了 `kate markdownpart papers handlr-regex fortune-mod`；
+  古诗库照 `docs/03`「古诗」拉进了 `~/.local/share/fortune/poems/`，Kate 预览插件已在会话文件里打开。
 - ★ **「Mason 语言工具链未装齐」那条待办对笔记本不成立**（`CLAUDE.md` 文末「现状」记的是源机器）。
   笔记本运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
   （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
