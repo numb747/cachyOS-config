@@ -771,6 +771,13 @@ ccglm -l           # 等于 ccx -l
 ```
 
 第一个参数是套餐名、别名或 `-l` 才走 ccx，其余（prompt、claude 的参数）直接给 claude。
+
+⚠ **在家目录启动会用错 key**（2026-11-16 踩到）：报 `503 分组 <日常 key 的分组> 下模型 glm-… 无可用渠道`。
+cwd 是 `~` 时，`~/.claude/settings.json` 同时也是「项目设置」，优先级高于 `~/.claude-glm` 的用户设置，
+于是 key 和地址换成了日常那套、模型名却还是 GLM 的。所以 ccglm 在家目录时加 `--setting-sources user`。
+带套餐时这个 flag 不能排在套餐名前面（ccx 遇到 `-` 开头就停止解析套餐），所以 ccx 的 `CCX_LAUNCHER`
+指回 ccglm 自己（带 `CCGLM_DIRECT=1`），由它在末尾补上。其他项目目录的 `.claude/settings*.json`
+当时扫过，没有设 key 或地址的。
 `~/.claude-glm/settings.json`（中转地址、模型映射）和 `relay.key`（600）**不入包**，新机器要手建。
 
 验收（2026-11-16）：`ccglm web -- -p …` 的 init 里 MCP 只有 `chrome-devtools`，没有 matrix-sync；
