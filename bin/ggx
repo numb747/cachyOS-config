@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+# ggx — 启动 Grok,按名字叠加 MCP「套餐」。平时一个都不挂,用到才起。
+# 真实配置在 ~/.grok/config.d/base.toml;config.toml 是符号链接,ggx 会话期间指到副本。
+#
+# 用法和 ccx 同一套套餐(~/.claude/mcp/<名字>.json):
+#   ggx                      干净,不挂任何 MCP
+#   ggx web                  + chrome-devtools
+#   ggx web cap              叠多个:自动接线 + 自动生成「怎么串起来用」的说明
+#   ggx hunt                 别名(~/.claude/mcp/aliases),hunt = web cap
+#   ggx -l | --list          列出套餐和别名
+#   ggx -h | --help | help   打印这份用法
+#   ggx web -- <参数...>      -- 之后原样透传给 grok
+#
+# Grok 没有 claude 的 --mcp-config,也没有「只对这一次生效」的 MCP 开关。
+# grok mcp enable/disable 和 /mcps 都会写进 ~/.grok/config.toml,下次照样开。
+# GROK_CONFIG_PATH 的白名单不含 mcp_servers,塞了也会被丢掉。
+# 家目录不是 git 仓库时,Grok 还把 ~/.grok/config.toml 当成项目配置读(优先级高于用户配置),
+# 所以换 GROK_HOME 也盖不住它。
+#
+# 这里的做法:把真实配置留在 ~/.grok/config.d/base.toml,config.toml 只是指向它的符号链接。
+# 带套餐时写一份会话副本(关掉用户配置里的 MCP,再补上选中的),把链接指过去,进程退出再指回来。
+# 链接在整个会话期间都指着副本:Grok 会热重载,中途指回去会把这次的 MCP 卸掉。
+# 同时只开一个 ggx。两个一起开会抢同一条链接。
+set -euo pipefail
+MCPDIR="$HOME/.claude/mcp"
+ALIASES="$MCPDIR/aliases"
+GROK_DIR="$HOME/.grok"
+LINK="$GROK_DIR/config.toml"
+BASE="$GROK_DIR/config.d/base.toml"
+LOCKDIR="$GROK_DIR/ggx.lock"
+
+# 本地密钥(gitignored)。片段里用 ${VAR} 占位,真值在这里,写进会话副本。
+[ -f "$MCPDIR/secrets.env" ] && . "$MCPDIR/secrets.env"
+. "$MCPDIR/services.sh"
+
+alias_packs() { [ -f "$ALIASES" ] && sed -n "s/^$1[[:space:]]*=[[:space:]]*//p" "$ALIASES" | head -n 1; }
+
+usage() {
+  cat <<EOF
+ggx — 按套餐启动 Grok。不写套餐名就不挂 MCP,写了才挂,只对这一次生效。
+
+用法:
+  ggx                         干净启动,不挂任何 MCP
+  ggx <套餐> [<套餐>…]         挂上这些套餐再启动
+  ggx <套餐>… -- <grok 参数>   -- 之后原样交给 grok
+  ggx -l, --list              列出套餐和别名
+  ggx -h, --help, help        打印这份说明
+
+例子:
+  ggx web                     只要 chrome-devtools
+  ggx web cap                 浏览器 + 抓包,自动接线
+  ggx hunt                    别名,等于 web cap
+  ggx web -- -p "看下这个页面"
+
+套餐和别名与 ccx 共用 ~/.claude/mcp/。别名用 ccx -s <名字> <套餐…> 增改。
+直接跑 grok 不走这里,仍按 ~/.grok/config.d/base.toml 里的开关来。
+同一时间只开一个 ggx,两个会抢同一条配置链接。
+EOF
+}
+
+case "${1:-}" in
+  -h|--help|help) usage; exit 0 ;;
+  -l|--list)
+    shopt -s nullglob
+    echo "套餐(${MCPDIR}/,ggx 和 ccx 共用):"
+    python3 - "$MCPDIR"/*.json <<'EOF'
+import json, os, sys
+for f in sys.argv[1:]:
+    d = json.load(open(f))
+    meta = d.get("ccx", {})
+    name = os.path.basename(f)[:-5]
+    srv = ",".join(d.get("mcpServers", {}))
+    extra = []
+    if meta.get("needs"): extra.append("需要 " + meta["needs"])
+    if meta.get("with"): extra.append("可与 " + "/".join(meta["with"]) + " 接线")
+    print(f"  {name:<6} -> {srv:<16} {'; '.join(extra)}")
+    if meta.get("role"): print(f"           {meta['role'][:70]}…" if len(meta["role"]) > 70 else f"           {meta['role']}")
+EOF
+    echo "别名(${ALIASES},用 ccx -s 增改):"
+    [ -f "$ALIASES" ] && grep -v '^[[:space:]]*\(#\|$\)' "$ALIASES" | sed 's/^/  /'
+    exit 0 ;;
+esac
+
+packs=()
+add_pack() {
+  local p
+  for p in "${packs[@]}"; do [ "$p" = "$1" ] && return 0; done
+  if [ ! -f "$MCPDIR/$1.json" ]; then
+    echo "ggx: 未知套餐或别名 '$1'(ggx -l 看套餐,ggx -h 看用法)" >&2
+    exit 1
+  fi
+  packs+=("$1")
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --) shift; break ;;
+    -*) break ;;
+    *)
+      if [ ! -f "$MCPDIR/$1.json" ] && expanded=$(alias_packs "$1") && [ -n "$expanded" ]; then
+        for p in $expanded; do add_pack "$p"; done
+      else
+        add_pack "$1"
+      fi
+      shift ;;
+  esac
+done
+
+# 真实配置在 base.toml。config.toml 若还是普通文件(第一次,或被 grok mcp 写回成文件),收进来。
+ensure_base() {
+  mkdir -p "$GROK_DIR/config.d"
+  if [ -L "$LINK" ]; then
+    [ -f "$BASE" ] || { echo "ggx: $LINK 是符号链接,但 $BASE 不存在" >&2; exit 1; }
+    return 0
+  fi
+  if [ -f "$LINK" ]; then
+    if [ -e "$BASE" ]; then
+      echo "ggx: $BASE 已在,而 $LINK 又是普通文件。先看清楚再动,没有自动覆盖。" >&2
+      exit 1
+    fi
+    mv "$LINK" "$BASE"
+  elif [ ! -e "$BASE" ]; then
+    : >"$BASE"
+  fi
+  ln -s "$BASE" "$LINK"
+}
+
+if [ ${#packs[@]} -eq 0 ]; then
+  echo "ggx: 干净启动(不挂 MCP)" >&2
+fi
+
+needs=()
+links=()
+brief=""
+eval "$(python3 - "$MCPDIR" "${packs[@]}" <<'EOF'
+import json, shlex, sys
+mcpdir, packs = sys.argv[1], sys.argv[2:]
+cfg = {p: json.load(open(f"{mcpdir}/{p}.json")) for p in packs}
+meta = {p: c.get("ccx", {}) for p, c in cfg.items()}
+out, roles, hints = [], [], []
+for p in packs:
+    m = meta[p]
+    if m.get("needs"):
+        out.append(f"needs+=({shlex.quote(m['needs'])})")
+    roles.append(f"- {'/'.join(cfg[p].get('mcpServers', {}))}({p}):{m.get('role', '(未写 role)')}")
+    for other, link in m.get("with", {}).items():
+        if other not in packs:
+            continue
+        out.append(f"links+=({shlex.quote(p + '×' + other)})")
+        for k, v in link.get("env", {}).items():
+            out.append(f"export {k}={shlex.quote(v)}")
+        if link.get("hint"):
+            hints.append(f"- {p} × {other}:{link['hint']}")
+if len(packs) >= 2:
+    text = ["## 本会话的 MCP 组合(ggx 按套餐自动生成)", "",
+            "同时加载了下面这几个 MCP,把它们串起来用,而不是各用各的:", *roles]
+    if hints:
+        text += ["", "已接好的线:", *hints]
+    text += ["", "串联原则:一个 MCP 的产出(URL、请求、字符串、地址、文件)直接当另一个的输入;"
+             "一个负责触发,另一个负责取证和验证;结论以能复现的证据为准。"]
+    out.append("brief=" + shlex.quote("\n".join(text)))
+print("\n".join(out))
+EOF
+)"
+
+seen=" "
+for n in "${needs[@]}"; do
+  case "$seen" in *" $n "*) continue ;; esac
+  seen+="$n "
+  "ensure_$n"
+done
+
+ensure_base
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+  echo "ggx: 已经有一个带套餐的 ggx 在跑($LOCKDIR)。等它退出再开,两个会抢同一条配置链接。" >&2
+  exit 1
+fi
+
+session="$(mktemp "${TMPDIR:-/tmp}/ggx-config.XXXXXX.toml")"
+export GGX_BASE="$BASE" GGX_SESSION="$session" GGX_MCPDIR="$MCPDIR" GGX_PACKS="${packs[*]-}"
+python3 - <<'PY'
+import json, os, re
+from pathlib import Path
+
+base = Path(os.environ["GGX_BASE"]).read_text()
+mcpdir = Path(os.environ["GGX_MCPDIR"])
+packs = os.environ["GGX_PACKS"].split()
+env_pat = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
+
+def expand(s):
+    def sub(m):
+        name, default = m.group(1), m.group(2)
+        if name in os.environ and os.environ[name] != "":
+            return os.environ[name]
+        return "" if default is None else default
+    return env_pat.sub(sub, s)
+
+def toml_str(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+# 用户配置里的 MCP 这次整段拿掉,只留下命令行点名的。
+# 不能「关掉再追加同名表」:TOML 不允许重复的键。
+out = []
+skip = False
+for line in base.splitlines():
+    stripped = line.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        skip = stripped.startswith("[mcp_servers.")
+    if skip or stripped.startswith("disabled_mcp_servers"):
+        continue
+    out.append(line)
+
+blocks = []
+for pack in packs:
+    data = json.loads((mcpdir / f"{pack}.json").read_text())
+    for name, spec in data.get("mcpServers", {}).items():
+        body = [f"[mcp_servers.{name}]"]
+        if "command" in spec:
+            body.append(f"command = {toml_str(expand(spec['command']))}")
+        if spec.get("args"):
+            args = ", ".join(toml_str(expand(a)) for a in spec["args"])
+            body.append(f"args = [{args}]")
+        if spec.get("env"):
+            pairs = ", ".join(
+                f"{k} = {toml_str(expand(str(v)))}" for k, v in spec["env"].items()
+            )
+            body.append(f"env = {{ {pairs} }}")
+        if "url" in spec:
+            body.append(f"url = {toml_str(expand(spec['url']))}")
+        if spec.get("headers"):
+            pairs = ", ".join(
+                f"{toml_str(k)} = {toml_str(expand(str(v)))}" for k, v in spec["headers"].items()
+            )
+            body.append(f"headers = {{ {pairs} }}")
+        body.append("enabled = true")
+        blocks.append("\n".join(body))
+
+text = "\n".join(out).rstrip() + "\n"
+if blocks:
+    text += "\n" + "\n\n".join(blocks) + "\n"
+Path(os.environ["GGX_SESSION"]).write_text(text)
+PY
+
+restore() {
+  ln -sfn "$BASE" "$LINK"
+  rm -f "$session"
+  rmdir "$LOCKDIR" 2>/dev/null || true
+}
+trap restore EXIT INT TERM
+
+ln -sfn "$session" "$LINK"
+
+if [ ${#packs[@]} -gt 0 ]; then
+  msg="ggx: 套餐 -> ${packs[*]}"
+  [ ${#links[@]} -gt 0 ] && msg+=" | 接线 -> ${links[*]}"
+  echo "$msg" >&2
+fi
+
+args=()
+if [ -n "$brief" ]; then
+  args+=(--rules "$brief")
+fi
+"$HOME/.local/bin/grok" "${args[@]}" "$@"

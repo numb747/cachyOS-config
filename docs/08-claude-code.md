@@ -728,6 +728,33 @@ Burp 没开就拦下。`ensure_ida` 自动取插件缓存里最新版本目录 e
 验收（2026-10-31）：`ccx -l` 列出 4 个套餐；`ccx cap` 启动的会话里 `${MITMWEB_TOKEN}` 展开为真值、
 mitmweb 连得上；裸 `ccm`（含手机发起的会话）只有 matrix-sync；`./check.sh` 凭据扫描无命中。
 
+### Grok 的同一套：ggx（2026-11-16）
+
+Grok 把 `~/.grok/config.toml` 里 `enabled = true` 的 MCP 每个新会话都拉起来。它没有 Claude 的
+`--mcp-config`。`grok mcp enable` / `disable` 和 TUI 里 `/mcps` 的空格都会写进那份配置，下次照样开。
+`GROK_CONFIG_PATH` 的白名单不含 `mcp_servers`，塞了会被丢掉。家目录不是 git 仓库时，Grok 还把
+`~/.grok/config.toml` 当成项目配置读，换 `GROK_HOME` 也盖不住。
+
+`bin/ggx` 和 `ccx` 共用 `~/.claude/mcp/` 的套餐、别名和 `services.sh`：
+
+```
+ggx            # 干净，不挂任何 MCP（用户配置里的也这次关掉）
+ggx web        # 只要 chrome-devtools
+ggx web cap    # 叠多个，接线和说明跟 ccx 一样，说明经 grok 的 --rules 追加
+ggx -l         # 列出套餐；别名仍用 ccx -s 增改
+ggx -h         # 用法（也认 --help、help）
+ggx web -- -p "帮我看下这个页面"
+```
+
+做法：真实配置在 `~/.grok/config.d/base.toml`，`config.toml` 是指向它的符号链接。`ggx` 写一份会话副本
+（去掉用户配置里的 MCP，再补上点名的套餐），整个会话期间把链接指过去，退出再指回来。中途不能指回去，
+Grok 会热重载，几秒内把这次的 MCP 卸掉。同时只开一个 `ggx`，两个会抢同一条链接。
+直接跑 `grok` 不走 `ggx`，仍按 `base.toml` 来（眼下 `chrome-devtools` 是开着的）。
+
+验收（2026-11-16）：`ggx -- inspect` 的 MCP 列表是空的；`ggx web` 期间 `grok inspect` 只有
+`chrome-devtools`，退出后链接指回 `base.toml`，里面的 `enabled = true` 没被改掉。裸 `grok inspect` 仍有
+`chrome-devtools`。
+
 ## 14 · 花费统计：cc-cost（2026-11-13）
 
 Windows 上的 ccswitch 自带用量统计，本机没有，就写了这个终端命令。输出分类表（输入 / 缓存写 5m / 缓存写 1h /
