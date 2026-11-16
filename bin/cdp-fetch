@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""cdp-fetch:经 AI Chrome(bin/chrome-ai,127.0.0.1:9222)取网页渲染后的正文,不依赖 MCP。
+
+  cdp-fetch URL [等待秒数=10] [最多字符=15000]   新开标签页打开 URL,取完关掉
+  cdp-fetch current [关键字] [最多字符=15000]    读已打开的标签页(不跳转、不关);
+                                                 给关键字时挑 URL/标题含它的那个,否则取第一个
+
+为什么有它:chrome-devtools MCP 是 ccx 的 web 套餐、按需加载,没带套餐开的会话里用不了;
+而 WebFetch 过不了 Cloudflare、拿不到 JS 渲染后的库存数。current 模式给「人点开、AI 读」用:
+人机验证或要登录的页面,用户在 AI Chrome 里点到那一页,再让 Claude 读。
+⚠ 等待时间不够会抓到空壳(WHMCS 商品页 10 秒常不够),结果反常先加长等待再下结论。
+依赖 python-websockets(pacman)。见 docs/08 第 12 节。
+"""
+import asyncio, json, sys, urllib.request
+import websockets
+
+JS = ("document.title + '\\n' + location.href + '\\n\\n' + "
+      "(document.body ? document.body.innerText : '[no body] ' + document.documentElement.outerHTML.slice(0,1500))")
+
+def http(path, method="GET"):
+    req = urllib.request.Request(f"http://127.0.0.1:9222{path}", method=method)
+    return json.load(urllib.request.urlopen(req, timeout=10))
+
+async def read(ws_url, navigate=None, wait: float = 0):
+    async with websockets.connect(ws_url, max_size=50_000_000) as ws:
+        n = 0
+        async def call(method, params=None):
+            nonlocal n
+            n += 1
+            await ws.send(json.dumps({"id": n, "method": method, "params": params or {}}))
+            while True:
+                msg = json.loads(await ws.recv())
+                if msg.get("id") == n:
+                    return msg.get("result", {})
+        if navigate:
+            await call("Page.enable")
+            await call("Page.navigate", {"url": navigate})
+            await asyncio.sleep(wait)
+        r = await call("Runtime.evaluate", {"expression": JS, "returnByValue": True})
+        v = r.get("result", {}).get("value")
+        return v if v else json.dumps(r)[:2000]
+
+async def main():
+    if sys.argv[1] == "current":
+        key = sys.argv[2] if len(sys.argv) > 2 else ""
+        limit = int(sys.argv[3]) if len(sys.argv) > 3 else 15000
+        pages = [t for t in http("/json/list") if t["type"] == "page"]
+        if key:
+            pages = [t for t in pages if key in t["url"] or key in t["title"]]
+        if not pages:
+            sys.exit("没有匹配的标签页")
+        print((await read(pages[0]["webSocketDebuggerUrl"]))[:limit])
+        return
+    url = sys.argv[1]
+    wait = float(sys.argv[2]) if len(sys.argv) > 2 else 10
+    limit = int(sys.argv[3]) if len(sys.argv) > 3 else 15000
+    tab = http("/json/new?about:blank", "PUT")
+    try:
+        print((await read(tab["webSocketDebuggerUrl"], url, wait))[:limit])
+    finally:
+        urllib.request.urlopen(f"http://127.0.0.1:9222/json/close/{tab['id']}", timeout=10)
+
+asyncio.run(main())

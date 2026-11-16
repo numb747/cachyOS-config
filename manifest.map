@@ -143,6 +143,8 @@ share/applications/adb-wifi.desktop       ~/.local/share/applications/adb-wifi.d
 # 键位 SUPER+CTRL+W 在 mykeys.lua 第 21 节。见 docs/08 第 12 / 13 节。
 bin/chrome-ai                             ~/.local/bin/chrome-ai
 bin/chrome-ai-mcp                         ~/.local/bin/chrome-ai-mcp
+# cdp-fetch（2026-11-16 加）：不走 MCP，直接经 9222 取 AI Chrome 渲染后的网页正文；current 模式读用户已点开的标签页。见 docs/08 第 12 节。
+bin/cdp-fetch                             ~/.local/bin/cdp-fetch
 share/applications/chrome-ai.desktop      ~/.local/share/applications/chrome-ai.desktop
 # ccx：按 MCP 套餐名启动 Claude Code（经 ccm 保留 Matrix 同步），用 claude/mcp/*.json。见 docs/08 第 13 节。
 bin/ccx                                   ~/.local/bin/ccx

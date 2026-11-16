@@ -609,6 +609,27 @@ Claude Code ──stdio──> bin/chrome-ai-mcp ──npx──> chrome-devtool
 验收（2026-10-30）：先关掉 AI Chrome，用 MCP 握手，1.4 秒内拉起 Chrome，32 个工具可用，
 `new_page` 打开 example.com 后，`take_snapshot` 能读出正文。
 
+### 不带 web 套餐时：`cdp-fetch`（2026-11-16）
+
+chrome-devtools MCP 是按需加载的（第 13 节），没用 `ccx web` 开的会话里没有这组工具。
+只是要**读**网页的话不用重开会话：`bin/cdp-fetch` 直接连 9222 走 CDP，
+在 AI Chrome 里新开标签页、等渲染、取 `innerText`、关掉标签页。
+
+```bash
+cdp-fetch URL [等待秒数=10] [最多字符=15000]   # 新开标签页读，读完关掉
+cdp-fetch current [关键字]                      # 读已打开的标签页，不跳转、不关
+```
+
+- **`current` 是给「人点开、AI 读」用的**：Cloudflare 人机验证、要登录、要点选的页面，
+  用户在 AI Chrome 里点到那一页，Claude 再用 `current <URL 或标题里的词>` 读。
+  2026-11-16 选 VPS 时 LowEndTalk 帖子 WebFetch 和新开标签页都被拦，就是这么读到的。
+- **比 WebFetch 强的地方**：执行 JS，WHMCS 商品页的库存数、Cloudflare 后面的页面都能拿到。
+- 依赖 `python-websockets`（pacman）。AI Chrome 必须已经开着（`chrome-ai` 或 `Super+Ctrl+W`），
+  它不会自己拉起。
+- ⚠ **等待时间不够会抓到空壳，而且不报错**：DediOne 特价页等 12 秒抓到的只有标题和一句介绍，
+  curl 拿到的原始 HTML 里其实有 6 款商品。结果反常时先加长等待或用 curl 对照，再下结论。
+- 只读不点：要点按钮、填表还是用 MCP。安全边界和上面坑 1 一样，读的是同一个 profile。
+
 ## 13 · MCP 按需加载：ccx 套餐（2026-10-31）
 
 **问题**：MCP 不像 skill。skill 是懒加载——平时只有一行简介在系统提示里，调用那一刻才读正文，装再多都几乎零开销。
