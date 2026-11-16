@@ -150,6 +150,8 @@ share/applications/chrome-ai.desktop      ~/.local/share/applications/chrome-ai.
 bin/ccx                                   ~/.local/bin/ccx
 # ggx：同一套 MCP 套餐启动 Grok。Grok 没有 --mcp-config，靠把 config.toml 换成指向会话副本的符号链接。见 docs/08 第 13 节末。
 bin/ggx                                   ~/.local/bin/ggx
+# ccglm：Claude Code 跑 GLM，独立配置目录 ~/.claude-glm（不入包：含 key 和中转地址）；带套餐时经 ccx 但不经 ccm。见 docs/08 第 13 节末。
+bin/ccglm                                 ~/.local/bin/ccglm
 # Dolphin 右键文件 →「发送到手机」：经 KDE Connect 推到已配对的手机，对方免确认直接收下。
 # 配对和插件开关（~/.config/kdeconnect/<设备ID>/）绑死设备 ID，不入包。见 docs/05-theme-ui.md「KDE Connect」。
 bin/send-to-phone                         ~/.local/bin/send-to-phone

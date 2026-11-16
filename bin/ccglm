@@ -1,0 +1,40 @@
+#!/bin/sh
+# ccglm — Claude Code 跑 GLM,和日常的 claude 完全隔离。
+#
+#   ccglm                    干净启动,和平时的 claude 用法一样
+#   ccglm web                挂 MCP 套餐,套餐和别名与 ccx 共用(~/.claude/mcp/)
+#   ccglm web cap            叠多个,接线和组合说明同 ccx
+#   ccglm -l                 列出套餐和别名
+#   ccglm web -- <参数...>    -- 之后原样交给 claude
+#
+# 配置目录独立(~/.claude-glm:设置、记忆、会话),~/.claude 不读不写。
+# 中转地址和模型映射在 ~/.claude-glm/settings.json;key 只在 ~/.claude-glm/relay.key(600),
+# 换 key 覆盖这个文件即可。带套餐时经 ccx 启动,但启动的是裸 claude、不经 ccm,不进 Matrix。
+export CLAUDE_CONFIG_DIR="$HOME/.claude-glm"
+keyfile="$CLAUDE_CONFIG_DIR/relay.key"
+mcpdir="$HOME/.claude/mcp"
+claude="$HOME/.local/bin/claude"
+
+if [ ! -r "$keyfile" ]; then
+    echo "ccglm: 缺少 $keyfile" >&2
+    exit 1
+fi
+# 去掉从父 Claude 会话或 shell 继承来的变量,日常那套中转和 token 不能混进来。
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
+      ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL \
+      ANTHROPIC_DEFAULT_HAIKU_MODEL CLAUDE_CODE_SUBAGENT_MODEL \
+      CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION
+ANTHROPIC_AUTH_TOKEN=$(cat "$keyfile")
+export ANTHROPIC_AUTH_TOKEN
+
+# 第一个参数是套餐名、别名或 -l 才交给 ccx;其余(prompt、claude 的参数)直接给 claude。
+first="${1:-}"
+case "$first" in
+    -l|--list) exec ccx "$@" ;;
+    ""|-*) exec "$claude" "$@" ;;
+esac
+if [ -f "$mcpdir/$first.json" ] ||
+   { [ -f "$mcpdir/aliases" ] && grep -q "^$first[[:space:]]*=" "$mcpdir/aliases"; }; then
+    CCX_LAUNCHER="$claude" exec ccx "$@"
+fi
+exec "$claude" "$@"

@@ -120,7 +120,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | 改配色 / 顶栏 / 字体 / 壁纸 / 输入法 | `docs/05-theme-ui.md` |
 | 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
-| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP）/ MCP 按需加载（ccx 套餐，不让 mitmweb/ida/chrome 等常驻；Grok 用同一套套餐的 `ggx`）/ token 花了多少钱（`cc-cost`，单天或任意时间段） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节，MCP 按需/ccx 在第 13 节，花费统计在第 14 节） |
+| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP）/ MCP 按需加载（ccx 套餐，不让 mitmweb/ida/chrome 等常驻；Grok 用同一套套餐的 `ggx`；GLM 评测用隔离的 `ccglm`）/ token 花了多少钱（`cc-cost`，单天或任意时间段） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节，MCP 按需/ccx 在第 13 节，花费统计在第 14 节） |
 | wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
@@ -283,6 +283,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 `~/.claude/channels/discord-sync/.env`（Discord bot token，见 `docs/08` 第 9 节）·
 `~/.claude/mcp/secrets.env`（ccx 套餐的 MCP 密钥如 `MITMWEB_TOKEN`，片段里用 `${VAR}` 占位引用它，
 **密钥本身不入包**；新机器要手动建，见 `docs/08` 第 13 节）·
+`~/.claude-glm/`（`ccglm` 的独立配置目录，含 GLM 的 key 和中转地址，见 `docs/08` 第 13 节末）·
 `~/.config/noctalia/storage.key`（剪贴板历史的加密主密钥 —— 引用它的
 `config.toml` 正常入包，**密钥本身不入**；新机器按 `docs/05` 重新生成即可，
 代价只是旧历史读不出来）·

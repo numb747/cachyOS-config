@@ -755,6 +755,27 @@ Grok 会热重载，几秒内把这次的 MCP 卸掉。同时只开一个 `ggx`�
 `chrome-devtools`，退出后链接指回 `base.toml`，里面的 `enabled = true` 没被改掉。裸 `grok inspect` 仍有
 `chrome-devtools`。
 
+### GLM 也用同一套：ccglm（2026-11-16）
+
+`bin/ccglm` 是跑在 GLM 上的 Claude Code，用来评测 GLM，**不替换**日常的 `claude`。两条隔离：
+
+- **配置目录独立**：`CLAUDE_CONFIG_DIR=~/.claude-glm`，设置、记忆、会话都在那，`~/.claude` 不读不写。
+  不能只在终端里临时设 `ANTHROPIC_BASE_URL`：`~/.claude/settings.json` 的 `env` 优先级更高，会盖回日常那套。
+  所以全局 CLAUDE.md、自动记忆、skill 都不带过去，这是有意的。cc-cost、`Alt+a`、ccmon 只读 `~/.claude`，看不到 GLM 会话。
+- **不进 Matrix**：带套餐时交给 ccx，但用 `CCX_LAUNCHER` 把最后 exec 的 `ccm` 换成裸 `claude`。
+
+```
+ccglm              # 干净启动，用法同 claude
+ccglm web          # 套餐、别名、接线、组合说明全由 ccx 处理
+ccglm -l           # 等于 ccx -l
+```
+
+第一个参数是套餐名、别名或 `-l` 才走 ccx，其余（prompt、claude 的参数）直接给 claude。
+`~/.claude-glm/settings.json`（中转地址、模型映射）和 `relay.key`（600）**不入包**，新机器要手建。
+
+验收（2026-11-16）：`ccglm web -- -p …` 的 init 里 MCP 只有 `chrome-devtools`，没有 matrix-sync；
+工具延迟加载在 GLM 上能用（先 ToolSearch 再调 `list_pages`）；会话文件落在 `~/.claude-glm/projects/`。
+
 ## 14 · 花费统计：cc-cost（2026-11-13）
 
 Windows 上的 ccswitch 自带用量统计，本机没有，就写了这个终端命令。输出分类表（输入 / 缓存写 5m / 缓存写 1h /
