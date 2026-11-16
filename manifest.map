@@ -237,6 +237,11 @@ claude/skills/arch-design/SKILL.md        ~/.claude/skills/arch-design/SKILL.md
 # cc-cost（2026-11-13 加）：读 ~/.claude/projects 的会话记录，按官方价折算某天 / 某段时间的花费，
 # 分类 / 项目 / 会话 / 按天明细。只做终端命令，启动器弹通知试过、用户说不用。价格表手抄在脚本里，出新模型要补。见 docs/08 第 14 节。
 bin/cc-cost                               ~/.local/bin/cc-cost
+# cc-shutdown（2026-11-14 加）：所有 Claude 会话 / 子代理 / 队员都停下就关机，停在「等你授权 / 回答」也算停、照样关。
+# 启动器「Claude 做完关机」挂上、「取消 Claude 做完关机」撤掉；后台是 systemd --user 临时单元 cc-shutdown-watch。见 docs/08 第 15 节。
+bin/cc-shutdown                           ~/.local/bin/cc-shutdown
+share/applications/cc-shutdown.desktop    ~/.local/share/applications/cc-shutdown.desktop
+share/applications/cc-shutdown-cancel.desktop  ~/.local/share/applications/cc-shutdown-cancel.desktop
 
 #@module wall
 # ⚠ D-ASCII 成品（wallpaper/ascii/*，含 settings.toml 默认指向的 a1-紫调少女.png）

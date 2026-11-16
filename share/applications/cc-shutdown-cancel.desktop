@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=取消 Claude 做完关机
+GenericName=Cancel Shutdown When Claude Is Done
+Comment=撤掉「Claude 做完关机」（~/.local/bin/cc-shutdown --cancel）
+Exec=/home/david/.local/bin/cc-shutdown --cancel
+Icon=process-stop
+Terminal=false
+Categories=Utility;
+Keywords=claude;shutdown;cancel;取消关机;做完关机;quxiao;guanji;

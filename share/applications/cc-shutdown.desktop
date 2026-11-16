@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Claude 做完关机
+GenericName=Shutdown When Claude Is Done
+Comment=所有 Claude Code 会话、子代理、队员都停下（含等你授权/回答）就关机（~/.local/bin/cc-shutdown）
+Exec=/home/david/.local/bin/cc-shutdown
+Icon=system-shutdown
+Terminal=false
+Categories=Utility;
+Keywords=claude;shutdown;poweroff;关机;做完关机;自动关机;guanji;zidong;

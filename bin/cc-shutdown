@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+"""
+Claude 全做完就关机：所有 Claude Code 会话、子代理、Agent Teams 队员、它们起的命令都停下来了，
+就关机。会话停在「等你授权 / 等你回答」也算做完 —— 照样关（用户明确要求）。见 docs/08 第 15 节。
+
+用法:
+  cc-shutdown              挂上（起一个 systemd --user 临时单元 cc-shutdown-watch 在后台盯，关终端不影响）
+  cc-shutdown --cancel     取消
+  cc-shutdown --status     看现在还有谁在干活、挂没挂上
+  cc-shutdown --watch      前台盯（单元里跑的就是这个）；加 --dry-run 只通知不关机
+  启动器里有「Claude 做完关机」「取消 Claude 做完关机」两个条目，调的就是前两条。
+
+「还在干活」的判定（任一条成立就不关）:
+  会话     ~/.claude/sessions/<pid>.json 的 status == busy（idle / waiting 都算做完）。
+  子代理   ~/.claude/projects/*/<会话>/subagents/**/*.jsonl，最后一条 assistant/user 记录不是
+           assistant 的 end_turn，且文件 STALE 秒内动过。被打断 / 被杀的子代理也长这样，
+           所以超过 STALE 没动静就当它死了，最多多等 STALE。
+  队员     tmux 里进程名是版本号（2.1.273）的窗格，屏幕上有「…（12s」转圈行（同 tmux-panes）。
+  命令     claude 进程底下 cmdline 带 shell-snapshots 的 shell（Bash 工具起的，含后台命令）；
+           跑了 SHELL_MAX 秒以上的当成常驻服务（npm run dev 之类）不算，不然永远关不了。
+全做完要连续保持 STABLE 秒（子代理交差后主会话会被重新叫醒，中间有空档），再弹通知倒数 GRACE 秒，
+倒数期间又有活就作废接着等。关机用 systemctl poweroff --check-inhibitors=no，不让应用拦。
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+CLAUDE = Path.home() / ".claude"
+UNIT = "cc-shutdown-watch"
+SELF = os.path.realpath(__file__)
+
+POLL = int(os.environ.get("CC_SHUTDOWN_POLL", 15))
+STABLE = int(os.environ.get("CC_SHUTDOWN_STABLE", 180))
+GRACE = int(os.environ.get("CC_SHUTDOWN_GRACE", 60))
+STALE = 20 * 60
+SHELL_MAX = 60 * 60
+
+VERSION_CMD = re.compile(r"\d+\.\d+\.\d+")
+SPIN_LINE = re.compile(r"…\s*\((?:\d+h\s*)?(?:\d+m\s*)?\d+s\b")
+
+
+# ---------------------------------------------------------------- /proc
+
+def proc_stat(pid: int) -> list[str]:
+    """comm 之后的字段：[1]=ppid [19]=starttime。"""
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()
+    except (OSError, IndexError):
+        return []
+
+
+def comm(pid: int) -> str:
+    try:
+        return Path(f"/proc/{pid}/comm").read_text().strip()
+    except OSError:
+        return ""
+
+
+def is_claude(pid: int) -> bool:
+    c = comm(pid)
+    return c == "claude" or bool(VERSION_CMD.fullmatch(c))
+
+
+def ancestors(pid: int) -> set[int]:
+    out = set()
+    while pid > 1 and pid not in out:
+        out.add(pid)
+        st = proc_stat(pid)
+        pid = int(st[1]) if len(st) > 1 else 0
+    return out
+
+
+def age_sec(pid: int) -> float:
+    try:
+        uptime = float(Path("/proc/uptime").read_text().split()[0])
+        return uptime - int(proc_stat(pid)[19]) / os.sysconf("SC_CLK_TCK")
+    except (OSError, IndexError, ValueError):
+        return 0.0
+
+
+# ---------------------------------------------------------------- 判定
+
+def sessions() -> list[dict]:
+    out = []
+    for f in (CLAUDE / "sessions").glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+            pid = int(d["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if is_claude(pid):  # 进程没了（或 pid 被别的程序复用）的是残留文件
+            out.append(d)
+    return out
+
+
+def last_turn(path: Path) -> dict | None:
+    """从文件尾往前找最后一条 assistant / user 记录。子代理的记录可能上百 MB、单行也可能很长，块逐步放大。"""
+    with path.open("rb") as f:
+        size = f.seek(0, 2)
+        chunk = 1 << 16
+        while True:
+            start = max(0, size - chunk)
+            f.seek(start)
+            lines = f.read(size - start).split(b"\n")
+            if start > 0:
+                lines = lines[1:]  # 第一行多半是半截
+            for line in reversed(lines):
+                if not line.strip():
+                    continue
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                if d.get("type") in ("assistant", "user"):
+                    return d
+            if start == 0 or chunk >= 1 << 26:
+                return None
+            chunk <<= 2
+
+
+def running_subagents() -> list[str]:
+    out = []
+    now = time.time()
+    for f in (CLAUDE / "projects").glob("*/*/subagents/**/*.jsonl"):
+        try:
+            if now - f.stat().st_mtime > STALE:
+                continue
+            d = last_turn(f)
+        except OSError:
+            continue
+        msg = (d or {}).get("message") or {}
+        if d and d.get("type") == "assistant" and msg.get("stop_reason") in ("end_turn", "stop_sequence", "refusal"):
+            continue
+        meta = f.with_suffix(".meta.json")
+        try:
+            desc = json.loads(meta.read_text()).get("description") or ""
+        except (OSError, ValueError):
+            desc = ""
+        out.append(f"子代理 {f.parent.parent.parent.name}/{f.stem}" + (f"（{desc}）" if desc else ""))
+    return out
+
+
+def busy_teammates() -> list[str]:
+    try:
+        lines = subprocess.run(["tmux", "list-panes", "-a", "-F", "#{pane_id}\t#{pane_current_command}\t#{session_name}"],
+                               capture_output=True, text=True, timeout=5).stdout.splitlines()
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    out = []
+    for line in lines:
+        pane, _, rest = line.partition("\t")
+        cmd, _, sess = rest.partition("\t")
+        if not VERSION_CMD.fullmatch(cmd):
+            continue
+        screen = subprocess.run(["tmux", "capture-pane", "-p", "-t", pane],
+                                capture_output=True, text=True, timeout=5).stdout.splitlines()
+        if any(SPIN_LINE.search(l) for l in screen[-40:]):
+            out.append(f"队员 {sess} {pane}")
+    return out
+
+
+def busy_shells(claude_pids: set[int]) -> list[str]:
+    me = ancestors(os.getpid())  # 从 Claude 的 Bash 工具里跑 --status 时，别把自己算进去
+    parent = {}
+    for p in Path("/proc").iterdir():
+        if p.name.isdigit():
+            st = proc_stat(int(p.name))
+            if len(st) > 1:
+                parent[int(p.name)] = int(st[1])
+    out = []
+    for pid, ppid in parent.items():
+        if pid in me or ppid not in claude_pids:
+            continue
+        try:
+            args = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+        except OSError:
+            continue
+        if "shell-snapshots" not in args or age_sec(pid) > SHELL_MAX:
+            continue
+        m = re.search(r"eval '(.*?)'", args)
+        out.append(f"命令（claude {ppid}）{(m.group(1) if m else args)[:80]}")
+    return out
+
+
+def still_working() -> list[str]:
+    ss = sessions()
+    reasons = [f"会话 {d.get('name') or d['pid']} 干活中" for d in ss if d.get("status") == "busy"]
+    reasons += running_subagents()
+    reasons += busy_teammates()
+    claude_pids = {int(d["pid"]) for d in ss} | {int(p.name) for p in Path("/proc").iterdir()
+                                                 if p.name.isdigit() and is_claude(int(p.name))}
+    reasons += busy_shells(claude_pids)
+    return reasons
+
+
+# ---------------------------------------------------------------- 动作
+
+def notify(body: str, urgent: bool = False) -> None:
+    subprocess.run(["notify-send", "-a", "Claude 做完关机", "-i", "system-shutdown",
+                    "-u", "critical" if urgent else "normal", "Claude 做完关机", body],
+                   capture_output=True)
+
+
+def log(msg: str) -> None:
+    print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+def armed() -> bool:
+    return subprocess.run(["systemctl", "--user", "is-active", "--quiet", UNIT]).returncode == 0
+
+
+def watch(dry: bool) -> None:
+    log(f"开始盯（POLL={POLL}s STABLE={STABLE}s GRACE={GRACE}s{' dry-run' if dry else ''}）")
+    quiet_since = None
+    last = None
+    while True:
+        reasons = still_working()
+        if reasons:
+            if reasons != last:
+                log("还在干活：" + "；".join(reasons))
+            quiet_since, last = None, reasons
+            time.sleep(POLL)
+            continue
+        if last != []:
+            log("全停了，观察中")
+            last = []
+        quiet_since = quiet_since or time.time()
+        if time.time() - quiet_since < STABLE:
+            time.sleep(POLL)
+            continue
+        notify(f"Claude 全做完了，{GRACE} 秒后关机。\n不想关：启动器点「取消 Claude 做完关机」", urgent=True)
+        log(f"倒数 {GRACE}s")
+        deadline = time.time() + GRACE
+        while time.time() < deadline:
+            time.sleep(min(5, max(0, deadline - time.time())))
+            reasons = still_working()
+            if reasons:
+                break
+        if reasons:
+            log("倒数中又有活：" + "；".join(reasons))
+            notify("又有 Claude 开始干活了，关机暂缓，做完再关")
+            quiet_since, last = None, reasons
+            continue
+        if dry:
+            log("dry-run：这里本该关机")
+            notify("dry-run：这里本该关机")
+            return
+        log("关机")
+        subprocess.run(["systemctl", "poweroff", "--check-inhibitors=no"])
+        return
+
+
+def arm(dry: bool) -> None:
+    if armed():
+        print("已经挂着了（cc-shutdown --status 看进度，--cancel 取消）")
+        notify("已经挂着了，Claude 全做完就关机")
+        return
+    cmd = ["systemd-run", "--user", "--quiet", "--collect", f"--unit={UNIT}",
+           "--description=Claude 全做完就关机", SELF, "--watch"] + (["--dry-run"] if dry else [])
+    subprocess.run(cmd, check=True)
+    reasons = still_working()
+    msg = f"挂上了：Claude 全做完就关机（现在还有 {len(reasons)} 项在跑）" if reasons else \
+        f"挂上了：现在没有 Claude 在干活，{STABLE} 秒后倒数关机"
+    print(msg)
+    notify(msg)
+
+
+def cancel() -> None:
+    if not armed():
+        print("没挂着")
+        notify("没挂着，不会自动关机")
+        return
+    subprocess.run(["systemctl", "--user", "stop", UNIT])
+    print("取消了")
+    notify("取消了，不会自动关机")
+
+
+def status() -> None:
+    print("已挂上，全做完就关机" if armed() else "没挂着")
+    reasons = still_working()
+    print("\n".join(f"  · {r}" for r in reasons) if reasons else "  现在没有 Claude 在干活")
+    if armed():
+        print(f"日志：journalctl --user -u {UNIT}")
+
+
+def main(argv: list[str]) -> None:
+    dry = "--dry-run" in argv
+    argv = [a for a in argv if a != "--dry-run"]
+    if not argv:
+        arm(dry)
+    elif argv[0] == "--cancel":
+        cancel()
+    elif argv[0] == "--status":
+        status()
+    elif argv[0] == "--watch":
+        watch(dry)
+    else:
+        print(__doc__.strip())
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
