@@ -14,7 +14,9 @@ import json
 import os
 import re
 import sys
+import time
 import unicodedata
+import urllib.request
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -32,7 +34,9 @@ PRICE = {
     "claude-haiku-4-5-20251001": (1, 1.25, 2, 0.10, 5),
 }
 FAST = 2          # fast mode：Opus 5.5 $8/$40、Opus 5 $10/$50，都正好是 2 倍
-CNY = 7.1         # 只为给个人民币量级，不追汇率
+CNY = 7.1         # 兜底汇率：联网取不到、本地也没缓存时才用（2026-11 实际约 6.68）
+RATE_URL = "https://open.er-api.com/v6/latest/USD"   # 免 key，每天更新一次
+RATE_CACHE = os.path.expanduser("~/.cache/cc-cost/usdcny.json")
 CAT = ["输入", "缓存写5m", "缓存写1h", "缓存读", "输出"]
 DAY = timedelta(days=1)
 
@@ -178,6 +182,31 @@ def parse_range(args):
 
 # ---------- 输出 ----------
 
+def usd_cny():
+    """返回 (汇率, 说明)。缓存 12 小时内直接用；过期就联网取，取不到退回旧缓存，再不行用 CNY。"""
+    old = None
+    try:
+        with open(RATE_CACHE) as f:
+            old = json.load(f)
+        if time.time() - old["fetched"] < 12 * 3600:
+            return old["rate"], old["date"]
+    except (OSError, ValueError, KeyError):
+        pass
+    try:
+        with urllib.request.urlopen(RATE_URL, timeout=3) as resp:
+            d = json.load(resp)
+        new = {"rate": d["rates"]["CNY"], "fetched": time.time(),
+               "date": datetime.fromtimestamp(d["time_last_update_unix"]).strftime("%m-%d")}
+        os.makedirs(os.path.dirname(RATE_CACHE), exist_ok=True)
+        with open(RATE_CACHE, "w") as f:
+            json.dump(new, f)
+        return new["rate"], new["date"]
+    except (OSError, ValueError, KeyError):
+        if old:
+            return old["rate"], f"{old['date']} 旧缓存"
+        return CNY, "未联网，固定值"
+
+
 def pad(s, w):
     """按显示宽度补空格：中文占两格，str.ljust 会把中文项目名那列挤歪。"""
     return s + " " * max(0, w - sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s))
@@ -190,7 +219,9 @@ def report(start, end, title):
     print(f"{pad('类别', 10)}{'token':>16}{pad('', 7)}美元{pad('', 4)}占比")
     for k in CAT:
         print(f"{pad(k, 10)}{r['tok'][k]:>16,}{r['usd'][k]:>11.2f}{r['usd'][k] / T * 100:>7.1f}%")
-    print(f"{pad('合计', 10)}{sum(r['tok'].values()):>16,}{r['total']:>11.2f}   ≈ ¥{r['total'] * CNY:.0f}")
+    rate, src = usd_cny()
+    print(f"{pad('合计', 10)}{sum(r['tok'].values()):>16,}{r['total']:>11.2f}"
+          f"   ≈ ¥{r['total'] * rate:.0f}（汇率 {rate:.4f}，{src}）")
     if r["unknown"]:
         print(f"⚠ 价格表缺这些模型，未计入金额：{', '.join(sorted(r['unknown']))}")
     # Claude Code 默认删掉 30 天没动过的会话记录（settings.json 的 cleanupPeriodDays），更早的查不到
