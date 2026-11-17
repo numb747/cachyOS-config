@@ -1,5 +1,9 @@
 # 12 · Waydroid：Android 容器
 
+> ⚠ **2026-11-17 已整套卸载**（包、镜像、数据、fork-reaper、docker 转发补丁、ufw 规则、启动器条目），
+> **本文仅作历史记录**，下面写的状态都不再是现状。包里只剩 `mykeys.lua` 第 19 节的窗口规则没动（没装 Waydroid 时无副作用）；
+> `share/applications/waydroid-restart.desktop` 已从包里删除，`security/setup.sh` 也不再给 `waydroid0` 放行。
+
 > Android 13（LineageOS VANILLA）跑在 LXC 容器里，AMD 核显硬件加速，
 > 整屏界面住在覆盖层 `special:android`（开合键 `ALT+A` 已于 2026-11-09 停用，让给 tmux），网络自动走 sing-box TUN（netkit 服务），带 ARM 转译和 Rime 输入法。
 > 2026-09-28 新增。

@@ -84,21 +84,10 @@
 - 抽屉格搬空会自动消失。所以 `Alt+T` 新开一格却不放东西就离开，那格会当场蒸发
   （和「空桌面不赖着」是同一个规则）。
 
-## Android 覆盖层（Waydroid）
+## Android 覆盖层（已随 Waydroid 卸载）
 
-和抽屉架同一种「盖在桌面上方」的层，但只放 Waydroid、只有一层。两者同一时间只显示一个，
-打开抽屉架会替换掉 Android。原因见 [02](02-hyprland.md)「Android 覆盖层」。
-
-⚠ 2026-11-09 起**没有开合键**：原来的 `Alt+A` 和 tmux 的窗格总览撞了，已停用，让给 tmux
-（`mykeys.lua` 第 19 节节末，注释掉的代码还在）。从启动器打开 Waydroid 会自动弹出 Android 覆盖层。
-
-| 键 | 动作 |
-|---|---|
-| ~~`Alt+A`~~ | 已停用，让给 tmux `Alt+a`（窗格总览） |
-| `Alt+[` `]` · `Ctrl+1~4` · `Alt+T` | Android 开着时，第一下只负责**收起**它 |
-| `Alt+Shift+S` | Android 开着时不做任何事 |
-
-- 开 Waydroid 会自动弹出这一层，不用按键。
+2026-11-17 Waydroid 已整套卸载，这一层不会再出现，也没有键位。`mykeys.lua` 第 19 节的窗口规则还留着
+（没装 Waydroid 时不起作用），来龙去脉见 [02](02-hyprland.md)「Android 覆盖层」和 [12](12-waydroid.md)。
 
 ## 终端里的分屏 → tmux
 

@@ -462,6 +462,10 @@ end
 
 ### Android 覆盖层 `special:android` / `ALT+A`（第 19 节，2026-10-30 改）
 
+⚠ **2026-11-17 Waydroid 已整套卸载**，这一层不会再出现。第 19 节的窗口规则、`two_planes` 和
+`rack.move_window` 里对 `special:android` 的判断都还留在代码里（没装 Waydroid 时不起作用，没删），
+本节留作这些代码的说明。
+
 Waydroid 整屏界面被窗口规则送进覆盖层 `special:android`（真全屏），`ALT+A` 开合，
 手感同 `ALT+S`；Waydroid 没开时 `ALT+A` 直接拉起它（命令同 `Waydroid.desktop` 的 `waydroid`）。
 

@@ -124,7 +124,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 | wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
 | 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
 | 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
-| 跑 Android 应用（Waydroid）/ 容器上不了网 / ARM 转译 / Android 里打中文 | `docs/12-waydroid.md` |
+| Waydroid / Android 版企业微信（2026-11-17 已整套卸载，仅作历史记录） | `docs/12-waydroid.md` |
 | 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
 | tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
 | 改 Discord 客户端（Equibop）/ system24 主题开关 / 自写补丁主题 / 为什么面板直角而头像图标圆 / 换机器搬 Discord 配置 | `docs/15-discord.md` |
@@ -310,7 +310,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   `mykeys.lua` 的 `next_ws()` / `edge_ws()` 已加判空。抽屉架引擎只认名字不认 id，没受影响。
   ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来。
   见 `docs/02-hyprland.md`「纯动态工作区」
-- **Waydroid 改住覆盖层**（2026-10-30）：`name:android` → `special:android`，`ALT+A` 开合（2026-11-09 停用，让给 tmux 的 `Alt+a` 窗格总览）。
+- **Waydroid 改住覆盖层**（2026-10-30；Waydroid 已于 2026-11-17 卸载，`mykeys.lua` 第 19 节的窗口规则还在、没装时无副作用）：`name:android` → `special:android`，`ALT+A` 开合（2026-11-09 停用，让给 tmux 的 `Alt+a` 窗格总览）。
   原因是 slide 动画按 id 定方向，android 夹在环里时 `3 → CTRL+3 → android` 画面反着滑。
   `CTRL+2/3` 的绕圈（`1 → 2 → 3 → 1`）是用户**有意保留**的，别改成到头停住。见 `docs/02`「Android 覆盖层」
 - Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
@@ -396,7 +396,8 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   那是 OSD 不是通知，全局生效，media widget 不受影响
 - ~~**wine 模块**（2026-08-27 新增，第 7 个）~~ **2026-10-09 整套卸载**：企业微信只用 Waydroid 安卓版，
   wine 版连同 `winapp`、wine 系统包、`~/.wine` 一起删了。代价是**本机企业微信不能视频通话**
-  （Waydroid 摄像头不可用，`docs/12` 第 7 节）。拆了什么、怎么装回来见 `docs/09`
+  （Waydroid 摄像头不可用，`docs/12` 第 7 节）。拆了什么、怎么装回来见 `docs/09`。
+  Waydroid 本身也已于 2026-11-17 整套卸载（见下条）
 - **ocr 模块**（2026-08-31 新增，第 8 个）：屏幕取字 `Super+Shift/Alt+O`，
   **替代 normcap** —— 后者底层是 Tesseract，对屏幕小号中文粘连、漏字，且本机
   tessdata 连 `eng` 都没装、每次按键还要重新加载模型。现在是 RapidOCR（PP-OCRv6
@@ -427,16 +428,10 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
   ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
   非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
-- **Waydroid**（2026-09-28 新增，**不是** install.sh 模块）：Android 13 容器，整屏界面住在
-  覆盖层 `special:android`，~~`ALT+A` 开合~~（2026-11-09 停用，让给 tmux；`mykeys.lua` 第 19 节，包里唯一纳管的部分；2026-10-30 前是 `name:android` 桌面），网络自动走 TUN、
-  libndk 转译、fcitx5-android + Rime 输入法。其余全是 root 手动步骤，照 `docs/12` 第 2 节做。
-  ⚠ 两条反直觉的：**① 挡网络的是 docker 的 FORWARD DROP，不是 TUN** —— Waydroid 自己的
-  accept 写在它的 `inet lxc` 表里，挡不住别的表的 drop，要 `/etc` 下一个 systemd drop-in
-  （不在本包管辖）；**② 本机没有主机防火墙**（ufw `ENABLED=no`、nftables disabled），
-  `/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）；
-  **③ 企业微信/微信「用一阵卡死、之后永远卡在启动页」**是 app fork 出的子进程在 libndk 下没 exec 就挂死、
-  占着 binder 让 AMS 以为旧进程没死（logcat `refused to die`）—— 由宿主机常驻服务
-  `waydroid-fork-reaper` 自动清理（`/etc` + `/usr/local/bin`，不在本包管辖，全文在 `docs/12` 第 8 节）
+- ~~**Waydroid**（2026-09-28 新增，**不是** install.sh 模块）~~ **2026-11-17 整套卸载**：包、镜像、数据、
+  `waydroid-fork-reaper`、docker 转发补丁、ufw 规则、启动器条目全删了。包里只剩 `mykeys.lua` 第 19 节的
+  窗口规则（没装 Waydroid 时无副作用，没动）。原来的装法与踩坑留在 `docs/12` 作历史记录。
+  ⚠ 顺带记过的一条仍然有效：`/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）
 - **launcher 模块**（2026-10-09 新增，第 9 个）：`ALT+Space` / `SUPER+.` / 顶栏启动器按钮
   从 noctalia 自带启动器换成 **Walker（GTK4 前端）+ Elephant（数据后端）**，两个都是
   systemd 用户服务常驻。换的原因是 noctalia 启动器 bug 修不动（坑 10 那类面板自关）。

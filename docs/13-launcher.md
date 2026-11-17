@@ -94,7 +94,7 @@ yay -S aur/walker elephant elephant-windows elephant-websearch elephant-provider
 | `~/.config/walker/themes/noctalia/style.css` | 主题 CSS，`@import` noctalia 生成的 `~/.config/gtk-4.0/noctalia.css` |
 | `~/.config/walker/themes/noctalia/layout.xml` | 拷自默认布局：放大尺寸（框宽 1000，列表宽 960、最高 580）；**框贴上方、高度随结果伸缩**（输入框位置固定，没结果时缩成「输入框 + 一行提示」，不会留一个大空框） |
 | `~/.config/elephant/websearch.toml` | 搜索引擎和前缀 |
-| `~/.config/elephant/desktopapplications.toml` | 窗口优先：应用有窗口时回车聚焦它、排序让位给窗口；屏蔽 Waydroid 的同名副本（见坑 7） |
+| `~/.config/elephant/desktopapplications.toml` | 窗口优先：应用有窗口时回车聚焦它、排序让位给窗口（见坑 7） |
 | `~/.config/elephant/windows.toml` | `show_workspaces = false`（工作区条目混在结果里只是噪音） |
 | `~/.config/elephant/clipboard.toml` | 剪贴板：条数、不做 OCR、置顶排前、编辑器、选中后调 `clip-paste`（见下方「剪贴板」） |
 | `~/.local/bin/clip-paste` | 剪贴板选中后的「复制 + 自动粘贴」 |
@@ -353,8 +353,9 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 
 1. `window_integration = true`：「有窗口就压分」生效，窗口排到前面；顺带应用条目回车也是聚焦已有窗口。
    **真要开新实例按 `Ctrl+Return`**（Walker 内置的 `new_instance` 动作）。
-2. `blacklist` 掉同名副本，否则它们没有窗口、不会减半，照样压着窗口：
-   Waydroid 安卓版 LocalSend。（当初还屏蔽了 `~/.wine` 里 Windows 版 Firefox 的两个开始菜单快捷方式，
+2. ~~`blacklist` 掉同名副本~~（**2026-11-17 Waydroid 整套卸载，安卓版 LocalSend 没了，这条 blacklist 已删**，
+   现在 `desktopapplications.toml` 里没有 blacklist）。当初的理由：同名副本没有窗口、不会减半，照样压着窗口，
+   屏蔽的是 Waydroid 安卓版 LocalSend。（当初还屏蔽了 `~/.wine` 里 Windows 版 Firefox 的两个开始菜单快捷方式，
    和原生窗口同分 192=192、谁先随机；2026-10-09 wine 整套卸载，那条 blacklist 一并删了。）
    blacklist 是正则，匹配**去掉 .desktop 的文件名**（子目录里的也只看文件名），要加 `^…$`。
 
@@ -393,6 +394,8 @@ WeCom / Excalidraw 因 Exec 路径含 `.local` 被搜出来是另一回事：`on
 但会连 Comment 一起不搜（搜「企业」就出不来 WeCom，见坑 3），没开。
 
 #### 2026-10-10：被屏蔽的安卓版 LocalSend 又排回第一 → 补丁追加两处修复
+
+> 2026-11-17 Waydroid 已卸载、blacklist 已删，第一处修复眼下用不上；第二处（app_id = 文件名）对 KDE 应用仍然有效。
 
 现象：一夜之后搜 `local`，第一条又是安卓版 LocalSend（160 分，带历史），窗口 140 第二。
 **blacklist 是上游的 bug**：只在 elephant 启动时扫目录（`walkFunction`）那一次检查。之后由文件监听

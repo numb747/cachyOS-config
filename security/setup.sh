@@ -103,7 +103,7 @@ do_firewall() {
     need_root firewall
     local lan
     # 本机所在的私有网段，如 192.168.1.0/24。规则只对这个网段放行 —— 换到别的网络（咖啡馆 Wi-Fi）就全挡
-    # 只认物理网卡（/sys/class/net/<dev>/device 存在）：本机还有 docker0、singbox_tun、vmnet*、waydroid0
+    # 只认物理网卡（/sys/class/net/<dev>/device 存在）：本机还有 docker0、singbox_tun、vmnet*
     # 一堆虚拟网卡，按网段猜会挑中 sing-box TUN 的 172.18.0.0/30
     local net dev
     while read -r net _ dev _; do
@@ -121,10 +121,6 @@ do_firewall() {
     ufw allow from "$lan" to any port 21119 proto udp comment 'RustDesk 局域网发现'
     ufw allow from "$lan" to any port 18765,18767 proto tcp comment 'feedback / ccmon'
     ufw allow from "$lan" to any port 5353 proto udp comment 'mDNS（adb-wifi 发现手机）'
-    # Waydroid：容器要从宿主拿 DHCP/DNS，流量还要经宿主转发出去（docs/12 第 3 节）
-    ufw allow in on waydroid0 comment 'Waydroid'
-    ufw route allow in on waydroid0 comment 'Waydroid'
-    ufw route allow out on waydroid0 comment 'Waydroid'
     # sing-box TUN（netkit 服务；以前是 v2rayN）把代理连接的回程「注入」回本机，在 ufw 看来是从 TUN 进来的新连接，
     # 不放行就挡掉了走 TUN 的代理流量和 RustDesk 中继（2026-10-27 开墙后日志里 3000+ 条 UFW BLOCK 几乎全是它）。
     # 只有 sing-box 能往这张网卡里送包，放行是安全的。netkit 里改了 TUN 网卡名要跟着改
@@ -133,7 +129,7 @@ do_firewall() {
     systemctl enable ufw
     ufw status verbose
     echo
-    echo "验一下：KDE Connect 能发文件、Waydroid 能上网、RustDesk 局域网能连、p2p 直传能收"
+    echo "验一下：KDE Connect 能发文件、RustDesk 局域网能连、p2p 直传能收"
 }
 
 do_status() {

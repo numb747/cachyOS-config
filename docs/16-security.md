@@ -81,7 +81,7 @@ pear-desktop、ccmon、feedback 都监听在所有网卡上 —— 连咖啡馆 
 
 规则：默认拒入、放行出站；只对**装的那一刻所在的私有网段**（如 `192.168.1.0/24`）放行
 KDE Connect `1714-1764`、RustDesk `21118/tcp` `21119/udp`、feedback/ccmon `18765,18767`、mDNS `5353/udp`；
-Waydroid 的 `waydroid0` 进出与转发全放（容器要从宿主拿 DHCP/DNS）；
+（原来还给 Waydroid 的 `waydroid0` 进出与转发全放，2026-11-17 随 Waydroid 卸载删掉，`setup.sh` 里也去掉了）；
 **sing-box TUN 的 `singbox_tun` 入站全放**（2026-11-17 起由 netkit 服务提供，此前是 v2rayN）—— sing-box TUN 把代理连接的回程注入回本机，
 ufw 看来是从 TUN 进来的新连接。2026-10-27 刚开墙时没放它，一晚上 3000+ 条 `UFW BLOCK` 几乎全是这张网卡，
 来源里有 RustDesk 中继 `8.140.18.211`。只有 sing-box 能往这张网卡送包，放行安全；netkit 配置里改了网卡名要跟着改。
@@ -149,7 +149,7 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
   改配置仍要输密码。下次体检会把新服务和 polkit 规则报出来，是预期的。
 - **防不住已经拿到 root 的入侵者**（能改检查器、能改日志、能删快照）。本套针对的是用户级恶意程序、
   供应链投毒和事后发现。
-- **不覆盖**：项目目录里的 `.claude/settings.json` 与 `.mcp.json`、flatpak、Waydroid 里的 Android 应用、
+- **不覆盖**：项目目录里的 `.claude/settings.json` 与 `.mcp.json`、flatpak、
   外连（恶意程序回连 C2 —— 入站防火墙看不到，要 OpenSnitch 这类逐程序外连防火墙，太吵，暂不装）。
 - ⚠ **最大的缺口是恢复不是检测：`/home` 没有任何备份**（snapper 只配了 root，且快照和原数据在同一块盘上，
   勒索软件 / root 入侵 / 坏盘会一起带走）。体检只管「发现」。待办：restic 或 borg 备份到另一块盘或网盘。
