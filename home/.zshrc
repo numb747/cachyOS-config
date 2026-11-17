@@ -107,6 +107,12 @@ if [[ -n $TMUX_PANE ]] && (( $+commands[tmux] )); then
     }
     add-zsh-hook preexec _tmux_track_preexec
     add-zsh-hook precmd _tmux_track_precmd
+
+    # Claude Code 对话里显示图片：隔着 tmux 它认不出 kitty，要强制打开。只在 kitty 直连 tmux 时开
+    # （客户端是 xterm-kitty）；经过 nvim :terminal 的客户端是 xterm-256color，图片会被吞成空白，不开。
+    # 判断的是开这个窗格时的客户端。见 docs/08 第 16 节
+    [[ $(tmux display -p '#{client_termname}' 2>/dev/null) == xterm-kitty ]] && \
+        export CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1
 fi
 
 # ─── 古诗：fortune-mod + ruanyf/fortunes（tang300 唐诗 / song100 宋诗）────────

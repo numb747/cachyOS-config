@@ -16,6 +16,8 @@ Claude Code 某天 / 某段时间按官方价花了多少钱（`cc-cost`），�
 
 几个 Claude 会话、子代理都跑完就自动关机（`cc-shutdown`，启动器「Claude 做完关机」），见第 15 节。
 
+Claude Code 版本钉死不自动更新、怎么安全升级、贴图片 / 在对话里看图，见第 16 节。
+
 全部实测于 **Claude Code 2.1.246**。凡是写「实测」的结论，都跟直觉相反过，改之前先看第 4 节。
 
 ---
@@ -221,7 +223,8 @@ review 页只勾上了一项，而且停在没提交的状态。
 就是在等。这个判据本身不依赖任何字段的业务含义，比按时间取最后一条稳。
 
 但**官方明说 transcript 是内部格式、版本间会变**（见 `docs/en/sessions` 的
-"Where transcripts are stored"），而这台机器 `autoUpdatesChannel: latest` 是自动更新的。
+"Where transcripts are stored"）。这台机器 2026-11-17 起**关了自动更新**、手动升级（见第 16 节），
+升级前照第 16 节的办法先隔离测一遍。
 
 所以：哪天 Claude Code 更新之后 `ccp` 的代答面板打不开、或者报「问题结构读不出来」，
 就是这里漂了。按键序列同理 —— 全部实测于 2.1.246，写在 `cc_common.py` 的注释里。
@@ -889,3 +892,90 @@ journalctl --user -u cc-shutdown-watch    # 盯的过程日志
 
 验收（2026-11-14）：用假状态序列跑 `--watch --dry-run`，「全停→倒数→本该关机」和「倒数中又有活→作废→再倒数」两条路都走通；
 启动器两个条目 `gtk-launch` 挂上 / 取消正常，重复挂上会提示已挂着；`--status` 正确列出 3 个 busy 会话和 2 个在跑的子代理。
+
+---
+
+## 16 · 版本钉死、手动升级；贴图片与对话里看图（2026-11-17）
+
+### 版本：关自动更新，升级前先隔离测
+
+现用 **2.1.326**（2026-11-17 从 2.1.273 升上来）。自动更新两处都关了：
+
+| 位置 | 设置 |
+|---|---|
+| `~/.claude.json` | `"autoUpdates": false`（之前就关着） |
+| `~/.claude/settings.json` 的 `env` | `"DISABLE_AUTOUPDATER": "1"`（这次加的；这个文件含 token、不入包，新机器手动加） |
+
+**为什么关：** 手机远程靠 Matrix 同步（`~/src/matrix-migration`，`ccm` 启动），它读 `~/.claude/sessions/*.json`、
+transcript、状态栏，还用 tmux `capture-pane` 读屏、`send-keys` 送字；本机的 `ccp` 代答、`tmux-panes`、`cc-shutdown`
+也靠读屏正则。哪个都可能被一次静默升级弄坏。
+
+**升级步骤**（2026-11-17 这次就是这么做的）：
+
+1. 下载到别处，不碰 `~/.local/bin/claude`：
+   ```bash
+   B=https://downloads.claude.ai/claude-code-releases
+   V=$(curl -fsS $B/latest)
+   curl -fsS $B/$V/manifest.json | jq -r '.platforms["linux-x64"].checksum'   # 记下校验和
+   curl -fsS -o ~/.cache/claude-test/claude-$V $B/$V/linux-x64/claude && sha256sum ~/.cache/claude-test/claude-$V
+   ```
+2. **不带 hooks 的隔离配置**试新功能：`CLAUDE_CONFIG_DIR` 指向一个只放 `env` 的 settings.json 的目录，
+   不然 PermissionRequest 之类的钩子会把测试会话转发到手机。在**家目录以外**启动（家目录下 `~/.claude/settings.json`
+   同时算项目设置，见第 13 节末 ccglm 的坑）。
+3. **Matrix 端到端**：先备份 `~/.claude.json` 和 settings.json（新版会读写真实 `~/.claude`），然后
+   `PATH=<放了指向新版的 claude 软链接的目录>:$PATH ccm` 起一个会话。要验的项：建房间、本地输入镜像、回复镜像、
+   AskUserQuestion 变投票并能从手机答、手机发消息能送进去、完成通知。手机方向要人在手机上点。
+4. 读屏正则：在 tmux 里让它前台干几秒活，看 `tmux-panes` 的 `SPIN_LINE` 还能不能命中转圈行。
+5. 都过了再切：拷进 `~/.local/share/claude/versions/<版本>`、`ln -sfn` 改 `~/.local/bin/claude`。
+   旧版本文件留着，回退只要改回软链接。已开着的会话重启后才换新版。
+
+2.1.326 实测：上面 3、4 全过（转圈行现在长这样 `· Crafting… (5s · thinking)`，旧正则照样命中）。
+没测到的是权限卡片（ccm 默认 bypass，不弹），它和投票走同一个 PermissionRequest 钩子。
+
+### 贴图片：Dolphin 的 Ctrl+C 贴不进来
+
+Claude Code 在 Linux 上按 **Ctrl+V** 时只认剪贴板里的 `image/*`（实际跑的是
+`wl-paste -l | grep -E "image/(png|jpeg|jpg|gif|webp|bmp)"`）。Dolphin 复制文件**只放文件引用**：
+
+```
+text/uri-list                  file:///home/david/xxx.png
+application/x-kde4-urilist
+application/vnd.portal.filetransfer
+application/x-kde-source-id
+```
+
+没有图片数据，也没有 `text/plain`，所以 Ctrl+V 和 kitty 的 Ctrl+Shift+V 都贴出空的。复制的是 png 也一样。
+
+| 想给 Claude 的东西 | 怎么做 |
+|---|---|
+| 截图、浏览器「复制图片」 | 直接 **Ctrl+V**（不是 Ctrl+Shift+V），出现 `[Image #1]` |
+| Dolphin 里的文件（任何类型） | 选中按 **Ctrl+Alt+C**（复制位置 = 路径文字），Claude 里 **Ctrl+V** 或 Ctrl+Shift+V 都行。图片路径自动变成 `[Image #1]`，PDF 等其他文件贴的是路径，发出去 Claude 用 Read 去读（2.1.326 实测：Ctrl+V 找不到图片时会退回贴文字，2.1.273 不会） |
+
+### 对话里看图：inline-images 插件
+
+2.1.294 起 Claude Code 有了插件扩展接口（mods）和 kitty 图形协议的图片组件，但**自己不画图**，
+粘贴的图片在记录里只是一行 `⎿ [Image #1]`。画图靠第三方插件
+[alexjsp/claude-inline-images](https://github.com/alexjsp/claude-inline-images)：粘贴的图、Read 读到的图、
+MCP 返回的截图、回复里 `![](/绝对路径.png)` 都画在对话里，标题 `▾` 点一下折叠，`↗ open` 用默认程序打开。
+
+- 代码钉在 `~/src/claude-inline-images`（cb86e9e，2026-11-17 审过：不联网，只调 `ps`/`perl` 量格子、`magick` 转格式、
+  `xdg-open` 打开，缓存在 `$TMPDIR/claude-inline-images-<uid>`，0700）。从本地目录装的，不会自己跟 GitHub 更新：
+  ```bash
+  claude plugin marketplace add ~/src/claude-inline-images
+  claude plugin install inline-images@inline-images
+  ```
+  要更新先 `git pull` 再审 diff。
+- 作者只在 macOS 上测过，本机 Linux 实测可用（依赖 `magick`、`perl` 都在）。
+
+**只有 kitty 直连 tmux 才看得到图。** 本机平时的链路是 kitty → nvim `:terminal` → tmux → claude，
+nvim 的终端不转发 kitty 图形协议，图片会变成一块空白（实测）。所以两处配置这样分工：
+
+| 文件 | 设置 | 为什么 |
+|---|---|---|
+| `~/.tmux.conf` | `set -g allow-passthrough on` | 让图片数据穿过 tmux 到外层 kitty |
+| `~/.zshrc`（tmux 窗格状态那段里） | 客户端是 `xterm-kitty` 时才 `export CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1` | 隔着 tmux Claude 认不出 kitty，要强制开图；但经过 nvim 时强制开只会留下一大块空白（每张图最高 30 行），不如不开时显示一行 `[image 宽×高]` |
+
+判断的是**开这个窗格时**连着的客户端：kitty 直连是 `xterm-kitty`，经 nvim 是 `xterm-256color`。
+从 Matrix `!new` 开的会话没有客户端，不会强制开。之后换个客户端去看同一个窗格，不会跟着变。
+
+⚠ 截屏卡片（Matrix 那边用 `capture-pane` 截屏）赶上屏幕上有图时，卡片里会混进一串占位字符，不影响功能。
