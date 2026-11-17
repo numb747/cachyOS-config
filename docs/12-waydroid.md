@@ -1,7 +1,7 @@
 # 12 · Waydroid：Android 容器
 
 > Android 13（LineageOS VANILLA）跑在 LXC 容器里，AMD 核显硬件加速，
-> 整屏界面住在覆盖层 `special:android`（开合键 `ALT+A` 已于 2026-11-09 停用，让给 tmux），网络自动走 v2rayN 的 TUN，带 ARM 转译和 Rime 输入法。
+> 整屏界面住在覆盖层 `special:android`（开合键 `ALT+A` 已于 2026-11-09 停用，让给 tmux），网络自动走 sing-box TUN（netkit 服务），带 ARM 转译和 Rime 输入法。
 > 2026-09-28 新增。
 >
 > ⚠ **这不是 `install.sh` 的模块。** 需要 root 的系统级步骤（装包、`/etc` 下的 drop-in、
@@ -102,7 +102,7 @@ Waydroid 不是虚拟机：LXC 容器，**和宿主共用内核**，内存不预
 
 ### 3.1 TUN 不用为 Waydroid 做任何事
 
-v2rayN 的 sing-box TUN（`auto_route` + `strict_route`）下发的策略路由里有这么一条：
+sing-box TUN（netkit 服务，`auto_route` + `strict_route`；2026-11-17 前是 v2rayN）下发的策略路由里有这么一条：
 
 ```
 9003:  not from all iif lo lookup 2022      ← 表 2022 只有 default dev singbox_tun

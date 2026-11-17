@@ -125,10 +125,10 @@ do_firewall() {
     ufw allow in on waydroid0 comment 'Waydroid'
     ufw route allow in on waydroid0 comment 'Waydroid'
     ufw route allow out on waydroid0 comment 'Waydroid'
-    # v2rayN 的 sing-box TUN（system 栈）把代理连接的回程「注入」回本机，在 ufw 看来是从 TUN 进来的新连接，
+    # sing-box TUN（netkit 服务；以前是 v2rayN）把代理连接的回程「注入」回本机，在 ufw 看来是从 TUN 进来的新连接，
     # 不放行就挡掉了走 TUN 的代理流量和 RustDesk 中继（2026-10-27 开墙后日志里 3000+ 条 UFW BLOCK 几乎全是它）。
-    # 只有 sing-box 能往这张网卡里送包，放行是安全的。v2rayN 里改了 TUN 网卡名要跟着改
-    ufw allow in on singbox_tun comment 'sing-box TUN（v2rayN）'
+    # 只有 sing-box 能往这张网卡里送包，放行是安全的。netkit 里改了 TUN 网卡名要跟着改
+    ufw allow in on singbox_tun comment 'sing-box TUN'
     ufw --force enable
     systemctl enable ufw
     ufw status verbose

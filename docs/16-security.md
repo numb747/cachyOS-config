@@ -82,9 +82,9 @@ pear-desktop、ccmon、feedback 都监听在所有网卡上 —— 连咖啡馆 
 规则：默认拒入、放行出站；只对**装的那一刻所在的私有网段**（如 `192.168.1.0/24`）放行
 KDE Connect `1714-1764`、RustDesk `21118/tcp` `21119/udp`、feedback/ccmon `18765,18767`、mDNS `5353/udp`；
 Waydroid 的 `waydroid0` 进出与转发全放（容器要从宿主拿 DHCP/DNS）；
-**v2rayN 的 `singbox_tun` 入站全放** —— sing-box TUN（system 栈）把代理连接的回程注入回本机，
+**sing-box TUN 的 `singbox_tun` 入站全放**（2026-11-17 起由 netkit 服务提供，此前是 v2rayN）—— sing-box TUN 把代理连接的回程注入回本机，
 ufw 看来是从 TUN 进来的新连接。2026-10-27 刚开墙时没放它，一晚上 3000+ 条 `UFW BLOCK` 几乎全是这张网卡，
-来源里有 RustDesk 中继 `8.140.18.211`。只有 sing-box 能往这张网卡送包，放行安全；v2rayN 里改了网卡名要跟着改。
+来源里有 RustDesk 中继 `8.140.18.211`。只有 sing-box 能往这张网卡送包，放行安全；netkit 配置里改了网卡名要跟着改。
 查「墙挡了什么」：`journalctl _TRANSPORT=kernel -g 'UFW BLOCK' --since today`。
 pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）；systemd-resolved 的 LLMNR `5355` 也被挡掉了，正好。
 
@@ -115,6 +115,7 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 - **USB 只按 `vid:pid` 比。** 根集线器的名字里带内核版本，按名字比每次升级内核都报「新设备」。
 - **「sudo 跑了普通用户可改的程序」** 是首次体检时实测出来才加的：v2rayN 每次开 TUN 都
   `sudo ~/.local/share/v2rayN/...`，能改那个文件的任何东西下次都能借 sudo 拿 root。
+  （2026-11-17 换成 netkit 后已不存在：sing-box 用官方包的 `/usr/bin/sing-box`，配置在 root 才能写的 `/etc/netkit`。）
   记成只增集合，同一个程序只在第一次出现时报。
 
 ## 6. 每月 / 每季度（人工，timer 不做）
@@ -142,9 +143,10 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 
 - **docker 组 = root**：`docker run -v /:/host` 就能改任何东西，包括本检查器。要堵就退组改用
   `sudo docker` 或 rootless docker；目前选择接受，报告末尾每周提醒一次。
-- **v2rayN 以 root 跑家目录里的程序**（`sudo ~/.local/share/v2rayN/bin/sing_box/sing-box` 和
-  `binConfigs/kill_as_sudo.sh`，开 TUN 用）：用户确认**就是要这样**（2026-10-27），不改。
-  代价是能改这两个文件的东西都能借它拿 root；它们在 `sudo-uw` 基线里，换了别的用户可写程序才会再报。
+- ~~v2rayN 以 root 跑家目录里的程序~~：**2026-11-17 已解决**。v2rayN 卸载，TUN 改由 netkit 系统服务
+  （`netkit.service`，root 跑官方包的 `/usr/bin/sing-box`，配置 `/etc/netkit` 仅 root 可写）提供。
+  新增的 `/etc/polkit-1/rules.d/50-netkit.rules` 只放行 david 免密 start/stop/restart/reload 这一个服务；
+  改配置仍要输密码。下次体检会把新服务和 polkit 规则报出来，是预期的。
 - **防不住已经拿到 root 的入侵者**（能改检查器、能改日志、能删快照）。本套针对的是用户级恶意程序、
   供应链投毒和事后发现。
 - **不覆盖**：项目目录里的 `.claude/settings.json` 与 `.mcp.json`、flatpak、Waydroid 里的 Android 应用、

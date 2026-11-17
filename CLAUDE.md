@@ -497,7 +497,7 @@ grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
   以 root 跑，和人 `--accept` 过的基线比，只报变化（snapper 快照对比 + paccheck + 持久化点指纹 + Claude hooks/MCP +
   journal 事件 + rkhunter/lynis/arch-audit/clamav），桌面通知 🔴/🟡 数。同时开了 ufw（只放行 `192.168.1.0/24` 的在用服务）。
   ⚠ 检查器必须 root 所有，所以装在 `/usr/local`、不进 manifest.map；**改了 `security/` 要重跑 `sudo ./setup.sh audit`**，
-  装完下次体检会把检查器本身的改动报 🔴，这是对的。⚠ v2rayN 以 root 跑家目录里的 sing-box 是用户**有意**的，别再提议改。
+  装完下次体检会把检查器本身的改动报 🔴，这是对的。TUN 由 netkit 系统服务提供（2026-11-17 起，v2rayN 已卸载），不再有「sudo 跑家目录程序」的问题。
   复核流程、取舍、调噪音全在 `docs/16-security.md`
 - 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
   切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
