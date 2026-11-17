@@ -3,6 +3,12 @@ application/json=org.kde.kate.desktop;
 application/pdf=libreoffice-draw.desktop;
 application/vnd.ms-visio.drawing.main+xml=drawio.desktop;
 text/x-shellscript=org.kde.kate.desktop;
+x-scheme-handler/rdp=org.remmina.Remmina.desktop;
+x-scheme-handler/spice=org.remmina.Remmina.desktop;
+x-scheme-handler/vnc=org.remmina.Remmina.desktop;
+x-scheme-handler/remmina=org.remmina.Remmina.desktop;
+application/x-remmina=org.remmina.Remmina.desktop;
+
 [Default Applications]
 application/clarisworks=libreoffice-writer.desktop;
 application/csv=libreoffice-calc.desktop;
@@ -387,3 +393,8 @@ x-scheme-handler/claude-cli=claude-code-url-handler.desktop;
 x-scheme-handler/http=firefox.desktop;
 x-scheme-handler/https=firefox.desktop;
 x-scheme-handler/ssh=kitty-open.desktop;
+x-scheme-handler/rdp=org.remmina.Remmina.desktop
+x-scheme-handler/spice=org.remmina.Remmina.desktop
+x-scheme-handler/vnc=org.remmina.Remmina.desktop
+x-scheme-handler/remmina=org.remmina.Remmina.desktop
+application/x-remmina=org.remmina.Remmina.desktop
