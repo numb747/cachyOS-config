@@ -932,6 +932,18 @@ transcript、状态栏，还用 tmux `capture-pane` 读屏、`send-keys` 送字�
 2.1.326 实测：上面 3、4 全过（转圈行现在长这样 `· Crafting… (5s · thinking)`，旧正则照样命中）。
 没测到的是权限卡片（ccm 默认 bypass，不弹），它和投票走同一个 PermissionRequest 钩子。
 
+### 升级后的新弹框：`--add-dir` 的目录每次都问信任（2026-11-18）
+
+2.1.326 起，用 `--add-dir` 加进会话的目录如果**没被信任过**，每开一个会话都弹
+「This session hasn't worked here before. Is this a directory you created or one you trust?」。
+框里选信任**只管这一个会话**，所以下次开还会问。`ccm`（还有经它启动的 `ccx`）带了
+`--add-dir ~/.claude/channels/matrix-sync/inbox`（手机发来的文件放这里），于是每次都弹。
+
+永久信任要写进 `~/.claude.json`：`.projects["<绝对路径>"].hasTrustDialogAccepted = true`
+（和"在那个目录里启动 Claude Code 并点信任"效果一样）。inbox 这条本机已写，具体命令和
+为什么信任它没风险见 matrix-migration 仓库的 `docs/DEPLOY.md`（`bin/ccm` 那段）。
+**以后给 ccm/ccd/ccx 再加 `--add-dir` 目录，也要同样补一条信任**，换机器时一并重做。
+
 ### 贴图片：Dolphin 的 Ctrl+C 贴不进来
 
 Claude Code 在 Linux 上按 **Ctrl+V** 时只认剪贴板里的 `image/*`（实际跑的是
