@@ -1079,3 +1079,21 @@ hl.window_rule({
 hl.bind("SUPER + CTRL + W", hl.dsp.exec_cmd(launchPrefix .. "$HOME/.local/bin/chrome-ai"))
 
 hl.window_rule({ match = { class = "^(chrome-ai)$" }, opacity = "1.0 override" })
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 22. 主力屏刷新率：HKC G27H4Max 钉 2560x1440@240（2026-11-18）
+--
+--      这台屏支持 240Hz，但 EDID 把 60Hz 标成首选，官方 monitors.lua 的
+--      mode = "preferred" 于是一直落在 60Hz（hyprctl monitors 里 refreshRate 60）。
+--      按 desc 匹配单独写一条：Hyprland 优先用 name/desc 命中的规则，output = ""
+--      的通用规则只当兜底，所以和官方那条并存、谁先谁后都行 —— 不用动原版文件。
+--      规则只认这一台，笔记本和别的显示器照旧走 "preferred"。
+--      不用 mode = "highrr"：它先比刷新率，遇到 1080p@240 + 1440p@144 的屏会挑 1080p。
+--      VRR 不在这里：misc.lua 的 vrr = 3（仅全屏视频/游戏开）是官方默认，合适，没动。
+-- ────────────────────────────────────────────────────────────────────────────
+hl.monitor({
+    output   = "desc:HKC OVERSEAS LIMITED G27H4Max",
+    mode     = "2560x1440@240",
+    position = "auto",
+    scale    = "1",
+})

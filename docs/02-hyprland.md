@@ -657,6 +657,36 @@ grep -c 'Modesetting DP-1' $XDG_RUNTIME_DIR/hypr/*/hyprland.log
 显示器固件报了一个不合法的中继器参数，驱动按「无中继器」处理，没有实际影响。
 它在这次刷屏只是因为 modeset 次数多，别把它当根因去查。
 
+### 主力屏一直只跑 60Hz（2026-11-18）
+
+现象：HKC G27H4Max 支持 2560x1440@240，`hyprctl monitors` 却显示 `@ 60`，而且装机以来一直是这样。
+滚动长日志、拖窗口、切工作区都比应有的卡。
+
+根因：官方 `config/monitors.lua` 写的是 `mode = "preferred"`，这台屏的 EDID 把 **60Hz 标成了首选模式**。
+`hyprctl monitors -j` 的 `availableModes` 第一项就是 `2560x1440@60.00Hz`，240/200/144/120 都排在后面。
+
+**解法**——`mykeys.lua` 第 22 节，按 desc 单独给这台屏写一条规则：
+
+```lua
+hl.monitor({ output = "desc:HKC OVERSEAS LIMITED G27H4Max",
+             mode = "2560x1440@240", position = "auto", scale = "1" })
+```
+
+几个取舍：
+
+- **写在 `mykeys.lua`，不改 `monitors.lua`**。Hyprland 优先用 name/desc 命中的规则，
+  `output = ""` 的通用规则只当兜底，所以两条可以并存，和顺序无关。这只是覆盖一个值，
+  按坑 4 的原则不再多改一个官方文件（多改一个，升级后就要多重打一份 patch）。
+- **按 desc 匹配，不按端口名 `DP-1`**。换个接口照样命中；笔记本和别的显示器匹配不上，
+  继续走 `preferred`，没有副作用。
+- **不用 `mode = "highrr"`**。它先比刷新率，再比分辨率，遇到 1080p@240 加 1440p@144 这样的屏会选 1080p。
+- **VRR 没动**。`misc.lua` 里的 `vrr = 3`（只在全屏视频或游戏时开）是官方默认，
+  桌面常开 VRR 在部分面板上低帧率时会闪，不值得冒这个险。
+
+验证：`hyprctl reload` 之后 `hyprctl monitors` 应显示 `2560x1440@240.002`。
+如果规则没命中，reload 会退回 `preferred`，也就是 60Hz。
+240Hz 需要 DP 1.4 或 HDMI 2.1 线，换线以后如果黑屏，或者被降回低刷新率，先怀疑线材。
+
 ---
 
 ## 已知的应用层冲突
