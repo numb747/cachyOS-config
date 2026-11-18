@@ -990,4 +990,15 @@ nvim 的终端不转发 kitty 图形协议，图片会变成一块空白（实�
 判断的是**开这个窗格时**连着的客户端：kitty 直连是 `xterm-kitty`，经 nvim 是 `xterm-256color`。
 从 Matrix `!new` 开的会话没有客户端，不会强制开。之后换个客户端去看同一个窗格，不会跟着变。
 
+**踩过的坑（2026-11-18）：原生 kitty 连着 tmux 也只显示 `[image 宽×高]`。** 那个窗格是早先经 nvim 开的，
+zsh 当时没设变量；后来改从原生 kitty attach，窗格里的 zsh 和在它里面（重新）起的 claude 继承的还是旧环境。
+自查：`tr '\0' '\n' < /proc/<claude 的 pid>/environ | grep -E 'FORCE_TERMINAL|NVIM'`——有 `NVIM=`、
+没 `FORCE_TERMINAL_IMAGES` 就是这个。修法：在原生 kitty 连着时**新开窗格**（prefix + c）再起 claude，
+要接着原对话用 `claude --resume`。实测新窗格里 Read 图片正常显示。
+
+**为什么 nvim 里不行、image.nvim 却行：** image.nvim 是 nvim 进程自己往外层 kitty 写图形协议
+（nvim 是 kitty 的直接程序，知道图该放哪个窗口哪一格）。而 `:terminal` 里跑的程序，输出先经 nvim 内置的
+终端模拟器（libvterm），它不认 kitty 图形协议、收到就丢，也没有 tmux `allow-passthrough` 那样原样转发的开关。
+「绕开 nvim 直接写 kitty 的 tty」理论上可行，但要自己算 claude 区域在屏幕上的位置、跟着 nvim 分屏和滚动走，不划算，没做。
+
 ⚠ 截屏卡片（Matrix 那边用 `capture-pane` 截屏）赶上屏幕上有图时，卡片里会混进一串占位字符，不影响功能。
