@@ -4,7 +4,7 @@
 > 本文件只放导航、规矩和会踩的坑；**细节和来龙去脉都在 `docs/`**，历史在 git 里。
 
 > ⚠ **先确认你在哪台机器上。** 两份检出：**源机器** `/home/david/cachyOS-config`（下面都按它写）、
-> **笔记本** `/home/monkey/cachyOS-config`（17 个文件永远显示「不一致」，`sync.sh --pull` 和裸
+> **笔记本** `/home/monkey/cachyOS-config`（23 个文件永远显示「不一致」，`sync.sh --pull` 和裸
 > `install.sh` 是**禁止操作**）。在笔记本上先读 `docs/11-multi-machine.md`。
 
 ```

@@ -19,11 +19,11 @@
 
 ---
 
-## 笔记本：17 个预期不一致的文件
+## 笔记本：23 个预期不一致的文件
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
-> 拉取远程后默认**全量对齐**，只有下面这 17 个文件例外——它们要么绑死在本机硬件上、
-> 要么绑死在 `/home/monkey` 这个用户路径上，照搬远程会真的变坏。
+> 拉取远程后默认**全量对齐**，只有下面这 23 个文件例外——它们要么绑死在本机硬件上、
+> 要么绑死在 `/home/monkey` 这个用户路径上，要么跟着笔记本独有的软件取舍（还留着 Waydroid、没装 Remmina），照搬远程会真的变坏。
 > `./sync.sh` 会一直把它们报成「不一致」—— 这是**预期状态，不是待办**。
 
 | 文件 | 笔记本（正确） | 包里（源机） | 为什么不能同步 |
@@ -45,6 +45,11 @@
 | `~/.claude/mcp/web.json` | `/home/monkey/.local/bin/chrome-ai-mcp` | `/home/david/...` | `cc` 模块**不跑** `rewrite_home`，原样装过来路径就是错的（`ccx` 套餐，`docs/08` 第 13 节） |
 | `~/.claude/mcp/cap.json` | `~/.local/share/mitmweb-mcp/venv/bin/mitmweb-mcp` | `~/.local/share/venvs/mitmweb-mcp/bin/...` | 两台机器 mitmweb-mcp 的 venv **装的位置不一样**，不只是用户名不同，`sed` 换不过来 |
 | `~/.config/kitty/wallpaper.conf` | 5 条快捷键 `/home/monkey/.local/bin/kitty-bg` | `/home/david/...` | `term` 模块不跑 `rewrite_home`，笔记本又禁跑 `install.sh term`，手工 `cp` + `sed` 换路径。笔记本没有 `~/Pictures/Wallpapers/kitty-bg/` 图库，`background_image` 匹配不到就退回毛玻璃，F12 等键会报「no images」，属正常 |
+| `~/.config/hypr/mykeys.lua` | 保留第 1b / 10 节的 `android_open()` 判断和第 19 节 Waydroid 覆盖层规则 | 2026-11-18 删掉了 | **笔记本没卸 Waydroid**（2026-11-18 用户定，源机器 11-17 已卸）。其余改动照搬：远程有新内容时，只把非 Waydroid 的段落搬过来，别整个 `cp` |
+| `~/.config/elephant/desktopapplications.toml` | 保留屏蔽安卓版 LocalSend 的 `blacklist` | 已删 | 同上，Waydroid 还在，它导出的同名 LocalSend 会顶到原生应用前面。`waydroid-restart.desktop` 也留着（包里已删，不再纳管） |
+| `~/.config/mimeapps.list` | 没有 rdp/vnc/spice/remmina → Remmina 的 5 条关联 | 有 | 笔记本没装 Remmina，那 5 条是死关联。装了 Remmina 它会自己写回来 |
+| `~/.config/katerc` | `[MainWindow]` 多一行 `1280x720 screen: Window-Maximized=true` | 只有 `2560x1440` 那行 | Kate 运行时按逻辑分辨率写的，覆盖了下次最大化又会写回来 |
+| `~/.local/share/applications/cc-shutdown.desktop`、`cc-shutdown-cancel.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | `cc` 模块不跑 `rewrite_home`，手工 `sed` 换路径（2026-11-18 装） |
 
 > ★ **`ccx` 在笔记本的落地（2026-10-31）**：全局 `mcpServers` 里的 `mitmweb`、`chrome-devtools` 已用
 > `claude mcp remove --scope user` 撤掉，`ida-mcp@HexRaysSA` 插件已 `claude plugin disable`，和源机器一致；
@@ -85,7 +90,7 @@
 ./sync.sh --manifest && ./check.sh
 ```
 
-`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 17 个「永远不一致」的文件
+`check.sh` 也只看仓库本身，两台机器上结果应该一样 —— 上面那 23 个「永远不一致」的文件
 是 `./sync.sh`（系统 vs 包）的事，不影响 `check.sh`。
 
 > 此前这里还记着一条「MANIFEST 把 `.git/` 卷了进去」的上游缺陷——**2026-09-11 的
