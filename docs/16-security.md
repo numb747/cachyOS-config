@@ -113,10 +113,11 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 - **内核日志用 `_TRANSPORT=kernel`，不用 `journalctl -k`。** `-k` 隐含 `-b`，只看本次开机，
   一周里重启过就漏。
 - **USB 只按 `vid:pid` 比。** 根集线器的名字里带内核版本，按名字比每次升级内核都报「新设备」。
-- **「sudo 跑了普通用户可改的程序」** 是首次体检时实测出来才加的：v2rayN 每次开 TUN 都
-  `sudo ~/.local/share/v2rayN/...`，能改那个文件的任何东西下次都能借 sudo 拿 root。
-  （2026-11-17 换成 netkit 后已不存在：sing-box 用官方包的 `/usr/bin/sing-box`，配置在 root 才能写的 `/etc/netkit`。）
-  记成只增集合，同一个程序只在第一次出现时报。
+- **「sudo 跑了普通用户可改的程序」**：能改那个文件的任何东西，下次都能借 sudo 拿 root（首次体检时实测抓到过一例，
+  当时的代理客户端已换掉）。记成只增集合，同一个程序只在第一次出现时报。
+  现在 TUN 由 `netkit.service` 提供（root 跑官方包的 `/usr/bin/sing-box`，配置 `/etc/netkit` 仅 root 可写），
+  `/etc/polkit-1/rules.d/50-netkit.rules` 只放行 david 免密 start/stop/restart/reload 这一个服务，改配置仍要输密码
+  （2026-11-17 换上后的第一次体检会把这个服务和 polkit 规则报出来，属预期）。
 
 ## 6. 每月 / 每季度（人工，timer 不做）
 
@@ -125,7 +126,7 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 - `sudo sec-audit --scan ~`：clamav 整个家目录扫一遍
 - AUR 包升级时看 PKGBUILD diff（yay 会给，别一路回车）；下载**新**软件时 yay 是最后一级，用前查毒流程见 [00 第 5 节「下载软件的原则」](00-install-os.md#-下载软件的原则pacman--原生的包--yay降级顺序)
 - 浏览器扩展：每周只报新增，每月把整个列表过一遍，用不上的删掉（扩展越少越安全）
-- 轮换明文 token：`~/.claude/settings.json` 里的 `ANTHROPIC_AUTH_TOKEN`、discord-sync 的 `.env`
+- 轮换明文 token：`~/.claude/settings.json` 里的 `ANTHROPIC_AUTH_TOKEN`、`~/.claude/mcp/secrets.env`
 
 **每季度**：演练一次 snapper 回滚（知道怎么回比回不回更重要）；复审防火墙放行清单和第 3 节的检查范围。
 
@@ -143,10 +144,6 @@ pear-desktop 的 `26538` `9863` 没放行（它的遥控 API，用到再加）�
 
 - **docker 组 = root**：`docker run -v /:/host` 就能改任何东西，包括本检查器。要堵就退组改用
   `sudo docker` 或 rootless docker；目前选择接受，报告末尾每周提醒一次。
-- ~~v2rayN 以 root 跑家目录里的程序~~：**2026-11-17 已解决**。v2rayN 卸载，TUN 改由 netkit 系统服务
-  （`netkit.service`，root 跑官方包的 `/usr/bin/sing-box`，配置 `/etc/netkit` 仅 root 可写）提供。
-  新增的 `/etc/polkit-1/rules.d/50-netkit.rules` 只放行 david 免密 start/stop/restart/reload 这一个服务；
-  改配置仍要输密码。下次体检会把新服务和 polkit 规则报出来，是预期的。
 - **防不住已经拿到 root 的入侵者**（能改检查器、能改日志、能删快照）。本套针对的是用户级恶意程序、
   供应链投毒和事后发现。
 - **不覆盖**：项目目录里的 `.claude/settings.json` 与 `.mcp.json`、flatpak、

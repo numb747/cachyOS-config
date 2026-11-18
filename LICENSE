@@ -39,5 +39,5 @@ uninstall.sh / bin/ / claude/ / wallpaper/tokyonight/*.py）、文档（docs/）
 它们生成的 ASCII 衍生图），收录在此仅为让配置能开箱复现，**不主张任何权利**。
 原始出处（含 wallhaven 页面与 pixiv 作者链接）完整保留在
 `wallpaper/tokyonight/_picks*.json` 里。若您是权利人并希望移除，提 issue 即可，
-我会立刻删除——`wallpaper/tokyonight/_fetch.py` 与 `_ascii.py` 这套生成管线是本仓库
-自己的产物，删掉成品不影响任何人重新生成。
+我会立刻删除——`wallpaper/tokyonight/_ascii.py` 这条生成管线是本仓库自己的产物，
+删掉成品不影响任何人重新生成。

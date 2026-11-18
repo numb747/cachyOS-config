@@ -86,13 +86,11 @@
 
 ## Android 覆盖层（已随 Waydroid 卸载）
 
-2026-11-17 Waydroid 已整套卸载，这一层不会再出现，也没有键位。`mykeys.lua` 第 19 节的窗口规则还留着
-（没装 Waydroid 时不起作用），来龙去脉见 [02](02-hyprland.md)「Android 覆盖层」和 [12](12-waydroid.md)。
+已删，没有键位（`Alt+a` 归 tmux 窗格总览）。历史见 [12](12-waydroid.md)。
 
 ## 终端里的分屏 → tmux
 
-★ 2026-10-11 起 Hyprland 不再管终端分屏（原 `Alt+\` / `Ctrl+Alt+\` / `Alt+Shift+\` 三条已撤），
-全部交给 tmux 的免前缀 Alt 层：`Alt+\` 左右分 · `Alt+-` 上下分 · `Alt+h/j/k/l` 切换 ·
+★ Hyprland 不管终端分屏，全部交给 tmux 的免前缀 Alt 层：`Alt+\` 左右分 · `Alt+-` 上下分 · `Alt+h/j/k/l` 切换 ·
 `Alt+/` 速查菜单。完整表见 [14](14-tmux.md) 第 1 节。翻转两个窗口的分割方向用官方 `Super+J`。
 
 ## 启动器与面板
@@ -139,7 +137,7 @@
 录制中只有开始/结束两条通知，没有常驻指示。原理与坑见 [05](05-theme-ui.md)。
 
 取字走 `~/.local/bin/ocr-grab` + 一个 systemd socket 激活的常驻识别服务
-（RapidOCR，替代 normcap）。框选约 0.33 秒出结果，**每天第一次按会等约 0.8 秒**
+（RapidOCR）。框选约 0.33 秒出结果，**每天第一次按会等约 0.8 秒**
 （服务空闲 10 分钟自退，那次要重新加载模型），不是卡住了。
 按 Esc 取消框选不会有任何通知。原理、调参与坑见 [10](10-ocr.md)。
 
@@ -162,10 +160,7 @@
 
 ## 被摘掉的官方键位
 
-`Super+←/→/↑/↓`（方向切焦点）· `Super+S` / `Super+Shift+S`（抽屉）· `Super+Space`（启动器）。
-`Super+.` 没摘键位，只是从 noctalia 的 `launcher /emo` 换成了 Walker（unbind + 重新 bind）。
-想留作备用就注释掉 `mykeys.lua` 第 1 节对应的 `hl.unbind`——但注意
-`hl.bind` 是**叠加**不是覆盖，不 unbind 就是两套并存，不是二选一。
+`Super+←/→/↑/↓` · `Super+S` / `Super+Shift+S` · `Super+Space` · `Super+E` 等，清单和替代键见 [02](02-hyprland.md#被摘掉的官方键位)。
 
 ---
 

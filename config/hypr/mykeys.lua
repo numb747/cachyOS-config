@@ -79,25 +79,12 @@ hl.unbind("SUPER + E")
 -- ────────────────────────────────────────────────────────────────────────────
 local rack = {}
 
---  Android 覆盖层（第 19 节）开着时，导航键的第一下只负责把它收起来。
---  否则 m±1 切的是底下那个桌面，Android 盖在最上面纹丝不动，看起来像按键失灵。
-local ANDROID_WS = "special:android"
-local function android_open()
-    local mon = hl.get_active_monitor()
-    local sw  = mon and mon.active_special_workspace
-    return sw ~= nil and tostring(sw.name) == ANDROID_WS
-end
-
 --  把「工作平面的行为」和「抽屉架里的行为」打包成一个键。
 --    work    —— 工作平面的行为，可以是 dispatcher 对象也可以是函数
 --                （实测预先构造的 dispatcher 可以延后 hl.dispatch，不必每次重建）
 --    in_rack —— 抽屉架里的行为，收到当前格号
 local function two_planes(work, in_rack)
     return function()
-        if android_open() then
-            hl.dispatch(hl.dsp.workspace.toggle_special("android"))
-            return
-        end
         local slot = rack.current_slot()
         if slot then return in_rack(slot) end
         if type(work) == "function" then work() else hl.dispatch(work) end
@@ -600,10 +587,6 @@ function rack.move_window()
     local target = mon.active_workspace          -- 底下的工作桌面，抽屉浮出时也不变
     local w      = hl.get_active_window()
 
-    -- Android 覆盖层不归抽屉架管（第 19 节），这个键在那里什么都不做，
-    -- 免得走进 ① 把 Waydroid 窗口捞到工作桌面上去
-    if android_open() then return end
-
     -- ① 焦点已在抽屉架里
     if w and w.workspace and w.workspace.special then
         if target then
@@ -956,11 +939,8 @@ hl.bind("SUPER + SHIFT + I",
 --      官方 config/binds.lua 第 127 行是 `noctalia msg panel-toggle clipboard`。
 --      2026-10-09 起换成 Walker 的剪贴板模式，和第 12 节的启动器同一套。
 --
---      换掉的原因：noctalia 面板「打开不到 1 秒自己消失」，根因没查清，此前一直靠
---      bin/noct-panel 把指针挪进面板矩形兜着（来龙去脉见 docs/07 坑 10）。Walker 的
---      layer 铺满整屏，结构上不存在「指针在面板外」，这层兜底就不需要了。
---      bin/noct-panel 还留在包里，回退时把下面的命令换回
---      `$HOME/.local/bin/noct-panel clipboard` 即可。
+--      换掉的原因：noctalia 面板「打开不到 1 秒自己消失」，根因没查清（见 docs/07 坑 10）。
+--      Walker 的 layer 铺满整屏，结构上不存在「指针在面板外」。
 --
 --      选中一条 = 复制 + 自动粘贴进当前窗口（终端用 Ctrl+Shift+V），由
 --      ~/.local/bin/clip-paste 完成，配置在 ~/.config/elephant/clipboard.toml。
@@ -972,55 +952,10 @@ hl.bind("SUPER + V", hl.dsp.exec_cmd("walker -m clipboard"))
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 19. Waydroid：整屏界面住在覆盖层 special:android，真全屏（ALT + A 开合已停用，见节末）
---
---      Waydroid 的 Android 显示分辨率在窗口【创建那一刻】就定死了，之后窗口
---      怎么缩放它都不跟 —— 平铺开出来是 1265x705，就一直是 1265x705。
---      所以不去追「自适应」，而是让窗口一出生就是整屏：
---        · 这条规则：送进覆盖层 + 真全屏（实测 fullscreen 模式 2 = 盖住顶栏）
---        · Android 侧：persist.waydroid.width/height = 2560/1440（见 docs/12）
---      两边对上，Android 按原生分辨率渲染，不拉伸。
---
---      ★ 为什么是覆盖层（special）而不是命名桌面（2026-10-30 改）
---        原来送的是 name:android。它挤在 m±1 的环里，排在最后一个桌面和 1 号之间，
---        而切桌面的 slide 动画按 id 大小定方向、不看按的是哪个键 —— android 的 id
---        比谁都小（0.56 是 -1337，0.57 是 nil），于是从 3 号按 CTRL+3 进 android，
---        画面却往左滑，出来时同样反着。改成覆盖层后：
---          · 环里只剩工作桌面：1 → 2 → 3 → 1，绕圈保留
---          · 进出 Android 是纵向的 specialWorkspaceIn/Out 动画，和左右切桌面分得开
---          · 收起即回原处，同抽屉架（第 10 节）
---        实测（0.57.0）：规则把窗口送进 special 时覆盖层会自动打开，所以开 Waydroid
---        就直接弹出来；挪进 special 后真全屏和 2560x1440 都保留，画面正常。
---
---      覆盖层开着时，第 1b 节 two_planes 管的那些导航键第一下只负责收起它
---      （否则切的是底下的桌面，Android 盖着不动，像是按键失灵）；
---      ALT+SHIFT+S 在这里什么都不做（见第 10 节 rack.move_window 开头）。
---      ALT+S 照常：抽屉架的格子直接替换掉 Android 覆盖层。
---
---      只配整屏界面（class = Waydroid）。多窗口模式（persist.waydroid.multi_windows）
---      下每个应用的 class 是 waydroid.<包名>，不归这条管 —— 本机没开那个模式。
+-- 19. （已移除）Waydroid 覆盖层 special:android 的窗口规则和 ALT + A
+--      Waydroid 2026-11-17 卸载，2026-11-18 删掉这节和第 1b / 10 节里的 android 判断。
+--      原文：git show f23564b:config/hypr/mykeys.lua
 -- ────────────────────────────────────────────────────────────────────────────
-hl.window_rule({
-    name       = "waydroid-fullscreen",
-    match      = { class = "^(Waydroid)$" },
-    workspace  = ANDROID_WS,
-    fullscreen = true,
-})
-
--- ALT + A：开合 Android 覆盖层，手感同 ALT + S。
--- 还没开 Waydroid 就把它拉起来（命令同 Waydroid.desktop 的 Exec），上面的规则会让它直接弹出。
--- ⚠ 2026-11-09 停用：和 tmux 的 Alt+a 窗格总览撞了（Hyprland 先截走，tmux 收不到），
---   用户选择保留 tmux 那个。上面的窗口规则不受影响，开 Waydroid 仍会直接弹出覆盖层。
---   要恢复就去掉下面的注释；想换个键，改 "ALT + A" 即可。
--- hl.bind("ALT + A", function()
---     for _, w in ipairs(hl.get_windows()) do
---         if w.class == "Waydroid" then
---             hl.dispatch(hl.dsp.workspace.toggle_special("android"))
---             return
---         end
---     end
---     hl.exec_cmd("waydroid")
--- end)
 
 
 -- ────────────────────────────────────────────────────────────────────────────

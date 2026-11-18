@@ -1,7 +1,7 @@
 # 02 · Hyprland：键位方案与窗口行为
 
-对应文件：`config/hypr/mykeys.lua`（741 行）
-＋ 3 个改过的官方文件 ＋ `config/hypr/patches/*.patch`
+对应文件：`config/hypr/mykeys.lua`
+＋ 5 个改过的官方文件 ＋ `config/hypr/patches/*.patch`
 
 键位纯速查见 [06-keymap-cheatsheet.md](06-keymap-cheatsheet.md)。本篇讲**为什么这么设计**。
 
@@ -53,17 +53,7 @@ Wayland 下合成器的全局 bind **直接截获**按键，应用一点都收�
 
 ### ~~分屏终端~~（2026-10-11 撤销，三个 `\` 键让给 tmux）
 
-原来 `ALT+\` / `CTRL+ALT+\` 在下方 / 右侧开一个新 kitty，`ALT+SHIFT+\` 翻转两个窗口的
-分割方向。实际一直没用上，2026-10-11 全部撤掉：**终端里的分屏交给 tmux 的免前缀 Alt 层**
-（`Alt+\` 左右、`Alt+-` 上下，见 [14](14-tmux.md) 第 1 节）。翻转分割方向官方 `SUPER+J` 仍可用。
-`mykeys.lua` 第 5 节整节删掉，`launchPrefix` 挪到了唯一用它的第 14 节（`ALT+E`）。
-
-想复活的话原理在这：平铺布局里**没有**「把当前窗口劈成两半」这个动作，所以是两步 ——
-
-```lua
-hl.dispatch(hl.dsp.layout("preselect " .. dir))       -- 预选下一个新窗口落在哪边（一次性）
-hl.dispatch(hl.dsp.exec_cmd(launchPrefix .. TERMINAL)) -- 紧接着把终端拉起来
-```
+终端分屏交给 tmux 的免前缀 Alt 层（[14](14-tmux.md) 第 1 节），`mykeys.lua` 第 5 节已删；原实现（`layout preselect` + 拉终端两步）见 `git show f23564b:docs/02-hyprland.md`。
 
 ### Caps Lock 当 Esc：走 XKB，不是键位绑定
 
@@ -135,22 +125,9 @@ Hyprland 原生支持，也不需要 unclutter / xbanish 之类的外部守护�
 
 ### window swallowing：官方默认开着，本配置未改
 
-`config/misc.lua` 里这两行是官方默认值，本配置沿用：
-
-```lua
-enable_swallow = true,
-swallow_regex  = "(kitty|ghostty|[Kk]onsole|Alacritty|gnome-terminal|xfce[0-9]?-terminal)",
-```
-
-效果是**从终端启动 GUI 时，那个终端窗口会被隐藏**，GUI 关掉再放回来。第一次遇到时
-极易误判成「程序把 shell 占住了」，然后徒劳地去试 `nohup` / `&` / `disown`——
-它的判据是**进程祖先链**，跟作业控制毫无关系，那三个都改不了父子关系。
-
-单次绕开：`setsid -f CMD`。⚠ 尾部不必再加 `&` 或重定向，它们不动父子关系，挡不住
-也拦不住。要**永久**豁免某个应用加 `misc.swallow_exception_regex`（匹配**被启动窗口的
-title**，不是 class），要**彻底关掉**改 `enable_swallow = false` —— 两者都走 `mykeys.lua`
-的 `hl.config`，别动这份官方文件（坑 4）。完整判据、根因、四种方案实测对比与这两条
-永久路线的取舍见 [07](07-troubleshooting.md) 坑 9。
+`misc.enable_swallow = true` 是官方默认：从终端启动 GUI 时那个终端窗口会被隐藏，判据是**进程祖先链**，
+`nohup` / `&` / `disown` 都挡不住；单次绕开用 `setsid -f CMD`，永久豁免/关掉走 `mykeys.lua` 的 `hl.config`、别动官方文件。
+判据、根因、方案实测对比见 [07](07-troubleshooting.md) 坑 9。
 
 ### 抽屉架（rack）：第二套工作平面
 
@@ -219,7 +196,8 @@ title**，不是 class），要**彻底关掉**改 `enable_swallow = false` —�
 #### 实测出来的 API 约束
 
 stub `/usr/share/hypr/stubs/hl.meta.lua` 里这些函数全是 `fun(...)`，没有任何类型
-信息，只能试。**两条最坑的都是「不认识的参数直接忽略，不报错」**：
+信息，只能试。**`hl.dsp.*` 对不认识的参数键一律静默忽略，不报错不警告**（下面 1、3 两条都是这一类）——
+遇到「代码看着对但行为不对」，先怀疑参数名，用 `hyprctl eval` 挨个试（看结果的办法见下面「调试出口」）：
 
 1. **`toggle_special` 收裸字符串，且不带 `special:` 前缀。**
 
@@ -460,56 +438,11 @@ end
 代价同 `CTRL+2/3`：浏览器的「切到第 1 / 第 4 个标签页」会被吃掉，`CTRL+1` 尤其常用。
 介意就改成 `CONTROL + ALT + 1/4`。
 
-### Android 覆盖层 `special:android` / `ALT+A`（第 19 节，2026-10-30 改）
+### ~~Android 覆盖层 `special:android`~~（2026-11-17 随 Waydroid 卸载删除）
 
-⚠ **2026-11-17 Waydroid 已整套卸载**，这一层不会再出现。第 19 节的窗口规则、`two_planes` 和
-`rack.move_window` 里对 `special:android` 的判断都还留在代码里（没装 Waydroid 时不起作用，没删），
-本节留作这些代码的说明。
-
-Waydroid 整屏界面被窗口规则送进覆盖层 `special:android`（真全屏），`ALT+A` 开合，
-手感同 `ALT+S`；Waydroid 没开时 `ALT+A` 直接拉起它（命令同 `Waydroid.desktop` 的 `waydroid`）。
-
-⚠ **2026-11-09 停用了 `ALT+A`**：和 tmux 的 `Alt+a` 窗格总览撞了（见 [14](14-tmux.md) 第 9 节）。
-Hyprland 的绑定会先把按键截走，tmux 收不到。用户选择保留 tmux 那个，于是把 `hl.bind` 注释掉了。
-窗口规则还在，开 Waydroid 照样直接弹出覆盖层，只是没有键能开合它了。
-要恢复就去掉注释，或者把 `"ALT + A"` 改成别的键。下文提到 `ALT+A` 的地方都是停用前的记录。
-
-**以前是命名工作区 `name:android`（2026-09-28 起），方向感是乱的，所以改了。**
-它挤在 `m±1` 的环里，排在最后一个桌面和 1 号之间：`1 → 2 → 3 → android → 1`。
-而 `slide` 动画的方向是**按两个工作区的 id 大小定的，不看按的是哪个键**，android 的 id
-比谁都小（0.56 是 `-1337`，0.57 是 `nil`），于是：
-
-| 你在哪 | 按 | 去哪 | 画面滑向 |
-|---|---|---|---|
-| 1 | `CTRL+2`（左） | android | 左 ✅ |
-| android | `CTRL+3`（右） | 1 | 右 ✅ |
-| 3 | `CTRL+3`（右） | android | **左 ❌** |
-| android | `CTRL+2`（左） | 3 | **右 ❌** |
-
-用户反馈的就是「3 往后那一下很不对」。三个方案的取舍：
-
-- **把 android 排到最右**：没用。动画只看 id，我们怎么排它都还是往左滑。
-- **移出环 + 专用键，但仍是普通工作区**：可行，但进出照样是横向滑，跟左右切桌面混在一起。
-- **改成 special（采用）**：进出走 `specialWorkspaceIn/Out` 的纵向动画（`slide top/bottom`），
-  和左右切桌面在视觉上就是两回事；收起即回原处，同抽屉架。
-
-改完环里只剩工作桌面 `1 → 2 → 3 → 1`。**绕圈是用户有意保留的**（「这种灵动感」），
-`3 → 1` 那一下画面往左滑也认了，别改成到头停住。
-
-2026-10-30 在 0.57.0 上实测：
-
-- 把现成的 Waydroid 窗口挪进 special，真全屏、2560×1440 都保留，Android 画面正常；
-- 窗口规则送新窗口进 special 时**覆盖层会自动打开**（拿临时 kitty 测的），
-  所以开 Waydroid 会直接弹出来，不用再按 `ALT+A`；
-- 覆盖层开着时按原生 `m±1`，切的是**底下那个**桌面，Android 盖在最上面不动，像按键失灵。
-  所以第 1b 节 `two_planes` 开头加了一道：Android 开着时，`ALT+[ ]`、`CTRL+1~4`、
-  `ALT+T` 这些键的**第一下只负责收起它**。`rack.move_window`（`ALT+SHIFT+S`）开头也加了一道
-  直接 return，否则会走进分支 ①，把 Waydroid 窗口捞到工作桌面上去。
-  `ALT+S` 不用管：抽屉格直接替换掉 Android 覆盖层。
-- `rack.current_slot()` 只认 `special:rackN` 这个名字，看到 `special:android` 返回 `nil`，
-  所以抽屉架那套模态不会把 Android 误当成一格。
-
-实测过程与 Waydroid 其余部分见 [docs/12](12-waydroid.md)。
+第 19 节的窗口规则和 `two_planes` / `rack.move_window` 里的 Android 分支都已删，`ALT+A` 归 tmux 的窗格总览。原文见 `git show f23564b:docs/02-hyprland.md`。
+仍然有效的两条：切桌面的 `slide` 动画方向**按两个工作区的 id 大小定、不看按的是哪个键**；
+`CTRL+2/3` 在 `1 → 2 → 3 → 1` 之间**绕圈是用户有意保留的**，别改成到头停住。
 
 ---
 
@@ -541,7 +474,7 @@ patch 是拿 `/etc/skel/.config/hypr/config/` 的原版做的基准（已核对�
 
 ### 浮动窗不再强制居中（2026-10-29）
 
-现象：jadx、v2rayN 点「设置」，设置窗不在主窗口上方，而是跑到**显示器正中央**。
+现象：jadx 这类 XWayland 应用点「设置」，设置窗不在主窗口上方，而是跑到**显示器正中央**。
 主窗口平铺在半边屏时尤其明显。
 
 根因不是 Hyprland，是本配置在 `windowrules.lua` 第 4 行给「所有浮动窗」加的 `center = true`：
@@ -691,20 +624,7 @@ hl.monitor({ output = "desc:HKC OVERSEAS LIMITED G27H4Max",
 
 ## 已知的应用层冲突
 
-Wayland 下这些键**应用完全收不到**：
-
-| 键 | 会吃掉 |
-|---|---|
-| `CTRL+ALT+L` | JetBrains 系 IDE 的**格式化代码** |
-| `CTRL+ALT+H` | JetBrains 的调用层次 |
-| `ALT+Enter` | JetBrains 的意图操作/快速修复；Wine 游戏、模拟器的全屏切换 |
-| `CTRL+1` ~ `CTRL+4` | 浏览器切到第 1~4 个标签页、VS Code 切编辑器分栏 |
-| `ALT+Space` | Windows / 传统 GTK 应用的窗口菜单（Wine 里会感觉到） |
-| `ALT+W` | 带菜单栏应用的「Window」菜单助记键（影响很小） |
-| `ALT+E` | 带菜单栏应用的「Edit」菜单助记键（影响很小） |
-
-**如果这台机器上要用 IDEA / PyCharm / CLion，前两个基本等于废掉。**
-规避：把 `mykeys.lua` 里的 `CONTROL + ALT` 批量换成 `SUPER + ALT`（目前只占了一个 `C` 键）。
+Wayland 下合成器截获的键应用完全收不到，完整冲突表（JetBrains 的 `CTRL+ALT+L/H`、浏览器的 `CTRL+1~4` 等）和规避办法见 [06](06-keymap-cheatsheet.md)「会被合成器吃掉的应用快捷键」。
 
 ## 被摘掉的官方键位
 
@@ -722,7 +642,7 @@ Wayland 下这些键**应用完全收不到**：
 
 ### 为什么文件管理器也回到 ALT（第 14 节）
 
-本配置里 ALT 已经是**动作键**的集合位：`Enter` 全屏、`[` `]` 切桌面、`\` 分屏、
+本配置里 ALT 已经是**动作键**的集合位：`Enter` 全屏、`[` `]` 切桌面、
 `T` 新桌面、`W` 关窗、`S` 抽屉、`Space` 启动器、`9` 顶栏。开文件管理器同属「动作」，
 留在 SUPER 上等于每次都要先想一下「这个功能归哪组修饰键」——把它并过来，
 ALT 这一组才是完整的。
@@ -733,7 +653,7 @@ ALT 这一组才是完整的。
 的全局值（当前 `dolphin`），换文件管理器改那一处即可，`mykeys.lua` 不用动。
 
 代价是 `ALT+E` 会吃掉带菜单栏应用的「Edit」菜单助记键，同 `ALT+W` / `ALT+Space`
-一个性质，见上一节。
+一个性质，见 [06](06-keymap-cheatsheet.md) 的冲突表。
 
 ### 浮动终端：Walker 里的「浮动终端」（第 20 节，2026-11-13）
 
@@ -752,17 +672,8 @@ elephant 开着 `window_integration`，拿窗口 app_id 去比条目的 `Startup
 换成 `new_instance` 动作就出窗口，就是这个问题。现在的写法：`Exec=env kitty …`、`Icon=utilities-terminal`、
 不写 `StartupWMClass`、文件名 `floating-terminal` 和 class `float-term` 故意不同。
 
-**不绑快捷键、不做框架，是用户定的**：中间试过一版「`ALT+Z` 前导键（submap）+ 字母收放挂件」
-（`bin/hud`：窗口 pin 住跟着换工作区、收起时藏进 `special:hud` 记住位置、挂件是 `~/.config/hud/` 下的脚本），
-能用，但用户觉得没必要，要的只是一个纯净的小浮窗终端，从启动器开、自己拖。更早还试过 `kitten panel`
-（Wayland layer 上的 kitty），拖不动、layer 毛玻璃在本机不生效（同 Walker），放弃。
-做 hud 时实测的几条 API 约束记在 `mykeys.lua` 第 20 节注释里（pin 住的窗口挪不动工作区、
-dispatcher 的 `window` 参数只认窗口对象等），以后再做类似东西先看那里。
-
-**`ALT+Z` 现在空着。** 原来是 Dolphin 目录跳转（`bin/dolphin-jump`，弹 zoxide 模糊搜索、选中的目录经 D-Bus
-在 Dolphin 开新标签页），2026-11-13 用户说用得少，连脚本一起撤了。实现和当时踩的 Dolphin D-Bus 坑
-（只能开新标签页、必须传 `file://` URL、`busctl introspect` 遇到重载方法报错等）都在 git 历史里：
-`git log --diff-filter=D -- bin/dolphin-jump`。
+**不绑快捷键、不做框架，是用户定的**；`ALT+Z` 现在空着（试过的 `ALT+Z` 挂件框架 `bin/hud`、`kitten panel`、
+Dolphin 目录跳转 `bin/dolphin-jump` 都已撤，原文见 `git show f23564b:docs/02-hyprland.md`）。做 hud 时实测的 API 约束（pin 住的窗口挪不动工作区、dispatcher 的 `window` 参数只认窗口对象等）记在 `mykeys.lua` 第 20 节注释里。
 
 ## 兼容性前提
 

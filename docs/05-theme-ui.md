@@ -320,106 +320,25 @@ GUI 在 `noctalia msg settings-open notifications` → Filters → Add。
 
 ## 启动器：provider 模型（已被 Walker 取代）
 
-> ⚠ **2026-10-09 起 `ALT+Space` / `SUPER+.` / 顶栏启动器按钮都改走 Walker**，
-> 见 [13-launcher.md](13-launcher.md)。本节是 noctalia 自带启动器的记录，
-> `[shell.launcher]` 配置也还留在 `config.toml` 里，留着是为了要回退时有据可查。
-
-`ALT+Space` 拉起的启动器不是单一列表，是若干 **provider** 的聚合。合法 id 只有六个：
-
-```
-applications · windows · emoji · wallpaper · session · calculator
-```
-
-每个 provider 有且只有两个可配项，写在 `~/.config/noctalia/config.toml`：
-
-```toml
-[shell.launcher]
-
-    # 无前缀搜索里也列出已打开的窗口，方便直接跳过去而不是再开一个
-    [shell.launcher.providers.windows]
-    global = true
-
-    # 很少用启动器算数，把计算器从无前缀搜索里摘掉，免得抢第一行；/calc 仍可用
-    [shell.launcher.providers.calculator]
-    global = false
-```
-
-| 键 | 含义 |
-|---|---|
-| `global` | 是否参与**无前缀**搜索。false = 只能靠前缀触发 |
-| `prefix` | 触发前缀，和 `provider_prefix`（默认 `/`）拼接。留空 = 用内置默认 |
-
-内置默认前缀：`/win` · `/emo` · `/wall` · `/session` · `/calc`。
-`applications` 没有前缀设置项——它是 default provider，无前缀时永远参与。
-
-选中窗口回车时 noctalia 发的是 `hyprctl dispatch focuswindow address:0x…`，
-Hyprland 会自动把视图切到该窗口所在工作区，跨显示器还会先 `focusmonitor`。
-
-### 三条限制（2026-08-26 实测，别再重新调研）
-
-1. **`noctalia msg config-reload` 不会重载 launcher 的 provider 注册。**
-   改完 `[shell.launcher.providers.*]` 必须重启 noctalia 进程才生效：
-
-   ```bash
-   kill $(pgrep -x noctalia); setsid -f noctalia -d
-   ```
-
-   它由 Hyprland 的 `autostart.lua` 直接拉起，不是 systemd unit，没法 `systemctl restart`。
-
-2. **没有跨 provider 的排序权重。** 探过 `weight` / `priority` / `order` / `enabled`，
-   `noctalia config validate` 一律报 `unknown setting`。应用永远排在窗口前面。
-   上游 [issue #2470](https://github.com/noctalia-dev/noctalia/issues/2470) 提的正是
-   「输 firefox 时已开的窗口应该排在启动项前面」，**已 closed as not planned**，
-   不用等了。想让某类结果靠后，唯一手段是把它的 `global` 关掉、退回前缀触发。
-
-3. **窗口和应用没有徽章区分**，只能看副标题：
-
-   | 副标题长这样 | 是 |
-   |---|---|
-   | `An open source cross-platform alternative to AirDrop` | 应用（.desktop 的 Comment） |
-   | `localsend` | 窗口（窗口 class，永远是单个小写词） |
-
-   `show_app_origin_indicator` 那个开关只给应用打 System/Flatpak/Nix 来源标，和窗口无关。
-
-另外模糊匹配是**子序列**匹配，很松：搜 `localsend` 会把标题为
-`GitHub - noctalia-dev/noctalia: A sleek, customizable…` 的 firefox 窗口也捞出来
-（能挑出 l-o-c-a-l-s-e-n-d）。噪声比预期多，属预期行为不是 bug。
-
-### 排查手法
-
-活配置一律用 `noctalia config export full`（读的是合并后的生效值），
-`noctalia config validate <file>` 会对不认识的键报 `unknown setting`、
-对不存在的 provider 报 `provider is nonexistent`——拿它当探针可以枚举出合法键名。
+2026-10-09 起 `ALT+Space` / `SUPER+.` / 顶栏启动器按钮都走 Walker（[13](13-launcher.md)），`[shell.launcher]` 配置还留在 `config.toml` 里备查。
+仍然有效的两条：改 `[shell.launcher.providers.*]` 后 `config-reload` 不生效、要重启进程；provider 只有 `global` / `prefix` 两个键、没有排序权重（上游 [#2470](https://github.com/noctalia-dev/noctalia/issues/2470) closed as not planned）。
+枚举合法键名用 `noctalia config validate <file>` 当探针（未知键报 `unknown setting`）。原文见 `git show f23564b:docs/05-theme-ui.md`。
 
 ---
 
 ## 剪贴板：`SUPER+V` 的历史靠 `[storage]` 文件密钥才能活过重启
 
-> ⚠ **2026-10-09 起 `SUPER+V` 打开的是 Walker 的剪贴板（elephant-clipboard）**，见
-> [13-launcher.md](13-launcher.md#剪贴板)。noctalia 的剪贴板服务**仍在后台运行**，
+> `SUPER+V` 打开的是 Walker 的剪贴板（[13](13-launcher.md#剪贴板)）。noctalia 的剪贴板服务**仍在后台运行**，
 > 只为保留「源程序关掉后内容还能粘贴」（`keep_from_closed_apps`），本节的加密存储配置也还在生效。
 
-先认清是谁在干活：**这个剪贴板是 noctalia 自己的 `ClipboardService`**，走 Wayland 的
-`ext_data_control_manager_v1` 协议。既不是 Hyprland 的（合成器根本没有剪贴板历史这个功能），
-也**不是 cliphist**（本机没装，别去找 `~/.cache/cliphist/db`）。
+这是 noctalia 自己的 `ClipboardService`（`ext_data_control_manager_v1` 协议），不是 Hyprland 的、也**不是 cliphist**（本机没装）。
 
-### 症状与根因（2026-08-27）
+### 症状与根因
 
-历史每次重启清零。根因不是「它不支持持久化」，恰恰相反——它**坚持加密后才落盘**，
-主密钥默认从 Secret Service 取，而本机没跑任何 provider（gnome-keyring / kwallet 都没启用），
-于是每次启动都报：
+历史每次重启清零。它**坚持加密后才落盘**，主密钥默认从 Secret Service 取，本机没有 provider，日志报
+`[secret-store] ... category=provider-unavailable`，于是降级成「仅本会话可用」。
 
-```
-[WRN] [secret-store] operation=lookup scope=storage status=unavailable
-      category=provider-unavailable default-collection=unknown
-```
-
-设计上它宁可丢也不明文存，所以降级成「仅本会话可用」。
-
-### 解法：文件密钥，绕开整个 Secret Service
-
-noctalia 官方为声明式配置（NixOS/agenix 那类）留了出口，正好拿来用——**不装 keyring、
-不改 PAM、不需要 sudo**：
+### 解法：文件密钥，绕开整个 Secret Service（不装 keyring、不改 PAM、不要 sudo）
 
 ```toml
 # ~/.config/noctalia/config.toml
@@ -428,53 +347,29 @@ key_source = "file"
 key_file = "/home/david/.config/noctalia/storage.key"
 ```
 
-密钥是 64 位小写十六进制（32 随机字节）：
-
 ```bash
 umask 077
-head -c 32 /dev/urandom | xxd -p -c 64 > ~/.config/noctalia/storage.key   # 权限必须 0600
+head -c 32 /dev/urandom | xxd -p -c 64 > ~/.config/noctalia/storage.key   # 64 位 hex，权限必须 0600
 ```
 
-### ★ 改完必须重启进程，`config-reload` 不算
-
-这一条最坑：`noctalia msg config-reload` **不会重新初始化存储子系统**。
-`noctalia config export` 会显示 `[storage]` 已生效，但磁盘上死活不出现文件——
-很容易误判成配置写错了又去改配置。没有官方 restart 命令：
+★ **改完必须重启进程，`config-reload` 不重新初始化存储**（`config export` 显示已生效，但磁盘上不出文件）：
 
 ```bash
 kill -TERM $(pgrep -x noctalia)
 hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'   # 用 hyprctl 拉起，会话环境才正确
 ```
 
-（和[启动器 provider 那条限制](#三条限制2026-08-26-实测别再重新调研)同源：
-`config-reload` 只重读文件，不重新注册子系统。）
-
-### 验收
-
-| 检查 | 期望 |
-|---|---|
-| 目录 | `~/.local/state/noctalia/clipboard/` 出现，`0700` |
-| 文件 | `index.enc` + `entries/*.enc`，均 `0600` |
-| 确实加密 | `index.enc` 头 8 字节是 magic `NOCTALIAENC1`，其后为密文 |
-| 无明文泄漏 | `grep -r '<刚复制的测试串>' ~/.local/state/noctalia/` 无结果 |
-| **重启后读回** | 日志出现 `[INF] [clipboard] loaded encrypted clipboard history` |
-
-失败的样子是重启后日志写 `clipboard history size=NN entries=1`（归零重来）。
+**验收**：`~/.local/state/noctalia/clipboard/` 出现（`0700`），里面 `index.enc` + `entries/*.enc`（`0600`，头 8 字节 magic
+`NOCTALIAENC1`）；`grep -r '<测试串>'` 搜不到明文；重启后日志有 `[clipboard] loaded encrypted clipboard history`
+（失败是 `clipboard history size=NN entries=1`，归零重来）。
 
 ### 注意事项
 
-- ⚠ **`storage.key` 丢了 = 旧历史永久读不出来。** 换密钥不会重新加密，只是认证失败；
-  加密文件本身会保留，换回原密钥即可恢复。它**不入包**（见 CLAUDE.md 的边界章节），
-  新机器要重新生成——代价是旧历史读不出来，可接受。
-- 本机**无全盘加密**（btrfs 裸盘），所以主密钥等于明文躺在盘上，只靠 `0600` 保护。
-  接受这个取舍的理由：能读到该文件的人已经有本用户权限了，那他直接问 D-Bus 要
-  keyring 里的东西也一样拿得到；真正的差别只在**离线磁盘攻击**这一个场景。
-  真在意就该先上全盘加密，而不是纠结这一个文件。
-- 相关配置项（都在 `[shell]`）：`clipboard_history_max_entries` 默认 **100**、
-  范围 10–10000、**只算未 pin 的条目**；`clipboard_enabled`、`clipboard_auto_paste`
-  （`off|auto|ctrl_v|ctrl_shift_v|shift_insert`）、`clipboard_keep_from_closed_apps`。
-- noctalia 会自动检测**在它之后**才启动的 Secret Service provider（一旦有进程 claim
-  `org.freedesktop.secrets` 就自动重开加密存储），所以哪天改用 keyring 也不用担心启动顺序竞态。
+- ⚠ **`storage.key` 丢了 = 旧历史永久读不出来**（换回原密钥可恢复）。它**不入包**，新机器重新生成即可。
+- 本机无全盘加密，主密钥只靠 `0600` 保护；差别只在离线磁盘攻击，真在意该先上全盘加密。
+- 相关项（都在 `[shell]`）：`clipboard_history_max_entries` 默认 100（10–10000，只算未 pin 的）、`clipboard_enabled`、
+  `clipboard_auto_paste`（`off|auto|ctrl_v|ctrl_shift_v|shift_insert`）、`clipboard_keep_from_closed_apps`。
+- noctalia 会自动检测**在它之后**才启动的 Secret Service provider，哪天改用 keyring 不用担心启动顺序。
 
 ---
 
@@ -961,55 +856,15 @@ PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli
 | `e` | 导出当前看到的样子：复制到剪贴板 + 存成 `~/Pictures/mmd_<图名>_<时间>.png`（顶栏「导出」按钮同，见下） |
 | `f` · `b` · `Esc` · `Alt+←` | 适应窗口 · 侧栏 · 取消高亮 · 回上一张图（回来时恢复离开时的缩放位置和选中的节点） |
 
-**信息卡**（2026-10-13 改，原来固定在右下角）：贴着选中节点浮出，列上下游、源码 / 细节图按钮、已有备注。
-- **放哪一侧**：在节点四周 8 个候选位置里挑「压住的东西最少」的，压住选中节点代价 ×50、高亮的上下游节点 ×1、边标签 ×0.5；
-  一样好时偏好右侧。平移缩放、打字时**不换边**（只在原来那侧压住节点时才重选），否则卡片会乱跳。
-- 节点移出视野卡片就收起，正在写备注时除外。**拖标题栏可以钉住**，钉住后标题栏出现 `↺` 回到节点旁；换图时清掉。
-- 平时只列已有备注，按 `n` 或点按钮才展开输入框，`Esc` 收起。字号整体放大到 20px，长路径另起一行小字（可选中复制），不撑破卡片。
-- **没保存的备注是草稿，不会丢**：按「文件 + 节点」记在内存里，切走节点、`.mmd` 被外面改了自动刷新都还在，
-  光标位置也保留。如果编辑期间文件里的备注被别人（比如 AI）改了，会提示「保存会覆盖」，可以一键改用文件里的。
-
-**等宽字体为什么要重画整张图**：mermaid 排版时按字体量字宽，只换 CSS 字体会让文字溢出框。所以切字体时先
-`document.fonts.load` 把字体备好，再用新字体重新 `mermaid.initialize` 并重画。
-
-**横向 / 竖向**（2026-10-13 加）：arch-map 出的图都是 `flowchart LR`，但有人习惯从上往下读，
-所以方向做成查看器里的个人偏好，而不是写死在图里——同一份 `.mmd` 各看各的，git 里不会来回改方向。
-实现是渲染前改写喂给 mermaid 的文本：找到 `flowchart` / `graph` 那一行（跳过 frontmatter 和 `%%` 行），
-和想要的方向不一致时整张图**转置**：顶层和每个 subgraph 的 `direction` 一起横竖互换（`LR↔TB`、`RL↔BT`），
-子图相对主轴的关系就不变。只换方向词、不增删行；选中的节点和备注草稿都保留，视图重新适应窗口。
-只对流程图有效，时序图等其他类型下拉框变灰、按 `d` 只提示。`mmd` 出的静态图不受影响，仍按文件写的方向。
-
-**第二轮优化**（2026-10-13，方案和讨论记录在 `docs/plans/2026-10-13-mmd-view.md`）。先测过性能：扫文件不到 2 ms、
-首次打开 363 ms、重画 74 ms、平移每帧 0.03 ms，都没有瓶颈，所以这一轮只做了下面四件事：
-
-- **防遥控**：原来伪造 `Host` 请求 `/api/files` 也返回 200，跨站 `text/plain` POST 到 `/api/note` 不触发预检、照常解析。
-  也就是说，普通浏览器里打开的任何网页，扫到端口后都能往 `.mmd` 写 `%% @note`；而 `/arch-design` 会把备注当需求处理，
-  这就成了往 AI 指令里注入内容的通道。现在所有请求只认 `Host: localhost/127.0.0.1:<端口>`（挡 DNS rebinding），
-  `/api/*` 还必须带 `X-MMD-View: 1` 头（跨站请求带自定义头要先过 CORS 预检，服务不回 CORS 头，浏览器就拦下了），页面里统一走 `api()` 发请求。
-  `/api/events` 例外：EventSource 加不了自定义头，它只读、没有副作用。实测伪造 Host、不带头、跨站 POST 都是 403。
-- **单实例**：已经开着的窗口，只要它的目录包含这个文件（打开目录时要求是同一个目录），双击就交给它：
-  页面跳过去（改 hash，`Alt+←` 照样能回来），窗口切到前台。实测转交 59 ms。实例登记在 `$XDG_RUNTIME_DIR/mmd-view/<端口>.json`
-  （目录、端口、pid、窗口地址），服务退出时删除，进程已经死了的残留登记在查找时清掉。
-  ⚠ **认窗口靠地址，不靠标题**：启动 Chrome 前后各取一次 `hyprctl clients`，多出来的那个 `chrome-localhost__-Default` 窗口就是。
-  不同项目的图都叫 `00-overview.mmd`，按标题会认错（实测时桌面上就同时开着两个标题都是 `00-overview.mmd` 的窗口）。
-  窗口刚关、服务还在 8 秒退出缓冲期里时，`/api/goto` 回 409，这次双击就新开一个窗口。
-  连着双击两个文件时，第一个窗口的页面可能还没连上来，`/api/goto` 会等它最多 10 秒，免得白白多开一个。
-  `--no-browser` 调试模式不参与登记和复用。
-- **返回恢复**：离开一张图时按「文件 + 横/竖」记下视野、选中的节点、是否展开了整条链，回来时恢复，信息卡也重新弹出。
-  横竖分开记，因为横竖一换，视野坐标就对不上了。只存在页面内存里，刷新页面就清空。
-- **导出**：在浏览器里完成，不绕回 `mmd`：克隆当前 SVG → 画到 canvas → PNG。实测 foreignObject 不会污染画布，
-  手写字体照常保留。**所见即所得**：范围是窗口里看得到的那块（按舞台四角换算成 SVG 坐标；不用 `view`，因为
-  `preserveAspectRatio` 会在一个方向上多露出一截），高亮、变暗、黄点都保留；信息卡、顶栏是界面，不进图。
-  高亮样式原来写在页面 CSS 里、还用了 `var()`，SVG 单独当图片渲染时这些都没有，所以单独放进 `<style id="hl-css">`，
-  导出时把 `var()` 换成实际颜色再塞进 SVG，页面和导出共用这一份样式。
-  分辨率是舞台的 2 倍（同 `mmd -s 2`），超过 Chrome 画布上限就自动降低倍数。只出 PNG：SVG 不嵌字体（见上面坑 3）。
-  剪贴板和存文件各报各的结果，一边失败不影响另一边。
+单击节点后贴着节点浮出**信息卡**（上下游、源码 / 细节图按钮、已有备注），拖标题栏可钉住；没保存的备注是草稿，切走不丢。
+横竖互换是**个人显示偏好、不改 `.mmd`**，只对流程图有效。导出范围就是窗口里看得到的那块（所见即所得，2 倍分辨率，只出 PNG）。
+已经开着的窗口目录包含这个文件时，双击会交给它（单实例），不新开。
+这些的实现细节（防遥控的 Host / 请求头校验、单实例登记、导出、信息卡摆放）见 [plans/2026-10-13-mmd-view.md](plans/2026-10-13-mmd-view.md) 末尾。
 
 **备注**存成 `.mmd` 末尾的 `%% @note <节点id|*> <一行>`，一行一条，`Ctrl+Enter` 保存。有备注的节点右上角有个黄点。
-它跟着 git 走，arch-map / arch-design 都会读：arch-map 只保留不删，arch-design 会把它当作反馈来改图，你确认后再清掉。
+它跟着 git 走：arch-map 只保留不删，arch-design 会把它当作反馈来改图，你确认后再清掉。
 
-`.mmd` 改了会自动重画，并保留当前的缩放位置。有语法错误时**留着上一版图**，只在左下角报错，
-所以可以一边让 AI 改、一边盯着看。
+`.mmd` 改了会自动重画并保留缩放位置；有语法错误时**留着上一版图**，只在左下角报错，可以一边让 AI 改一边盯着看。
 
 节点和源码的对应关系写成 Mermaid 注释，静态出图（`mmd`）不受影响：
 
@@ -1018,64 +873,37 @@ PUPPETEER_SKIP_DOWNLOAD=1 npm i -g --prefix ~/.local @mermaid-js/mermaid-cli
 %% @link api  order-detail.mmd                ← 路径相对当前 .mmd
 ```
 
-**锚点而不是行号**：锚点是定义那一行里的一段文字，打开时现场找行号。2026-10-13 实测，
-代码顶部加一行 import，用行号写的 `@src` 就全部错位了，而且大多落在非空行上，看不出错。
-旧写法 `路径:行号` 仍然认，但 arch-map 的 check.py 会把它当错误报出来。
+**用锚点不用行号**：锚点是定义那一行里的一段文字，打开时现场找行号；行号在代码顶部加一行 import 就全部错位且看不出错。
+旧写法 `路径:行号` 仍然认，但 arch-map 的 check.py 会报错。
 
-**跳源码时复用已开着的 nvim**：每个 nvim 都会在 `$XDG_RUNTIME_DIR/nvim.<pid>.0` 自动开 socket。
-mmd-view 逐个问 `getcwd()`，找工作目录在本项目里的那个，用 `--remote-expr luaeval(...)` 让它在一个
-「普通文件、非浮动」的窗口里打开，不会占掉终端或浮动窗。然后顺着进程树找到它所在的终端窗口，
-用 `hl.dsp.focus({ window = hl.get_window("address:…") })` 切到前台。nvim 在 tmux 里的话，先 `select-window` / `select-pane`，
-再切 tmux 客户端所在的 kitty。找不到才新开 `kitty nvim`，它的工作目录就是项目根，下次就会被复用。
-**挑哪个 nvim**（2026-10-13 定）：① 工作目录在本项目里的；② 没有的话，就用开在终端窗口里的那个 nvim，
-不管它的工作目录在哪；③ 都没有才新开。用户的用法是平时只开一个 kitty，里面就是 `kitty.conf` 里 `shell nvim` 起的那个 LazyVim，
-图上点代码就该在它里面打开。② 要求开在终端窗口里，是为了排除插件、脚本起的无头 nvim。
-（曾误以为用户要 kitty 的 `--single-instance` 模式并改了 `TERMINAL = "kitty -1"` 和远程控制，当天就撤回了：
-用户说的「单实例」是「只开一个 kitty 窗口」，用不上这两样。那次顺带实测到的两件事留作参考：单实例下 swallow
-吞的仍是当前聚焦的窗口；新窗口用的是启动它那一刻的环境变量和目录。）
-文件落在第一个「普通文件、非浮动」的窗口里。用户的三个 tab 按角色分（Claude Code / 代码 / shell），
-只有「代码」tab 有普通文件窗口，所以会自然跳到那里，不会占掉终端。
-同一档里有多个候选时，依次比：已经打开了这个文件 > 工作目录更深 > 所在窗口最近用过（`focusHistoryID`）。
-本机 kitty 没开 `single_instance`，每个 kitty 都是独立进程，顺着进程树找到的窗口是唯一的。
+**跳源码时复用已开着的 nvim**：每个 nvim 都在 `$XDG_RUNTIME_DIR/nvim.<pid>.0` 自动开 socket，mmd-view 用 `--remote-expr luaeval(...)`
+让它在第一个「普通文件、非浮动」的窗口里打开，再顺着进程树找到所在终端窗口切到前台（在 tmux 里先 `select-window` / `select-pane`）。
+挑哪个 nvim：① 工作目录在本项目里的；② 没有就用开在终端窗口里的那个（排除插件、脚本起的无头 nvim）——用户平时只开一个 kitty 里的 LazyVim，
+图上点代码就该在它里面打开；③ 都没有才新开 `kitty nvim`。
+② 可行是因为 **LSP 按文件路径找项目根，不看 nvim 的工作目录**，跳过去后 `gai` / `gao`、`gd` / `gr` 照常可用。
 
-**为什么 ② 可行：LSP 按文件路径找项目根，不看 nvim 的工作目录。** 实测在工作目录是 `~` 的 nvim 里打开
-`~/ccmon/app.py`，pyright 的 root 是 `/home/david/ccmon`。对 `Board.build` 做 call hierarchy，
-incoming 得到 `run`，outgoing 跨文件得到 `ccstatus.py` 里的 `refresh_from_files` / `group_agents` 等，
-和架构地图里的那张流程图一致。于是跳过去之后：`gai` / `gao` 看调用方 / 被调用方（LazyVim snacks picker 自带），
-`gd` / `gr` 看定义 / 引用，`<leader>ss` 看本文件符号，`<leader>fm` 在这个文件所在的目录里开 mini.files。
-⚠ `<leader>e` 开的是 nvim 工作目录（`~`），跨项目时要用 `<leader>fm`。
-⚠ 已知限制：nvim 在某个 kitty 的**后台标签页**里时，切到那个窗口后标签页不会跟着切，
-因为切 kitty 标签页要开 kitty 远程控制（`allow_remote_control` + `listen_on`），本机没开。
-⚠ `luaeval` 只收表达式，多行 Lua 要包成 `(function() … end)()`，不然报 `unexpected symbol near 'local'`。
+- ⚠ `<leader>e` 开的是 nvim 工作目录，跨项目时用 `<leader>fm`。
+- ⚠ nvim 在某个 kitty 的**后台标签页**里时，标签页不会跟着切（要 kitty 远程控制，本机没开）。
+- ⚠ `luaeval` 只收表达式，多行 Lua 要包成 `(function() … end)()`，不然报 `unexpected symbol near 'local'`。
 
-**选中时只让轮廓发光**：手绘节点的 `.label-container` 里，第一条 path 是斜线填充，其余是轮廓。
-早先给整个节点加 `drop-shadow`，每根斜线都跟着发光，压住文字（用户反馈「好看但影响视线」）。
-现在选中时斜线淡到 25%，只给轮廓变色、发光。
-
-结构：`bin/mmd-view` 是 Python 标准库写的小服务（只绑 127.0.0.1，端口随机），
-页面在 `~/.local/share/mmd-view/viewer.html`，用的是 mermaid-cli 自带的那份 `mermaid.min.js`（12.1），
-配置复用 `~/.config/mermaid/config.json`，所以和 `mmd` 出的静态图长得一样。
+结构：`bin/mmd-view` 是 Python 标准库写的小服务（只绑 127.0.0.1，端口随机），页面在 `~/.local/share/mmd-view/viewer.html`，
+用 mermaid-cli 自带的 `mermaid.min.js`，配置复用 `~/.config/mermaid/config.json`，所以和 `mmd` 静态图长得一样。
 Chrome 用独立 profile `~/.local/share/mmd-view/chrome-profile`，要带 `--password-store=basic`，原因同 Excalidraw 坑 00。
 
 **三个坑：**
 
-**1. URL 用 `localhost`，不用 `127.0.0.1`。** `--app` 窗口的 class 由主机名决定，不含端口。
-用 127.0.0.1 会和 Excalidraw 撞成同一个 `chrome-127.0.0.1__-Default`，任务栏图标会认错。
-现在的 class 是 `chrome-localhost__-Default`（2026-10-13 用 `hyprctl clients` 实测）。
+**1. URL 用 `localhost`，不用 `127.0.0.1`。** `--app` 窗口的 class 由主机名决定、不含端口，用 127.0.0.1 会和 Excalidraw
+撞成同一个 `chrome-127.0.0.1__-Default`，任务栏图标认错。现在是 `chrome-localhost__-Default`。
 
-**2. 「窗口关了服务就退」靠 SSE 长连接判断，不靠心跳。** Chrome 会把后台窗口的定时器限流到一分钟一次，
-靠心跳判断的话，图挂在别的桌面上服务就会误退。现在的做法是：页面一直开着一条 `/api/events` 连接（顺便用来推送刷新），
-服务每 2 秒写一次 ping，写失败就说明窗口关了，再等 8 秒（给刷新页面留余量）就退出。
-从没有页面连上来过的话，60 秒后退出。实测关窗约 12 秒后进程消失。
+**2. 「窗口关了服务就退」靠 SSE 长连接判断，不靠心跳。** Chrome 把后台窗口的定时器限流到一分钟一次，靠心跳会误退。
+页面一直开着 `/api/events`，服务每 2 秒写一次 ping，写失败再等 8 秒（给刷新留余量）就退出；从没有页面连上来过则 60 秒后退出。
 不用 Excalidraw 那种「chrome 阻塞到关窗」的办法，因为同一 profile 开第二个窗口时 chrome 会立刻返回。
 
-**3. `.mmd` 系统默认识别成 `text/plain`**，直接关联的话会把所有纯文本都抢走。
-所以用 `share/mime/packages/mermaid.xml` 自定义了 `text/vnd.mermaid`（继承 text/plain，文本编辑器照样能打开），
-装完要 `update-mime-database ~/.local/share/mime`（`mod_ui` 已代劳）。
-验证用 `kmimetypefinder x.mmd` 或 `gio info -a standard::content-type x.mmd`。
-**别用 `xdg-mime query filetype`**：Hyprland 下它退回到 `file` 按内容猜，永远报 text/plain，和 Dolphin 实际看到的不一样。
-desktop 条目**不能写 `NoDisplay=true`**，否则 Dolphin 的「打开方式」里没有它（imv 踩过的同一个坑）。
-`MimeType` 里加了 `inode/directory` 只是为了出现在文件夹的「打开方式」里，默认打开文件夹的仍是 Dolphin。
+**3. `.mmd` 系统默认识别成 `text/plain`**，直接关联会把所有纯文本都抢走。所以用 `share/mime/packages/mermaid.xml` 自定义了
+`text/vnd.mermaid`（继承 text/plain），装完要 `update-mime-database ~/.local/share/mime`（`mod_ui` 已代劳）。
+验证用 `kmimetypefinder x.mmd` 或 `gio info -a standard::content-type x.mmd`，**别用 `xdg-mime query filetype`**
+（Hyprland 下它退回 `file` 按内容猜，永远报 text/plain）。desktop 条目**不能写 `NoDisplay=true`**，否则 Dolphin「打开方式」里没有它；
+`MimeType` 里的 `inode/directory` 只为出现在文件夹的「打开方式」里，默认打开文件夹的仍是 Dolphin。
 
 ## ADB 无线连接（2026-10-10）
 
@@ -1238,31 +1066,13 @@ terminal.normal/bright 一套）。本包新加了 `Everforest.json`、`Dracula.
 
 ## 壁纸库的生成管线
 
-`wallpaper/tokyonight/` 下四个脚本：
+包里只留 `wallpaper/tokyonight/_ascii.py`：把图片转成 Tokyo Night 配色的 ASCII art 壁纸（4K），
+`cd ~/Pictures/Wallpapers/tokyonight && python _ascii.py` 重生成 D 档（约 4 秒，源图要在 `A-最搭/`、`C-暗调单色/` 里）。
 
-| 脚本 | 作用 |
-|---|---|
-| `_fetch.py` / `_fetch2.py` | 按 Tokyo Night 调色板从 wallhaven 搜壁纸，结果存 `_picks*.json` |
-| `_build.py` | 生成 `index.html` 预览页（带中文点评，按贴合度分 A/B/C/D 档） |
-| `_ascii.py` | 把图片转成 Tokyo Night 配色的 ASCII art 壁纸（4K） |
-
-`_fetch.py` 的筛选口径：以 Tokyo Night night/storm/moon 三个变体共通的 14 个色值
-（`1a1b26` `24283b` `222436` `1f2335` `414868` `7aa2f7` `bb9af7` `7dcfff` `2ac3de`
-`9ece6a` `c0caf5` `565f89` `f7768e` `9d7cd8`）为基准，用 wallhaven 支持的最接近的
-5 个 seed 颜色去搜，再按色距重排。
-
-`_fetch2.py` 修了第一版的一个偏差：**纯黑白图在 Lab 空间里离 `#1a1b26` 很近，会被误判成
-"很搭"**，但它们只是暗，不是 Tokyo Night 的靛蓝紫调。所以加了两条惩罚——画面里没有
-蓝紫色相（HSV hue 0.55–0.80）+22 分，整体彩度 < 12 再 +18 分。
-
-重建：
-
-```bash
-cd ~/Pictures/Wallpapers/tokyonight
-python _fetch.py && python _fetch2.py    # 拉图（需要网络）
-python _build.py                          # 生成 index.html，浏览器打开挑
-python _ascii.py                          # 重生成 D 档（约 4 秒）
-```
+选图脚本 `_fetch.py` / `_fetch2.py` / `_build.py` 和 `index.html` 预览页 2026-11-18 移出了包：它们按 wallhaven
+toplist 搜图、只写 `_picks*.json` 元数据，结果不可复现，也不真正下载图片。原文
+`git show f23564b:wallpaper/tokyonight/_fetch.py`（`_fetch2.py`、`_build.py` 同理）。
+壁纸出处（wallhaven 页面、pixiv 作者）仍在包里的 `_picks*.json`，补图就照它手动下。
 
 分档目录：`A-最搭`（8 张）· `B-可选`（9）· `C-暗调单色`（8）· `D-ASCII`（12）·
 `其他`（5）· `全部-软链`（37 个软链汇总）· `thumbs`（缩略图）。

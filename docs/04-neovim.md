@@ -152,64 +152,17 @@ zen = { toggles = { dim = false } },
 `Snacks.toggle.zen():map("<leader>uz")` 手动调用，snacks 的 `enabled` 只拦得住
 自启动 setup 的那类模块（indent/scroll/notifier），拦不住按需调用。
 
-#### no-neck-pain 3.0：两侧第一行冒出行号（2026-10-30）
+#### no-neck-pain 3.0：两侧边距别开 scratchPad（2026-10-30）
 
-`:Lazy update` 把插件从 2.x 带到了 3.0.5（3.0.0 是破坏性大版本，见插件 CHANGELOG）。
-之后开 `<leader>z`，左右两条边距**各在第一行显示一个行号、还带光标行高亮**。
-headless 下用真实配置实测：当时开着的 `scratchPad`（侧边当 markdown 草稿本）模式下，
-侧边窗口 `number` / `relativenumber` / `cursorline` 全是 true，`statuscolumn` 也是 LazyVim 那套 ——
-插件默认表里给边距设的 `wo` 那几项在草稿本模式下没生效。（winbar 是空的，不是它。）
+3.0 之后开着 `scratchPad`（侧边当草稿本）时，两侧边距第一行会冒出行号和光标行高亮（插件给边距设的 `wo` 在草稿本模式下不生效）。
+所以**关掉了 scratchPad**，并在 `buffers.wo` 里补 `statuscolumn = ""`、`signcolumn = "no"`（这两项是 LazyVim 全局设的，插件不管）。
+草稿本从没存上过盘，关掉无损失；真要用得按 3.0 新写法 `pathToFile` 重配（`scratchPad.location` 已废弃）。
 
-处理：**关掉 scratchPad**，两侧回到 `ft=no-neck-pain` 的纯填充，那几项全是 false；
-另在 `buffers.wo` 里补上 `statuscolumn = ""`、`signcolumn = "no"`（这两项是 LazyVim 全局设的，
-插件默认表不管）。草稿本本身从来没存上过盘 —— `location = "~/doc/"` 指的目录在两台机器上
-都不存在，全盘找不到 `no-neck-pain-*.markdown` —— 所以关掉没有损失。
-`scratchPad.location` 在 3.0 也已废弃（改叫 `pathToFile`），真要草稿本得按新写法重配。
+#### no-neck-pain 上游补丁：已删（2026-10-30）
 
-#### no-neck-pain 上游补丁：在 zen 里按 `<leader>z` 会让整个 nvim 闪退（2026-09-18）
-
-> ★ **2026-10-30 补丁已删**：3.0 的 `util/api.lua` 已改成和补丁一样只看传入的 `win`。
-> 下面留作这个坑的原理记录。
-
-复现：`<leader>z` 开 NNP → `<leader>uz` 开 zen → 再按 `<leader>z` 关 NNP，
-**nvim 直接退出，终端窗口跟着关掉**。执行的是带 `!` 的 `quitall!`（disable 里有一道
-modified buffer 检查兜底会中止退出，但别依赖它）。
-
-根因在 `no-neck-pain/util/api.lua` 的 `is_relative_window(win)`：
-
-```lua
-vim.api.nvim_win_get_config(0).relative ~= ""      -- 0 = 当前窗口，不是参数 win
-    or vim.api.nvim_win_get_config(win).relative ~= ""
-```
-
-`0` 在 nvim API 里指当前窗口，两个条件 `or` 起来，**只要人在浮窗里，传任何窗口 id
-进去都返回 true**。而 `main.disable` 拿它盘点窗口：
-
-```lua
-local wins = vim.tbl_filter(function(win)
-    return win ~= left and win ~= right and not api.is_relative_window(win)
-end, vim.api.nvim_tabpage_list_wins(active_tab))
-
-if #vim.api.nvim_list_tabpages() == 1 and #wins == 0 then
-    return vim.cmd("quitall!")
-end
-```
-
-在 zen 浮窗里触发 disable，三个普通窗口全被误判成浮窗滤掉 → `#wins == 0` → NNP
-认定「关掉边距后什么都不剩了，用户就是想退出」→ `quitall!`。
-
-**这不是笔误。** 函数的文档注释写的就是「the given win **or** the current window」，
-`event.skip()` / `skip_enable()` 那几处**无参**调用正是靠这个语义做「当前在浮窗就别管」
-的守卫，在那里它完全正确。出事的是 `disable` 的 filter —— 它需要的是纯粹的谓词
-「这个窗口是不是浮窗」。同一个函数同时当守卫和谓词用，守卫位置一直是对的，
-所以这个 bug 一直藏到有人在浮窗里去拆布局才炸。
-
-补丁写在 `no-neck-pain.lua` 的 `config` 里，把它改成只看传入的 `win`。运行时覆盖，
-不动插件文件，`:Lazy update` 不会冲掉。⚠ 安全性是逐个调用点核过的：三处**无参**调用
-（`main.lua` 的 QuitPre、`event.lua` 的 `skip` / `skip_enable`）行为**完全不变**
-—— 无参时 `win` 本就等于当前窗口，两个判据等价；五处带参调用修复后才符合其字面语义。
-
-上游 main 分支截至 2026-09-18 仍是这段代码。
+2.x 时在 zen 浮窗里按 `<leader>z` 会让整个 nvim `quitall!` 闪退（`is_relative_window(win)` 同时看了当前窗口 `0`），
+当时在 `no-neck-pain.lua` 里打了运行时补丁；3.0 上游已改成只看传入的 `win`，补丁随之删掉。
+原理分析见 `git show f23564b:docs/04-neovim.md`。
 
 #### 操作顺序有讲究
 
@@ -486,34 +439,13 @@ kernel 跑在项目 venv 里，nvim 的 host 环境保持干净，每个项目�
 **给 molten 当图像 provider**，把 kernel 回传的 plot 画进 cell 输出。`snacks.image`
 已关（`snacks.lua` 里 `image = { enabled = false }`）。
 
-#### 来龙去脉：为什么先走 snacks，又为什么切回 image.nvim
+#### 为什么是 image.nvim 而不是 snacks.image
 
-最初的症状（2026-09-11）：在 mini.files 里按 `l` 打开一个 png，nvim 把二进制字节当文本
-渲染，满屏乱码。根因是**整个 nvim 里没有任何东西能渲染图片**：没装 `image.nvim`，
-而 `snacks.nvim` 自带的 image 模块处于关闭状态——它的 `defaults` 表里压根没有顶层
-`enabled` 键（`snacks/image/init.lua:50`），取值为 `nil` 即假；LazyVim 默认也只开
-indent / input / notifier / scope / scroll / words 六个模块，不含 image。
-
-当时选 snacks.image 而不是 image.nvim，理由只有一条——**依赖形态**：
-
-| | 要什么 | 本机状态 |
-|---|---|---|
-| `image.nvim`（默认 processor） | `magick` **luarock**（luarocks 装，可能要编译） | 没有 luarocks |
-| `snacks.image` | ImageMagick 的**命令行程序** `/usr/bin/magick` | ✅ 已装（做 ASCII 壁纸用的） |
-
-`molten.lua` 里那句「不接 image.nvim（需要 magick luarock）」记的就是这个坎。
-
-但 snacks.image **顶不了 molten 的班**：molten 的 image provider 只认 `none` /
-`image.nvim` / `wezterm` 三个值（`molten/images.py:265-274`），不认 snacks。两者是
-彻底独立的机制——snacks.image 管「打开磁盘上的图片文件」，molten 管「把 kernel 通过
-iopub 回传的图像字节画进输出」，后者根本不经过文件系统，`BufReadCmd` 无从拦截。
-结果是 `plt.show()` 只剩一行 `<Figure size ...>`。
-
-破局点是 **image.nvim 其实有两种 processor**：默认的 `"magick_rock"`（FFI 绑定，
-要 luarock）之外还有 **`"magick_cli"`**——直接 shell out 到系统 ImageMagick 的
-`magick` / `convert` / `identify`，零 luarock。这和 snacks.image 的依赖形态完全一样，
-当初的顾虑就不存在了。既然 image.nvim 能同时干两件事，就没理由再养两套：**打开图片
-文件也交给它，snacks.image 关掉。**
+snacks.image **顶不了 molten 的班**：molten 的 image provider 只认 `none` / `image.nvim` / `wezterm`
+（`molten/images.py`），kernel 回传的图像字节不经过文件系统，snacks 拦不到，`plt.show()` 只剩一行 `<Figure size ...>`。
+当初躲 image.nvim 是因为默认 processor `"magick_rock"` 要 luarock；它另有 **`"magick_cli"`**，直接用系统
+`/usr/bin/magick`，依赖形态和 snacks 一样。能一套干两件事就不养两套，snacks.image 关掉。
+（2026-09-11 先开 snacks.image、次日切换的经过见 `git show f23564b:docs/04-neovim.md`。）
 
 #### `image.lua` 里几处必须写对的地方
 
@@ -720,8 +652,7 @@ icons = {} }`，于是标题只剩颜色、`#` 原样保留。`render-markdown.l
 - **tokyonight 透明**：`transparent = true` + sidebars/floats 也透明，配合 kitty 的
   `background_opacity 0.6` 才能真的透出壁纸。只改一边是没用的。
 - **no-neck-pain**：`<leader>z` 居中 120 列阅读模式，两侧是纯空白边距（scratchPad 2026-10-30 已关）。
-  它和 `<leader>uz`（snacks.zen）是两层关系，另有一个「在 zen 里按 `<leader>z`
-  会闪退」的上游补丁 —— 都在上面「专注模式」一节。
+  它和 `<leader>uz`（snacks.zen）是两层关系，见上面「专注模式」一节。
 - **dadbod 数据库客户端已关**（2026-10-15，`disabled.lua`）：`lang.sql` 扩展会顺带装
   `vim-dadbod` / `vim-dadbod-ui`（`<leader>D` 的 DBUI）/ `vim-dadbod-completion`，用不上。
   只关这三个、**扩展本身留着**——SQL 的 treesitter 高亮和 sqlfluff 检查/格式化还要。
@@ -731,9 +662,8 @@ icons = {} }`，于是标题只剩颜色、`#` 原样保留。`render-markdown.l
   验证看合并后的 opts，别看 `require("blink.cmp.config")`——blink 没 setup 前那是默认值，
   有没有 dadbod 都一样：
   `require("lazy.core.plugin").values(require("lazy.core.config").plugins["blink.cmp"], "opts", false).sources.default`
-- **`<leader>D` 现在空着**（2026-10-15）：DBUI 关掉后让出来，一度绑成在 nvim tab 里跑 discordo
-  （终端版 Discord），当天又整套撤了，改用 Equibop + system24 主题（见 `docs/15-discord.md`）。
-  留两条通用教训：
+- **`<leader>D` 空着。**
+- 两条通用教训（当初接终端版 Discord 时踩的，仍然成立）：
   ① **nvim 进程的 `PATH` 里没有 `~/.local/bin`**——kitty 直接起 nvim、不经过 zsh，这个目录只在
   `.zshrc` 里加。nvim 里调 `~/.local/bin` 下的东西要写死路径兜底；在别的 shell 里无头测试测不出来，
   要按 `/proc/<nvim pid>/environ` 的 PATH 用 `env PATH=...` 模拟。

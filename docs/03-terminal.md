@@ -64,27 +64,14 @@ Mono 版把每个图标强制缩进一格宽，`󰲡` 这类「方框套数字�
 
 ### 单下 Esc 有 300ms 延迟 —— 已知、有意保留
 
-映射了 `<Esc><Esc>`，nvim 收到单下 Esc 时分不清还有没有第二下，只能扣留一个
-`timeoutlen`（LazyVim 设的 300ms）再放给程序。tmux 复制模式里按 Esc 取消选择时最明显。
-tmux 自己的 `escape-time` 是 10ms，跟它无关。同样的 `<Esc><Esc>` 一共有**三份**
-（这里、`autocmds.lua` 的 TermOpen、`toggleterm.lua`），buffer 级的也会造成等待，
-想改的话三处都要动。
-
-**2026-10-14 试过一版「看前台放行」，当天就撤回了**（`e636ab0` 及其 revert）：
-做法是把三份 `<Esc><Esc>` 都换成一个全局的单键 `<Esc>`，按下时读 `/proc/<shell pid>/stat`
-的 tpgid（终端前台进程组）：前台是 tmux / nvim 就立刻放行，其余照旧等第二下。
-实测延迟确实没了，但**tmux 里双击 Esc 也回不了 nvim 普通模式**，而平时要靠它在 tmux 里
-直接回普通模式、切 LazyVim 的 tab，只剩 `Ctrl+\ Ctrl+n` 太别扭。
-**这个取舍没有两全的解**：nvim 要想不等，就只能在还不知道有没有第二下的时候先把第一下放出去，
-这样第一下 Esc 就会漏给程序。tmux 里如果跑的是正在回答的 Claude，这一下就会把它打断。
-所以选择保留延迟、保住双击。别再往「去掉延迟」这个方向试了，除非能接受上面的代价，
-或者改用不以 Esc 开头的键来切模式。
+映射了 `<Esc><Esc>`，nvim 收到单下 Esc 时要扣留一个 `timeoutlen`（LazyVim 的 300ms）等第二下，tmux 复制模式里最明显
+（tmux 自己的 `escape-time` 是 10ms，无关）。同样的映射有**三份**（这里、`autocmds.lua` 的 TermOpen、`toggleterm.lua`），改要三处一起动。
+**别再往「去掉延迟」试**（2026-10-14 的「看前台放行」当天就撤了，`e636ab0` 及其 revert）：不等就只能先把第一下 Esc 放出去，
+tmux 里双击 Esc 就回不了 nvim 普通模式，第一下还会打断正在回答的 Claude。没有两全的解，除非改用不以 Esc 开头的键切模式。
 
 ### ⚠️ 必须用单引号
 
-kitty 对 `shell` 的值走 `shlex_split` 再做 `$` 变量展开（`kitty/utils.py` 的
-`resolved_shell`）。**单引号内的 `\` 原样保留**；换成双引号就得写成 `<C-\\><C-n>`。
-这一条踩过一次，写错了表现为 nvim 启动报映射错误。
+`shell` 的值会被 `shlex_split` 再做 `$` 展开，单引号内 `\` 原样保留，双引号要写成 `<C-\\><C-n>`；验证方法见 [07](07-troubleshooting.md) 坑 4。
 
 ### 想开纯 shell 窗口
 
@@ -97,14 +84,10 @@ kitty zsh        # 命令行给了程序就会覆盖 shell 那一行
 想要一个**小的浮动窗口**跑纯 zsh（像桌面挂件，拖到哪算哪）：Walker 里搜「浮动终端」，
 见 [02](02-hyprland.md)「浮动终端」。
 
-### 远程控制：开过又撤了（2026-10-15）
+### 远程控制：没开
 
-为了在当前 kitty 开新标签页跑终端版 Discord（discordo），一度开了
-`allow_remote_control socket-only` + `listen_on unix:${XDG_RUNTIME_DIR}/kitty-{kitty_pid}`。
-kitty 标签页和 nvim 的 tab 是**两套**，新标签页整个盖住 nvim，不合用；discordo 后来也整套换成了
-Equibop（见 `docs/15-discord.md`），远程控制随之撤掉。以后真要开，记住两点：用 `socket-only` 不用 `yes`
-（后者让终端里打印的转义序列就能控制 kitty）；套接字放 `$XDG_RUNTIME_DIR`，别用 `unix:@名字`
-（Linux 抽象套接字不受文件权限保护）。
+`allow_remote_control` 没开（曾为 discordo 开过、已撤）。以后真要开：用 `socket-only` 不用 `yes`（后者让终端里打印的转义序列
+就能控制 kitty）；套接字放 `$XDG_RUNTIME_DIR`，别用 `unix:@名字`（Linux 抽象套接字不受文件权限保护）。
 
 ### kitty 标签栏 = 底部药丸 / 页码点（2026-11-13）
 
@@ -182,61 +165,24 @@ brightness = 0.90   -- 微压暗，任何壁纸都不会亮到影响读代码
 
 各值的完整理由写在 `mykeys.lua` 第 13 节逐行注释里。
 
-### ⚠️ 别再试「保留剪影」那条路
+### ⚠️ 保留剪影、轻糊都试过，别再试
 
-2026-08-28 走过一次弯路，记下来免得重来：
+结论就是上面的糊透。两条「更透」的路都走过、都退回了：
 
-嫌官方 `passes = 4` 糊得太死，去调 `passes = 1, size = 13, brightness = 1.1`
-（降采样只做一次 + 大半径，让壁纸主体的剪影柔和透出来）。**对着当时那张稀疏的
-ASCII art 壁纸确实好看**——人像剪影浮出来但认不出单个字符，很有玻璃压在图上的层次。
+- **降 passes 保留剪影**（2026-08-28，`passes=1, size=13`）：对稀疏 ASCII 壁纸好看，换实心插画立刻
+  「一张脸压在文字上」。保留结构的方案只对「95% 是 flat 深底」的图成立，没法通用。
+- **43PR 风格轻糊**（2026-11-11，配暗色单色壁纸）：`passes=1` 会**重影**（Kawase 单 pass 只从几个离散点取样；
+  他那边看不出是因为窗口只透 10%，本机 kitty 透 40%）；`2·3` 不重影，但**字后面有图案本身就累眼**，同日退回。
+  真要那个味道得连透明度一起抄（kitty 不透明 + 窗口 0.9），和「更透」的出发点相反。
 
-然后换成正常插画壁纸（实心、高对比、亮主体），立刻翻车：**一张脸清清楚楚压在文字上**，
-亮块直接盖住整段代码。
+仍然成立的知识：**Kawase 模糊每加一 pass 就把画面降采样一半**，`passes = 4` 等于降到 1/16，
+想「不那么糊」要减的是 `passes` 不是 `size`。过程记录见 `git show f23564b:docs/03-terminal.md`。
 
-结论：**保留结构的方案没法通用，只对「95% 是 flat 深底」的稀疏图成立。**
-想要一组换壁纸不用管的值，就得糊透。这也是为什么 `contrast` 要保持 `1.0`——
-往上调等于把糊剩的边缘重新拉出来，抵消糊透的努力。
+顺带两条：
 
-顺带一条仍然成立的知识：**Kawase 模糊每加一 pass 就把画面降采样一半**，
-`passes = 4` 等于降到 1/16。所以想让模糊「不那么糊」，要减的是 `passes` 不是 `size`
-——只是在这套配置里我们**不想**要那个效果。
-
-### 轻糊（43PR 风格）：试过，退回（2026-11-11）
-
-想换个味道，学 [43PR/dotfiles](https://github.com/43PR/dotfiles) 的 `look.lua`
-那种「几乎不糊」的效果。上面那条的教训（保留结构只对深底稀疏图成立）这次是**认的**，
-所以配套换了壁纸：从壁纸库按「亮度低、去暗部后饱和度低、深色占比高、无亮块」打分，
-再从 wallhaven anime 分类（主色黑、≥2560×1440）补了 18 张暗色单色二次元图，
-放在 `~/Pictures/Wallpapers/mono-anime/`（不入包）。
-
-**他的配方**拆开看是四件事，透明本身反而是最次要的：
-
-| | 43PR | 本机 |
-|---|---|---|
-| 透明靠谁 | Hyprland 给所有窗口 `opacity 0.9 override`，全屏 1.0；kitty 不透明 | kitty `background_opacity 0.6`，Hyprland 对终端 `1.0 override` |
-| 模糊 | `passes=1, size=5, vibrancy=0.2`，其余默认 | 糊透 |
-| 底色 | 纯黑 `#000000` + 白字单色主题 | noctalia 按壁纸生成 |
-| 壁纸 | 黑白、大片纯黑 | — |
-
-**过程与结果：**
-
-1. 照搬 `passes=1, size=5` → **重影**：Kawase 只跑 1 pass 时每个像素只从几个离散偏移点取样，
-   锐利边缘被复制成几层错开的半透明副本；当时那张网点/抖动风格壁纸还起了棋盘格摩尔纹。
-   **43PR 那边看不出来，是因为他窗口 opacity 0.9 只透 10%；本机 kitty 透 40%，缺陷全露出来。**
-   只抄模糊参数、不抄透明度，前提就不成立了。
-2. `grim` 并排比了 关 / 1·5 / 2·3 / 2·5 / 3·3：**2·3** 是「还认得出轮廓、又没有重影」的最轻一档。
-3. 换成 2·3 后仍然**看着眼睛不舒服**，当天退回糊透。问题不在参数，在于**字后面有图案本身就累眼**
-   ——这和「糊透 = 认不出原图 = 不会有东西压在代码上」是同一个道理，只是这次是从舒适度而非亮块撞上的。
-
-结论：**本机这套「kitty 透 40%」的前提下，轻糊这条路不舒服，别再试。**
-真想要 43PR 那个味道，得连透明度一起抄（kitty 不透明 + 窗口 0.9），那就不是「更透」了，
-和当初「提高透明度」的出发点相反。
-
-顺带记两条：
-- 动态壁纸（noctalia 5.4.1 不支持视频，要另装 `mpvpaper`）讨论过没上。要上的话注意
-  **壁纸一动，模糊每帧都得重算**，糊透（4 pass）在 Radeon 610M 上最贵；`mpvpaper --auto-pause`
-  能在被全屏窗口挡住时暂停。
-- kitty 加了 `dynamic_background_opacity yes`，留着：`Ctrl+Shift+A` 再按 `L` 更透 / `M` 更实 /
+- 动态壁纸（noctalia 不支持视频，要另装 `mpvpaper`）没上；要上注意**壁纸一动模糊每帧都得重算**，
+  `mpvpaper --auto-pause` 能在被全屏窗口挡住时暂停。
+- kitty 开着 `dynamic_background_opacity yes`：`Ctrl+Shift+A` 再按 `L` 更透 / `M` 更实 /
   `D` 回到配置值，只影响当前窗口、不写回配置。⚠ 这个选项**只在 kitty 进程启动时读**，
   在已有进程里 `Ctrl+Shift+N` 开的新窗口也不算，得从启动器/快捷键起一个全新进程。
 
@@ -301,7 +247,7 @@ hyprctl getoption decoration:blur:xray     # bool: false · set: false ← 没�
 `magick -fill black -colorize (100-亮度)%` 把原图往黑里压，`background_tint` 固定为 0。
 ⚠ 别用 `-modulate 亮度` 压：它在 HSL 里算，暗部会冒出橙色/红色色块。
 
-**快捷键怎么遥控 kitty**：本机没开 `allow_remote_control`（见上文「远程控制：开过又撤了」），
+**快捷键怎么遥控 kitty**：本机没开 `allow_remote_control`（见上文「远程控制」），
 键位用的是 `launch --type=background --allow-remote-control kitty-bg …`——kitty 只给**这一个子进程**
 发一条专用的 socket pair（`KITTY_LISTEN_ON`），不对外开监听。在命令行直接跑 `kitty-bg` 没有这个变量，
 只会更新软链，影响新开的窗口。
@@ -334,11 +280,7 @@ hyprctl getoption decoration:blur:xray     # bool: false · set: false ← 没�
 
 ### ⚠️ 绝对不要在 .zshrc 里 source 任何主题
 
-powerlevel10k 在 `precmd` 里重新赋值 `PROMPT`，任何静态赋值都会被冲掉。
-`ZSH_THEME=...` + 手动 `source robbyrussell.zsh-theme` 那种写法在这里是无效的——
-表现为「配置看着对，提示符就是不变」。主题配置全部走 `~/.p10k.zsh`。
-
-（这正是 [07](07-troubleshooting.md) 坑 2 的内容。）
+p10k 在 `precmd` 里重新赋值 `PROMPT`，静态写法会被冲掉；主题配置全部走 `~/.p10k.zsh`。见 [07](07-troubleshooting.md) 坑 2。
 
 ### .zshrc 的分区
 
@@ -396,13 +338,8 @@ cd ~/.local/share/fortune/poems && strfile tang300 && strfile song100
 
 #### ⚠️ 这个文件是 load-bearing 的，删了不会回退到 robbyrussell
 
-基线第 101 行是**条件加载**（`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`），文件不在
-就整行跳过，环境里一个 `POWERLEVEL9K_*` 都没有 → 走向导 / 裸默认。
-**p10k 没有「回退到某个预设」的行为。** 判据和完整分析见 [07](07-troubleshooting.md) 坑 1。
-
-这里只补一条那边没写的：这个坑不只发生在「新机器没装」，也发生在**文件后来被删掉**。
-2026-08-26 就踩过一次，症状是提示符变成谁也没见过的样子，当时误判成「shell 配置被改坏了」。
-先跑 `./sync.sh` 看一眼——它会直接报 `! 系统上不存在：~/.p10k.zsh`，比猜快得多。
+文件不在就会弹向导 / 裸默认，p10k 没有「回退到某个预设」的行为。判据、二次发作的诊断（`./sync.sh` 直接报缺文件）
+和修法（`./install.sh term`）见 [07](07-troubleshooting.md) 坑 1。
 
 #### 为什么不直接用 oh-my-zsh 原版 robbyrussell
 

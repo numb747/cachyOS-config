@@ -162,9 +162,9 @@ librsvg
 # lua                     (可选) 只为 install.sh 的 luac -p 语法预检，不装则跳过该步
 # nvim 的 mason 工具链    见 docs/04-neovim.md「语言工具链」一节
 
-# ── Discord 远程驱动 Claude Code（claude-discord-sync，非 install.sh 模块）──
-# bun：那个守护进程直接跑 TypeScript 源码要用它。仓库检出、bot token、systemd 单元
-# 都不在本包里，装法见 docs/08-claude-code.md 第 9 节。
+# ── 手机远程驱动 Claude Code（Matrix 同步 ccm，非 install.sh 模块）──
+# bun：~/src/matrix-migration 的守护进程直接跑 TypeScript 源码要用它。仓库检出、
+# 凭据、systemd 单元都不在本包里，装法见那个仓库的 docs/DEPLOY.md。
 bun
 
 # ── Discord 客户端（discord 模块）────────────────────────────────

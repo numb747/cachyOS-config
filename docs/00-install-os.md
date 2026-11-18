@@ -5,7 +5,7 @@
 
 > 整理于 2026-08-25。命令与包名基于当时的 Arch / CachyOS 状态，执行前建议对照上游文档确认。
 >
-> ⚠️ **本篇第 6、7 节的组件选型不是本配置在用的东西**，见那两节开头的说明。
+> ⚠️ **本篇第 6~8 节的组件选型不是本配置在用的东西**，已压成摘要。
 
 ---
 
@@ -208,127 +208,24 @@ sudo cachyos-rate-mirrors
 
 ## 6. ⚠️ Wayland 组件生态（**本配置不用这一套**）
 
-> **本配置用的是 CachyOS 自带的 `cachyos-hypr-noctalia`**：noctalia 一个包同时提供
-> 顶栏、启动器、通知、锁屏、主题引擎；终端是 kitty。**不是**下面这套 waybar + fuzzel +
-> mako + foot 的组合。
->
-> 这一节保留是因为它讲清了 Hyprland 下各类组件的分工——**换机器时不需要执行它**，
-> 只在你想脱离 noctalia 自己拼一套时才有用。装本配置请看 [INSTALL.md](../INSTALL.md)。
-
-```bash
-# 核心
-sudo pacman -S hyprland xdg-desktop-portal-hyprland
-# 会话 / 锁屏 / 待机
-sudo pacman -S greetd greetd-tuigreet hyprlock hypridle
-# 状态栏 / 通知 / 启动器
-sudo pacman -S waybar mako fuzzel
-# 终端 / 文件管理
-sudo pacman -S foot yazi thunar
-# 音频 / 剪贴板 / 截图
-sudo pacman -S pipewire pipewire-pulse wireplumber wl-clipboard grim slurp
-# 壁纸：静态 + 动态
-sudo pacman -S hyprpaper swww mpvpaper
-```
-
-**启动器选型**（本配置 2026-10-09 起用 Walker + Elephant 取代了 noctalia 自带启动器，选型理由见 [13](13-launcher.md)）：
-
-| 启动器 | 轻重 | 说明 |
-|---|---|---|
-| fuzzel | 极轻 | 原生 Wayland，启动几乎无延迟 |
-| tofi | 最轻 | 比 fuzzel 更极端，追求毫秒级 |
-| wofi | 轻 | 老牌，CSS 可定制 |
-| rofi-wayland | 稍重 | 功能最全：dmenu、剪贴板、窗口切换、电源菜单 |
-| walker / anyrun | 最重 | 插件化，计算器、翻译、文件搜索扩展强 |
-
-**现成 dotfiles**（想省事又不用本配置时）：HyDE（完整度高，结构清晰）·
-JaKooLit/Hyprland-Dots（安装脚本齐全）· end-4/dots-hyprland（偏华丽，稍重）。
+本配置用 CachyOS 自带的 `cachyos-hypr-noctalia`（noctalia 一个包提供顶栏、通知、锁屏、主题引擎；启动器 2026-10-09 起换成
+Walker，见 [13](13-launcher.md)），**不是** waybar + fuzzel + mako + foot 那套组合。装本配置看 [INSTALL.md](../INSTALL.md)。
+想脱离 noctalia 自己拼一套时的组件清单与启动器选型表见 `git show f23564b:docs/00-install-os.md`。
 
 ---
 
-## 7. Wallpaper Engine 在 Wayland 下的方案
+## 7. Wallpaper Engine 在 Wayland 下的方案（未采用）
 
-**能用，但不是 Steam 上那个官方 Wallpaper Engine。** 三条路：
-
-### 方案一：Steam 官方版 —— 基本不可行
-
-至今没有原生 Linux 版。用 Proton 能把程序跑起来，但**只能显示在普通窗口里，无法真正
-接管桌面背景层**。X11 时代有人用 `xwinwrap` 硬塞，Wayland 下连这个 hack 都没有。放弃。
-
-### 方案二：linux-wallpaperengine —— 实际可行
-
-社区开源重实现（`Almamu/linux-wallpaperengine`），直接读取 Steam 创意工坊**已下载的**
-壁纸资源来渲染。已支持 `wlr-layer-shell`，能在 Hyprland 上正常作为背景层使用。
-
-```bash
-paru -S linux-wallpaperengine-git
-
-# Wayland 下 --screen-root 填 hyprctl monitors 里的输出名
-linux-wallpaperengine --screen-root DP-1 --bg 1234567890 \
-  --assets-dir ~/.steam/steam/steamapps/common/wallpaper_engine/assets \
-  --scaling fill --fps 30 --silent
-```
-
-前提是本地要有创意工坊内容，路径通常是
-`steamapps/workshop/content/431960/<壁纸ID>/`。获取方式：在 Linux Steam 里用 Proton 装
-一次 Wallpaper Engine 订阅壁纸，或直接从 Windows 分区把 workshop 目录拷过来。
-
-| 壁纸类型 | 支持程度 | 备注 |
-|---|---|---|
-| 视频类 | 基本没问题 | 最稳，首选这类 |
-| Scene 场景类 | 大部分能跑 | 粒子 / 音频反应 / 鼠标交互属半支持 |
-| **Web（HTML5）类** | **最差** | 依赖 CEF，经常直接不行 |
-| 多屏 | 支持 | 每个 `--screen-root` 单独指定 |
-
-### 方案三：只要动态效果，不要 WE 生态
-
-很多 WE 壁纸本质就是个 mp4。用 RePKG 把 `.pkg` 解出来拿到视频文件，交给 `mpvpaper`：
-
-```bash
-mpvpaper -o "no-audio loop hwdec=auto" DP-1 ~/Videos/wallpaper.mp4
-```
-
-最轻、最稳、最省心，缺点是失去 WE 的交互和参数调节。
-
-> 如果 Wallpaper Engine 的完整体验是第一优先级，KDE Plasma 6 +
-> `wallpaper-engine-kde-plugin` 的支持度明显好于 Hyprland。但那就不是轻量 Hyprland 了。
+Steam 官方版无法接管 Wayland 桌面背景层；可行的是社区重实现 `linux-wallpaperengine`（读创意工坊已下载资源，
+视频类最稳、Web 类基本不行），或把视频解出来交给 `mpvpaper`。本机没用动态壁纸，细节见上面的 git 指针。
+（想要 WE 完整体验，KDE Plasma 6 + `wallpaper-engine-kde-plugin` 明显更好。）
 
 ---
 
-## 8. 动态壁纸的功耗控制
+## 8. 动态壁纸的功耗控制（未采用）
 
-动态壁纸持续占 GPU，这是实际代价。两个手段：
-
-1. **限帧**：`--fps 30` 能省不少电，视觉损失很小
-2. **全屏时暂停**：监听 Hyprland IPC socket，检测到全屏窗口就暂停进程
-
-```bash
-#!/usr/bin/env bash
-# ~/.config/hypr/we-autopause.sh   需要 socat
-SOCK="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
-socat -U - UNIX-CONNECT:"$SOCK" | while read -r line; do
-  case "$line" in
-    fullscreen\>\>1) pkill -STOP -x linux-wallpaperengine ;;
-    fullscreen\>\>0) pkill -CONT -x linux-wallpaperengine ;;
-  esac
-done
-```
-
-> ⚠️ **未在真机验证。** socket2 的事件名在版本间偶有调整。不生效就先跑
-> `socat -U - UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock`
-> 观察实际输出，再对着调整匹配串。
->
-> 另外本配置的自启动写在 `~/.config/hypr/config/autostart.lua`（Lua 的
-> `hl.exec_cmd(...)`），不是 `exec-once =`。
-
-`hypridle` 里也可以顺手接上「关屏前先暂停壁纸」：
-
-```ini
-listener {
-    timeout = 300
-    on-timeout = pkill -STOP -x linux-wallpaperengine; hyprctl dispatch dpms off
-    on-resume  = hyprctl dispatch dpms on; pkill -CONT -x linux-wallpaperengine
-}
-```
+要点两条：限帧（`--fps 30`）、全屏时监听 Hyprland `.socket2.sock` 暂停进程（`pkill -STOP/-CONT`）。
+原脚本未在真机验证，见上面的 git 指针。注意本配置自启动写在 `config/autostart.lua` 的 `hl.exec_cmd(...)`，不是 `exec-once =`。
 
 ---
 
@@ -342,22 +239,10 @@ listener {
 | 安装 Hyprland 桌面时极慢 | 进 TTY 先改**两份** mirrorlist（Arch + CachyOS） |
 | AUR 包卡在 clone | 那是 GitHub 网络，换 pacman 镜像无效，需代理 |
 | Hyprland 启动黑屏（NVIDIA） | 装 `nvidia-dkms`；检查环境变量；临时用 `nomodeset` |
-| 动态壁纸不显示 | `hyprctl monitors` 确认输出名；确认 `--assets-dir` 与 workshop 路径存在 |
-| Web 类壁纸完全无效 | 已知限制，改用视频类或走 RePKG + mpvpaper |
-| GPU 占用持续偏高 | 加 `--fps 30`；接上全屏暂停脚本 |
 | 更新后依赖冲突 | CachyOS 与 Arch 版本错位，等几小时或手动指定版本 |
 
 系统装好之后的问题看 [07-troubleshooting.md](07-troubleshooting.md)。
 
 ---
 
-## 已删除的一节
-
-原文档第 10 节是一份完整的**传统 `hyprland.conf`**（`bind = SUPER, F, fullscreen, 0`
-那种写法）+ waybar/hyprlock 配置。已删除，原因有二：
-
-1. **范式不对。** 本机用的是 Hyprland 0.56+ 的 **Lua 配置**（`hl.bind` / `hl.dsp.*`），
-   与 `.conf` 写法不通用。真实配置见 [02-hyprland.md](02-hyprland.md)。
-2. 原文自己标注了「未在真机验证」。
-
-需要传统 conf 写法的话，Hyprland wiki 是更可靠的来源。
+（原第 10 节传统 `hyprland.conf` 写法已删：本机是 Hyprland 0.56+ 的 Lua 配置，与 `.conf` 不通用，见 [02](02-hyprland.md)。）

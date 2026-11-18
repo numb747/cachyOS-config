@@ -310,17 +310,13 @@ mod_ui() {
 }
 
 mod_cc() {
-    head_ "cc —— Claude Code 本机工具（看板 / 宠物 TUI / 状态栏 / Agent Teams）"
+    head_ "cc —— Claude Code 本机工具（状态栏 / Agent Teams / skills）"
     put_module cc
     # manifest 里 cp -a 保原权限，但包里的权限万一被 tar 洗掉就跑不起来，兜一下
-    [ $DRY -eq 0 ] && chmod +x "$HOME/.claude/cc-pet.py" "$HOME/.claude/cc-watch.py" \
-                             "$HOME/.claude/statusline.sh" "$HOME/.claude/test-cc.py" \
-                             "$HOME/.claude/team-log.sh" 2>/dev/null
+    [ $DRY -eq 0 ] && chmod +x "$HOME/.claude/statusline.sh" "$HOME/.claude/team-log.sh" 2>/dev/null
 
     command -v claude >/dev/null 2>&1 \
-        || warn "没装 claude CLI —— 脚本装好了但没会话可看"
-    python3 -c 'import curses' 2>/dev/null \
-        || warn "python3 缺 curses 模块，ccp 起不来（ccw 不受影响）"
+        || warn "没装 claude CLI —— 工具装好了但用不上"
 
     cc_statusline
     cc_teams
@@ -404,8 +400,7 @@ mod_wall() {
     local W="$HOME/Pictures/Wallpapers/tokyonight"
     put wallpaper/11-w55gjr.png "$W/A-最搭/11-w55gjr.png"
     # D-ASCII 款多数是本包 _ascii.py 自己的产出，但重生成依赖 wallhaven 上的源图还在
-    # ——那个不可控，所以直接带成品兜底。其中 a1 是 settings.toml 默认指向的那张，
-    # 少了它装完就是纯色背景（且 misc.lua 的 background_color 正是按 a1 采样的）。
+    # ——那个不可控，所以直接带成品兜底（misc.lua 的 background_color 是按 a1 采样的）。
     # ★ 别把通配符写死成 *.png：c2-网点少女是 .jpg，只匹配 png 会静默漏掉它。
     # glob 走 $SRC 绝对路径：脚本可能从任意 cwd 调用，相对 glob 展不开就会
     # 退化成字面量，put 只会报「包内缺文件」，看不出是 cwd 的问题。
@@ -415,7 +410,7 @@ mod_wall() {
         put "wallpaper/ascii/$(basename "$a")" "$W/D-ASCII/$(basename "$a")"
     done
     put_module wall
-    inf "带了 1 张参考图 + $(ls -1 "$SRC"/wallpaper/ascii/ 2>/dev/null | wc -l) 张 D-ASCII 成品。整库用 python _fetch.py 重新拉，见 docs/05"
+    inf "带了 1 张参考图 + $(ls -1 "$SRC"/wallpaper/ascii/ 2>/dev/null | wc -l) 张 D-ASCII 成品。其余壁纸包里不带，出处见 wallpaper/tokyonight/_picks*.json"
 
     # settings.toml 里记的是【当时正在用的】那张，未必是包里带的这张 ——
     # 壁纸换得比配置勤，包不可能每次都跟着塞图。缺了就明确告诉用户去哪补。
@@ -426,7 +421,7 @@ mod_wall() {
             warn "noctalia 记录的壁纸不在磁盘上：${want/#$HOME/\~}"
             inf  "桌面会显示纯色背景。补救二选一："
             inf  "  · 在 noctalia 里重选一张（$W/ 下有本包带的 11-w55gjr.png）"
-            inf  "  · 或 cd $W && python _fetch.py 把整库拉回来"
+            inf  "  · 或按 wallpaper/tokyonight/_picks*.json 里的出处去 wallhaven 手动下回来"
         fi
     fi
 }
@@ -511,7 +506,7 @@ declare -A DESC=(
     [term]="kitty / alacritty / zsh / powerlevel10k / tmux"
     [nvim]="LazyVim 全套配置"
     [ui]="noctalia 顶栏、GTK/Qt/btop 主题、环境变量、输入法"
-    [cc]="Claude Code 会话看板 / 宠物 TUI / 上下文状态栏"
+    [cc]="Claude Code 状态栏 / Agent Teams / skills / ccx 套餐"
     [wall]="壁纸与壁纸库脚本"
     [ocr]="屏幕取字（RapidOCR 常驻服务，Super+Shift/Alt+O）"
     [launcher]="Walker + Elephant 应用启动器（Alt+Space，g␣ 谷歌搜索）"

@@ -6,11 +6,9 @@
 
 ## 为什么换
 
-noctalia 自带启动器 bug 多，而且修不动。最典型的就是 [07 坑 10](07-troubleshooting.md)：
-面板打开不到 1 秒自己关掉，根因始终没查清，只能靠 `bin/noct-panel` 挪指针兜住。
-那次排查卡在一点上：**noctalia 所有面板共用同一个 layer surface**（启动器、剪贴板、
-控制中心都画在这一个上面），开关、焦点、指针判断走的是它内部同一套逻辑，
-从外面只能绕，没法修。功能上也有硬限制，比如
+noctalia 自带启动器 bug 修不动：面板打开不到 1 秒自己关掉（[07 坑 10](07-troubleshooting.md)），
+根因没查清——它所有面板共用同一个 layer surface、同一套开关/焦点/指针逻辑，从外面只能绕
+（当时靠 `bin/noct-panel` 挪指针，该脚本已删）。功能上也有硬限制：
 「已开窗口排在应用前面」上游 [#2470](https://github.com/noctalia-dev/noctalia/issues/2470)
 已 closed as not planned（见 [05](05-theme-ui.md#启动器provider-模型已被-walker-取代)）。
 
@@ -183,7 +181,7 @@ empty   = ["desktopapplications"]
 |---|---|
 | `ALT+Space` → `walker` | `config/hypr/mykeys.lua` 第 12 节 |
 | `SUPER+.` → `walker -m symbols` | 同上；第 1 节 `hl.unbind("SUPER + period")` 摘掉官方的 `launcher /emo` |
-| `SUPER+V` → `walker -m clipboard` | `config/hypr/mykeys.lua` 第 18 节（原来调 `bin/noct-panel clipboard`） |
+| `SUPER+V` → `walker -m clipboard` | `config/hypr/mykeys.lua` 第 18 节 |
 | 顶栏最左按钮 | `config/noctalia/config.toml` 的 `[widget.launcher.actions] left = "exec walker"`——图标还是 noctalia 的 launcher 组件，只覆盖左键动作（noctalia v5 每个组件都能这么改，见[官方文档 Widget Actions](https://docs.noctalia.dev/noctalia/bar/actions/)） |
 
 emoji 选中后是**复制到剪贴板**（elephant-symbols 默认 `command = "wl-copy"`），再 `Ctrl+V` 粘。
@@ -193,8 +191,7 @@ emoji 选中后是**复制到剪贴板**（elephant-symbols 默认 `command = "w
 ## 剪贴板
 
 2026-10-09 起 `SUPER+V` 也从 noctalia 面板换成了 Walker（`elephant-clipboard` 插件），
-原因同启动器：noctalia 面板「一闪就关」（[07 坑 10](07-troubleshooting.md)），之前靠
-`bin/noct-panel` 挪指针兜着。
+原因同启动器：noctalia 面板「一闪就关」（[07 坑 10](07-troubleshooting.md)）。
 
 | 操作 | 键 |
 |---|---|
@@ -236,7 +233,7 @@ kitty 里粘贴成功（Ctrl+Shift+V），zenity 输入框里粘贴成功（Ctrl
 
 | | noctalia（原来） | elephant（现在） |
 |---|---|---|
-| 面板自关 bug | 有，靠 noct-panel 兜 | 结构上没有 |
+| 面板自关 bug | 有 | 结构上没有 |
 | 预览 | 有 | 有（右侧大预览，图片直接显示） |
 | 编辑后再用 / 暂停记录 / 按类型筛选 | 无 | 有 |
 | 自动粘贴 | 原生 | 靠 `clip-paste` 补 |
@@ -264,21 +261,9 @@ elephant generate doc <provider>      # 某插件全部配置项（和默认值�
 
 ## 坑
 
-### 坑 1：企业微信的幽灵窗口会在窗口列表里显示成空白行
+### 坑 1：无标题幽灵窗口在窗口列表里显示成空白行
 
-> 2026-10-09 wine 版企业微信已卸载（[09](09-wine-apps.md)），这个坑的来源没了。
-> `empty = ["desktopapplications"]` 暂保持原样，以后别的程序冒出无标题窗口还是同一套绕法。
-
-企业微信（wine）有几个**无标题**的幽灵窗口，Hyprland 里被规则停放在
-`special:wine_ghosts`。Elephant 的 windows 插件走的是
-`wlr-foreign-toplevel` 协议，**看不到工作区**，也**没有任何过滤选项**（只有 `delay` /
-`show_workspaces` / `show_empty_workspaces`），于是原样列出来：图标是个通用图标，标题空白，
-副标题 `wxwork.exe`。
-
-绕法：`empty = ["desktopapplications"]`，空查询时不查窗口。敲字后它们标题为空，
-只有敲 `wx…` 匹配到副标题才会冒出来，日常碰不到。
-真要根治得给 elephant 的 `internal/providers/windows/setup.go` 加一句「标题为空就跳过」，
-那就成了要自己维护的补丁，目前不值得。
+`empty = ["desktopapplications"]`：空查询只列应用、不查窗口——windows 插件（wlr-foreign-toplevel）看不到工作区、没有过滤选项，无标题窗口会原样列成空白行（当初是 wine 版企业微信，原文见 `git show f23564b:docs/13-launcher.md`）。
 
 ### 坑 2：Hyprland 的 layer 毛玻璃对 Walker 不生效（原因未查）
 
@@ -296,7 +281,7 @@ elephant generate doc <provider>      # 某插件全部配置项（和默认值�
 
 本机 `LANG=en_US.UTF-8`，所以 .desktop 取的是 `Name=` 而不是 `Name[zh_CN]=`。
 中文名的应用照样能搜到，因为
-elephant 也匹配 Comment / Keywords（当初 wine 版企业微信的 Comment 写了「企业通讯」，搜「企业」就能出来）。
+elephant 也匹配 Comment / Keywords。
 想全切中文：`~/.config/elephant/desktopapplications.toml` 写 `locale = "zh_CN"`。
 ⚠ 拼音搜中文名**不支持**（noctalia 那边也不支持，换启动器不涉及这条）。
 
@@ -337,101 +322,33 @@ Walker 常驻服务**启动时**按「当时 elephant 已加载的插件」给�
 
 ### 坑 7：同一个应用，窗口开着却排在「启动新实例」后面
 
-2026-10-09 现象：LocalSend 开着，搜 `local` 出来三条同名 LocalSend，第一条是开新实例，窗口排第三。
-三条分别是：Waydroid 导出的**安卓版** LocalSend、原生 `localsend.desktop`、windows 插件给的窗口。
-名字一样，模糊匹配分完全相同（140），拉开差距的全是**历史分**：
+原因：desktopapplications 默认 `history = true`，启动过的应用有历史加分；windows 插件没有历史机制，
+窗口永远只有裸匹配分，于是「用过的应用」压过「开着的窗口」。现状（`~/.config/elephant/desktopapplications.toml`
++ 补丁插件）：
 
-- desktopapplications 默认 `history = true`，启动过的应用加分（`localsend.desktop` +20，安卓版 +2）；
-- windows 插件**没有历史机制**，窗口永远只有裸匹配分。
+1. **`window_integration = true`**。上游的 `score_open_windows`（有窗口的应用压分，默认 true）只有开了它才生效——
+   源码里 `hasWindow` 只在 `window_integration` 时计算。顺带应用条目回车也是聚焦已有窗口，
+   **真要开新实例按 `Ctrl+Return`**（Walker 内置 `new_instance`）。
+2. **补丁：有窗口的应用分数 = 它窗口的分数 − 1**（上游是写死的 `score / 2`，只保证应用在窗口下面，
+   中间会夹进 LibreOffice Calc 这类词首匹配高分的无关条目）。窗口分用和 windows 插件相同的算法：
+   在标题、app_id 里取**原始分最高**的字段，再减它的起始位置，`max(…, 10)`，多个窗口取最高。
+   ⚠ 顺序不能反成「每个字段先减再取最大」，否则会比 windows 插件算高，应用又跑到窗口前面。
+   窗口分不超过 `min_score`（30）时不动应用的分。
+3. **补丁：按「app_id = .desktop 文件名」认窗口**（freedesktop 约定）。上游只比 `StartupWMClass` / `Icon` /
+   `Exec` 第一个词，`org.kde.ark`、`org.kde.dolphin` 这类（Exec 只写 `ark`/`dolphin`）认不出自己的窗口。
+4. 补丁还把 blacklist 检查挪进了 `addNewEntry`：上游只在启动扫目录时查，之后文件监听新建的 .desktop 不查。
+   眼下 `desktopapplications.toml` 没有 blacklist。要加的话它是正则，匹配**去掉 .desktop 的文件名**，要写 `^…$`。
 
-所以「用过的应用」必然压过「开着的窗口」。上游有现成的对策 `score_open_windows`
-（有窗口的应用分数减半，默认就是 true），但源码里 `hasWindow` 只在 `window_integration = true`
-时才计算——**不开 window_integration，score_open_windows 完全不生效**，文档里那句
-「Requires window_integration」就是这个意思。
+用户的要求是「同一个应用，窗口永远第一、自己的应用紧贴在下面」。2026-10-10 拿当时开着的所有窗口按全名和短前缀扫过一遍，都满足。
 
-`desktopapplications.toml` 的做法：
+补丁在 fork 的 `desktopapps-window-first` 分支（6a63b9e），AUR 包 `elephant-desktopapplications-windowfirst 2.22.1-3`
+（笔记本发布）。⚠ 源机器暂装的是同一补丁本地构建的原名包 `2.22.1-1.2`，待换过去，见 `aur/README.md`。
 
-1. `window_integration = true`：「有窗口就压分」生效，窗口排到前面；顺带应用条目回车也是聚焦已有窗口。
-   **真要开新实例按 `Ctrl+Return`**（Walker 内置的 `new_instance` 动作）。
-2. ~~`blacklist` 掉同名副本~~（**2026-11-17 Waydroid 整套卸载，安卓版 LocalSend 没了，这条 blacklist 已删**，
-   现在 `desktopapplications.toml` 里没有 blacklist）。当初的理由：同名副本没有窗口、不会减半，照样压着窗口，
-   屏蔽的是 Waydroid 安卓版 LocalSend。（当初还屏蔽了 `~/.wine` 里 Windows 版 Firefox 的两个开始菜单快捷方式，
-   和原生窗口同分 192=192、谁先随机；2026-10-09 wine 整套卸载，那条 blacklist 一并删了。）
-   blacklist 是正则，匹配**去掉 .desktop 的文件名**（子目录里的也只看文件名），要加 `^…$`。
+另：Exec 路径含 `.local` 的应用（如 Excalidraw）会被搜 `local` 带出来，`only_search_title = true` 能去掉，
+但会连 Comment 一起不搜（坑 3），没开。
 
-#### 减半太粗：无关条目夹进窗口和应用中间 → 本地补丁
-
-上面两步做完，窗口确实第一了，但搜 `local` 第二条变成了 **LibreOffice Calc**：
-
-| 条目 | 分 | |
-|---|---|---|
-| LocalSend 窗口 | 140 | |
-| LibreOffice Calc | 123 | 模糊匹配 **L**ibre**O**ffice **Cal**c，三处都在词首，加成很高 |
-| Hardware Locality lstopo | 122 | |
-| WeCom | 97 | 匹配的是 Exec 路径 `/home/david/.local/bin/…` |
-| LocalSend 应用 | 72 | 144 减半 |
-
-减半只保证「应用在自己窗口之下」，不管中间夹进多少别的。减半是上游写死的
-（`query.go` 里 `score / 2`），配置调不了。
-
-补丁（AUR 包 `elephant-desktopapplications-windowfirst`，fork 的 `desktopapps-window-first` 分支）：
-**有窗口的应用分数 = 它窗口的分数 − 1**，窗口分用和 windows 插件完全相同的算法
-（在标题、app_id 里取**原始分最高**的那个字段，再减它的起始位置，`max(…, 10)`），多个窗口取最高的。
-这样应用紧贴在自己窗口下面。⚠ 顺序不能反：最初写成「每个字段先减再取最大」，Dolphin 的标题原始分高但起始
-位置靠后、app_id 相反，于是算出 160 而 windows 插件给的是 158，应用（159）又跑到窗口前面去了（2026-10-10）。
-窗口分不超过 `min_score`（30，窗口基本没匹配上）时不动应用的分。
-
-实测（隔离实例对比，2026-10-09）：
-
-| 搜 | 原版 第 2 条 | 补丁版 第 2 条 |
-|---|---|---|
-| `local` | LibreOffice Calc 123 | LocalSend 应用 139 |
-| `fire` | Firefox 58（与 LibreOffice Impress 56 只差 2） | Firefox 113 |
-| `excal` | LibreOffice Calc 75 | Excalidraw 139 |
-| `libre`（无窗口） | 不变 | 不变 |
-
-WeCom / Excalidraw 因 Exec 路径含 `.local` 被搜出来是另一回事：`only_search_title = true` 能去掉，
-但会连 Comment 一起不搜（搜「企业」就出不来 WeCom，见坑 3），没开。
-
-#### 2026-10-10：被屏蔽的安卓版 LocalSend 又排回第一 → 补丁追加两处修复
-
-> 2026-11-17 Waydroid 已卸载、blacklist 已删，第一处修复眼下用不上；第二处（app_id = 文件名）对 KDE 应用仍然有效。
-
-现象：一夜之后搜 `local`，第一条又是安卓版 LocalSend（160 分，带历史），窗口 140 第二。
-**blacklist 是上游的 bug**：只在 elephant 启动时扫目录（`walkFunction`）那一次检查。之后由文件监听
-新建/改写的 .desktop 走 `addNewEntry`，**不查 blacklist**。而 Waydroid **每次会话启动都会删掉重建**
-自己导出的 .desktop（那天 08:14 那份就是新的），于是只要 elephant 先于 Waydroid 起来，屏蔽就失效。
-补丁把检查挪进 `addNewEntry`（所有入口都经过它）。
-
-同一版顺手修了另一个之前「有意没修」的：**按 app_id 认窗口时加上「app_id = .desktop 文件名」**
-（freedesktop 的约定）。上游只比 `StartupWMClass` / `Icon` / `Exec` 第一个词，于是 Waydroid 应用
-（app_id `waydroid.<包名>`）和不少 KDE 应用（`org.kde.ark`、`org.kde.dolphin`，Exec 只写 `ark`/`dolphin`）
-都认不出自己的窗口，应用照样带着历史分压过窗口。用户的要求是「同一个应用，窗口永远第一」，不只 LocalSend。
-
-验证（隔离实例，用复制出来的 applications 目录，起来后删掉重建安卓版的 .desktop，模拟 Waydroid）：
-
-| | 修复前 | 修复后（fork `desktopapps-window-first` 分支的 6a63b9e） |
-|---|---|---|
-| `local`，重建 .desktop 后 | 安卓版 160 → 窗口 140 → 原生 139 | 窗口 140 → 原生 139 |
-| `ark` | 应用 88 → 窗口 64 | 窗口 64 → 应用 63 |
-| `dolphin` | 应用 159 → 窗口 158 | 窗口 158 → 应用 157 |
-
-再拿当时开着的所有窗口扫了一遍（`v2ray` `draw` `ark` `dol` `mpv` `qq` `fir` `kit` `rust` `loc` 等全名和短前缀），
-都是「窗口 → 自己的应用」。搜 `libreoffice` 时 Calc / Writer 等和 Draw 窗口同分，那是**别的应用**，
-不受这条规则约束；Draw 自己的应用紧贴在 Draw 窗口下面。
-Waydroid 的窗口当时一个都没开，没有实测，是按代码和 Ark/Dolphin 同一路径推的。
-
-还剩的：
-
-- 两处修复已进 AUR 包 `elephant-desktopapplications-windowfirst 2.22.1-3`（2026-10-10 笔记本发布）。
-  ⚠ 源机器暂装的本地构建原名包 `2.22.1-1.2` 待换过去，见 `aur/README.md`。
-- （打补丁前还有一个「历史分累加到能翻盘」的理论风险，补丁版直接用窗口分覆盖应用分，这条不存在了。）
+原文（实测分数表、两次排错过程）见 `git show f23564b:docs/13-launcher.md`。
 
 ## 回退到 noctalia 启动器
 
-三处改回去即可，noctalia 那边的 `[shell.launcher]` 配置一直保留着没删：
-
-1. `mykeys.lua` 第 12 节：`hl.bind("ALT + Space", hl.dsp.exec_cmd(noctCall .. "panel-toggle launcher"))`；
-   删掉 `SUPER + period` 的 unbind 和 bind；第 18 节 `SUPER+V` 换回 `$HOME/.local/bin/noct-panel clipboard`
-2. `config.toml` 删掉 `[widget.launcher.actions]`
-3. `systemctl --user disable --now walker elephant`
+不再维护（`bin/noct-panel` 已删，Walker 是唯一入口）；noctalia 的 `[shell.launcher]` 配置还留着，原步骤见上面的 git 指针。

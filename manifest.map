@@ -22,12 +22,6 @@ config/hypr/config/misc.lua               ~/.config/hypr/config/misc.lua
 # （2026-10-10 前 mod_hypr 是硬编码 put，这一段每加一行 install.sh 都得另补一行 put；
 #   现在走 put_module，和别的模块一样只改这里。check.sh 会核对每个模块都有 put_module。）
 bin/hypr-screenrec                        ~/.local/bin/hypr-screenrec
-# 剪贴板面板的包装脚本。⚠ 2026-10-09 起 SUPER+V 已改走 Walker（launcher 模块），它【当前没有键位在用】，
-# 留着是为了回退：把 mykeys.lua 第 18 节的命令换回 noct-panel clipboard 即可。
-# 用快捷键开的 noctalia 面板会在【某种没查清的状态下】约 1 秒自己关掉，而那个状态里
-# 「指针在不在面板矩形内」是决定性变量。这个脚本开完面板把指针挪进去钉住、关掉后还原，
-# 不判断当前是不是坏状态（坏状态下是解药，好状态下只是多挪一次指针）。见 docs/07 坑 10。
-bin/noct-panel                            ~/.local/bin/noct-panel
 # 浮动终端：Walker 里搜「浮动终端」，小的无边框浮窗 kitty 跑 zsh。窗口规则在 mykeys.lua 第 20 节，
 # 两个文件缺一个就不成立（没规则会被平铺进布局）。见 docs/02-hyprland.md。
 # （第 20 节原是 ALT+Z = bin/dolphin-jump，2026-11-13 撤掉，原实现在 git 历史里。）
@@ -187,23 +181,12 @@ share/fcitx5/themes/tokyonight/arrow.png      ~/.local/share/fcitx5/themes/tokyo
 share/fcitx5/themes/tokyonight/radio.png      ~/.local/share/fcitx5/themes/tokyonight/radio.png
 
 #@module cc
-# Claude Code 的本机工具（2026-08-26 加）。三个入口：
-#   ccw/ccs 多会话看板（纯文本）· ccp 宠物版 TUI（能就地代答选择题）· statusline.sh 上下文占比状态栏
-# alias 定义在 home/.zshrc（term 模块）里，所以装了 term 没装 cc 会得到三个指向空文件的 alias。
+# Claude Code 的本机工具：statusline.sh 上下文占比状态栏、Agent Teams、arch-map 等。
+# （2026-11-18 删掉了看板 ccw/ccs、宠物 TUI ccp 和它们的测试脚本，网页版 ~/ccmon 取代；原文在 git f23564b。）
 # ★ statusline.sh 要靠 ~/.claude/settings.json 的 statusLine 段才生效，而那个文件含明文
 #   token、永不入包（见文末排除段）。所以 install.sh 的 mod_cc 会用 jq 把那一段【合并】进
 #   本机的 settings.json —— 只加键、不读 token。这行注释别删，否则下次会以为状态栏白装了。
-claude/cc_common.py                       ~/.claude/cc_common.py
-claude/cc-pet.py                          ~/.claude/cc-pet.py
-claude/cc-watch.py                        ~/.claude/cc-watch.py
 claude/statusline.sh                      ~/.claude/statusline.sh
-# 测试：test-cc.py 是纯函数、随手可跑；三个 e2e 会起真 claude 会话并消耗 API 额度，
-# 它们的价值在于把「按键序列为什么是这样」的实测过程固化下来，性质接近 docs。
-claude/test-cc.py                         ~/.claude/test-cc.py
-claude/e2e_answer.py                      ~/.claude/e2e_answer.py
-claude/e2e_ui.py                          ~/.claude/e2e_ui.py
-claude/pty_drive.py                       ~/.claude/pty_drive.py
-claude/probe_multiq.py                    ~/.claude/probe_multiq.py
 # Agent Teams（2026-10-11 加）：四个队员角色 + 团队日志钩子脚本。见 docs/14-tmux.md 第 7 节。
 # ★ 和 statusline 同理：团队开关 / teammateMode / 日志钩子写在 settings.json 里，
 #   由 mod_cc 用 jq 合并进本机文件（只加键、不读 token）。
@@ -246,26 +229,19 @@ share/applications/cc-shutdown.desktop    ~/.local/share/applications/cc-shutdow
 share/applications/cc-shutdown-cancel.desktop  ~/.local/share/applications/cc-shutdown-cancel.desktop
 
 #@module wall
-# ⚠ D-ASCII 成品（wallpaper/ascii/*，含 settings.toml 默认指向的 a1-紫调少女.png）
+# ⚠ D-ASCII 成品（wallpaper/ascii/*；a1-紫调少女.png 是 misc.lua background_color 当初取色的那张）
 #   【不要往这里加】—— install.sh 的 mod_wall 已经有一个 for 循环把整个
 #   wallpaper/ascii/ 铺到 ~/Pictures/Wallpapers/tokyonight/D-ASCII/，
 #   再在 manifest 里列一遍就是同一个文件被 put 两次、还会多出一条 sync 追踪项。
 #   加新成品只要把图丢进 wallpaper/ascii/，那个循环自动带上（它按 * 匹配，
 #   不是 *.png —— c2 是 .jpg）。
 #
-# 备选壁纸：wallhaven kxwp96（3840x2160，主色 #040509）。2026-09-03~09-16 期间是
-# 本机在用的那张，现已跟远程切回 a1（主色 #1a1b26）。它不属于 tokyonight 色系库、
-# 就是一张单独挑的图，所以放库根而不是 tokyonight/ 下，也就走 manifest 而非上面
-# 那个循环。换回它的话 config/hypr/config/misc.lua 的 background_color 要重新采样，
-# 命令见坑 15。
-wallpaper/wallhaven-kxwp96.jpg            ~/Pictures/Wallpapers/wallhaven-kxwp96.jpg
-wallpaper/tokyonight/_fetch.py            ~/Pictures/Wallpapers/tokyonight/_fetch.py
-wallpaper/tokyonight/_fetch2.py           ~/Pictures/Wallpapers/tokyonight/_fetch2.py
-wallpaper/tokyonight/_build.py            ~/Pictures/Wallpapers/tokyonight/_build.py
 wallpaper/tokyonight/_ascii.py            ~/Pictures/Wallpapers/tokyonight/_ascii.py
 wallpaper/tokyonight/_picks.json          ~/Pictures/Wallpapers/tokyonight/_picks.json
 wallpaper/tokyonight/_picks2.json         ~/Pictures/Wallpapers/tokyonight/_picks2.json
-wallpaper/tokyonight/index.html           ~/Pictures/Wallpapers/tokyonight/index.html
+# 主题循环切换（SUPER+SHIFT+T）与当前主题片单翻墙纸（SUPER+I），键位在 mykeys.lua。
+bin/theme-switch                          ~/.local/bin/theme-switch
+bin/theme-preview                         ~/.local/bin/theme-preview
 
 #@module ocr
 # 屏幕取字。RapidOCR（PP-OCRv6 + onnxruntime）替代 normcap —— 后者底层是 Tesseract，
@@ -277,8 +253,6 @@ wallpaper/tokyonight/index.html           ~/Pictures/Wallpapers/tokyonight/index
 #   并且已被 IgnorePkg 锁更新。整套缘由和重装步骤见 docs/10-ocr.md。
 bin/ocr-server                            ~/.local/bin/ocr-server
 bin/ocr-grab                              ~/.local/bin/ocr-grab
-bin/theme-switch                          ~/.local/bin/theme-switch
-bin/theme-preview                         ~/.local/bin/theme-preview
 config/systemd/user/ocrd.socket           ~/.config/systemd/user/ocrd.socket
 config/systemd/user/ocrd.service          ~/.config/systemd/user/ocrd.service
 
@@ -323,10 +297,7 @@ config/equibop/themes/system24-hide-server-list.theme.css    ~/.config/equibop/t
 #                                          由 install.sh 的 wall 模块直接铺开。
 # state/noctalia/community-palettes/*      安装时才拷，路径含 URL 编码
 # wallpaper/11-w55gjr.png                  壁纸本体，不会自己变
-# config/nvim/lua/plugins/example.lua      LazyVim 自带样例，从不改
 # share/fcitx5/themes/tokyonight/.src/     SVG 源与 render.sh，只在包里，不装到系统
 # docs/img/*.png                           文档配图，同上
-# bin/theme-switch                         主题循环切换脚本（Super+Shift+T 触发）
-# bin/theme-preview                        当前主题片单即时翻墙纸（Super+I）
 # ~/.ssh ~/.gnupg ~/.claude/settings.json  含密钥，永不入包
 # ~/.local/share/fcitx5/rime/              个人词库，体积不定

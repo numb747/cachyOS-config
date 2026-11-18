@@ -20,7 +20,7 @@
       │                                │                                │
 ┌─────▼─────────────┐    ┌─────────────▼──────────┐    ┌───────────────▼────┐
 │ Hyprland          │    │ noctalia (Quickshell)  │    │ 应用                │
-│ 合成器 · 键位      │◄──►│ 顶栏 · 启动器 · 锁屏    │    │ kitty → nvim        │
+│ 合成器 · 键位      │◄──►│ 顶栏 · 锁屏 · 通知      │    │ kitty → nvim        │
 │ config/*.lua 官方  │IPC │ 主题引擎 ★             │───►│ GTK / Qt / btop     │
 │ mykeys.lua 个人    │    │ 生成各程序的配色文件     │模板 │ 配色由它写出来       │
 └───────────────────┘    └────────────────────────┘    └────────────────────┘
@@ -40,7 +40,7 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 
 ```
 ~/.config/hypr/hyprland.lua   官方，唯一改动：末尾追加 require("mykeys")
-~/.config/hypr/config/*.lua   官方 —— 但有 3 个例外，见下
+~/.config/hypr/config/*.lua   官方 —— 但有 5 个例外，见下
 ~/.config/hypr/mykeys.lua     ← 全部键位个性化都在这一个文件
 
 ~/.zshrc                      第一行 source 发行版基线，之后只做叠加
@@ -48,7 +48,7 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 ```
 
 **例外**：`config/` 下的 `binds.lua` / `variables.lua` / `workspaces.lua` 为了实现
-纯动态工作区被改了。这是有意识付出的代价，理由和补救办法见 [02](02-hyprland.md#关于官方文件被改动)。
+纯动态工作区被改了，`windowrules.lua`（satty 规则）和 `misc.lua`（关内置壁纸）也改过。这是有意识付出的代价，理由和补救办法见 [02](02-hyprland.md#关于官方文件被改动)。
 
 ## 原则二：可选依赖必须静默降级
 
@@ -71,7 +71,7 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 | `+SHIFT` | 「**带着窗口一起**」 | `CTRL+ALT+SHIFT+HJKL` 搬窗口、`ALT+SHIFT+T` 带窗口去新桌面 |
 | `SUPER` | 官方保留的第二套入口 | `SUPER+Q` 关窗、`SUPER+F` 全屏 |
 
-记住这四行，116 条绑定基本不用查表。
+记住这四行，一百多条绑定基本不用查表。
 
 截图和录屏是这套分工在 `SUPER` 那一路的延伸：**`SHIFT` = 框选，`ALT` = 整屏**，
 `P`（截图）和 `R`（录屏）两套修饰键含义完全一致，见 [06](06-keymap-cheatsheet.md)。
@@ -91,4 +91,4 @@ CachyOS 用 `cachyos-hypr-noctalia` / `cachyos-zsh-config` 这类包持续维护
 | 不装 `wall` | `settings.toml` 里的壁纸路径指向不存在的文件，noctalia 显示纯色背景，无报错 |
 
 `ALT+E`（文件管理器）用 `uwsm app --` 前缀。不用 UWSM 的话把 `mykeys.lua` 第 14 节的
-`launchPrefix` 改成 `""`。（原第 5 节的分屏终端键 `ALT+\` 已于 2026-10-11 撤掉、让给 tmux，整节删了。）
+`launchPrefix` 改成 `""`。

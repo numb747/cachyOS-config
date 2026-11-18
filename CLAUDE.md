@@ -1,50 +1,36 @@
 # ~/cachyOS-config —— 桌面配置的单一事实来源
 
-> **新会话读这一份就够。** 这里是本机（CachyOS + Hyprland）全部桌面配置的归档、文档与
-> 安装器。要改配置、要迁到别的机器、要查「当初为什么这么设」，都从这里开始。
+> **新会话读这一份就够。** 本机（CachyOS + Hyprland）全部桌面配置的归档、文档与安装器。
+> 本文件只放导航、规矩和会踩的坑；**细节和来龙去脉都在 `docs/`**，历史在 git 里。
 
-> ⚠ **先确认你在哪台机器上。** 这个仓库有两份检出：
-> **源机器** `/home/david/cachyOS-config`（包从这里打出来，下面写的都按它来），
-> 和**笔记本** `/home/monkey/cachyOS-config`（17 个文件永远显示「不一致」，
-> 且 `sync.sh --pull`、裸 `install.sh` 是**禁止操作**）。
-> 在笔记本上先读 `docs/11-multi-machine.md`，本文其余部分再照那篇的例外表打折扣。
+> ⚠ **先确认你在哪台机器上。** 两份检出：**源机器** `/home/david/cachyOS-config`（下面都按它写）、
+> **笔记本** `/home/monkey/cachyOS-config`（17 个文件永远显示「不一致」，`sync.sh --pull` 和裸
+> `install.sh` 是**禁止操作**）。在笔记本上先读 `docs/11-multi-machine.md`。
 
 ```
-~/cachyOS-config/             ← 仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
-├── CLAUDE.md                 ← 你在这（本文件是给 AI 会话的导航）
-├── README.md                 人读的总览【英文】，GitHub 首页渲染的就是它
-├── README.zh-CN.md           同一份的中文版，两份要一起改
-├── INSTALL.md                新机器从零到可用 + 验收清单
-├── LICENSE                   MIT + 第三方内容（壁纸/LazyVim）归属声明
-├── manifest.map              ★ 文件映射表：包内路径 ⇄ 系统路径（单一事实来源）
-├── install.sh                包 → 系统（幂等、分模块、自动备份）
-├── sync.sh                   系统 → 包（把线上改动收回来）
-├── check.sh                  只读体检仓库本身：把下面那些「静默失败」的坑变成机器检查
-├── uninstall.sh              回滚
-├── packages.txt              pacman 包清单
-├── MANIFEST.txt              sha256 校验（由 sync.sh 生成，只覆盖入库文件）
-├── docs/                     17 篇，见下表（配图在 docs/img/）
-├── config/ home/ state/      配置文件本体
-├── bin/                      装到 ~/.local/bin/ 的脚本（hypr-screenrec 录屏、noct-panel noctalia 面板兜底（回退用）、clip-paste 剪贴板自动粘贴、ocr-* 屏幕取字、excalidraw 白板、adb-wifi 安卓无线调试一键连接、send-to-phone Dolphin 右键经 KDE Connect 推文件到手机、mmd 手绘风 Mermaid 出图、mmd-view 交互式看图、chrome-ai / chrome-ai-mcp 给 Claude Code 操作的独立 Chrome、cdp-fetch 不走 MCP 读 AI Chrome 里的网页、cc-cost 算 Claude Code 某天 / 某段时间的花费、kitty-bg kitty 终端壁纸切图/调暗）
-├── claude/                   装到 ~/.claude/ 的 Claude Code 工具（看板/宠物 TUI/状态栏、arch-map 架构地图 skill）
-├── share/                    装到 ~/.local/share/ 的东西（fcitx5 主题、自建 desktop 条目与图标）
-├── system/                   一次性系统修复脚本（改 /etc、不走 manifest.map）：keyring-autounlock.sh 钥匙环开机自动解锁，见 docs/05
-├── security/                 每周安全体检 sec-audit + ufw（`sudo ./setup.sh`，装到 /usr/local、/etc，**不走 manifest.map**，见 docs/16）
-├── aur/                      本地改过的 AUR 包（PKGBUILD + 补丁，不装到 $HOME，不走 manifest）：python-rapidocr；另有两个 elephant 补丁版已发布到 AUR，说明也在这
-├── wallpaper/                参考壁纸 + 当前壁纸 + ASCII 成品 + 壁纸库生成脚本
-└── .snapshots/               sync.sh --pack 的 tar.gz 产物（不入 git）
+~/cachyOS-config/        仓库根 = 配置包本体（github.com/numb747/cachyOS-config）
+├── README.md / README.zh-CN.md   人读的总览，英文 + 中文，两份一起改
+├── INSTALL.md           新机器从零到可用 + 验收清单
+├── manifest.map         ★ 文件映射表：包内路径 ⇄ 系统路径，按 #@module 分模块（单一事实来源）
+├── install.sh           包 → 系统（幂等、分模块、自动备份；--list / --dry-run）
+├── sync.sh              系统 → 包（把线上改动收回来）
+├── check.sh             只读体检：MANIFEST / manifest.map / hl.dsp 参数名 / 文档数字 / 凭据 / 语法
+├── uninstall.sh         回滚
+├── packages.txt         pacman 包清单（含 AUR 说明）
+├── MANIFEST.txt         sha256，由 sync.sh 生成，只覆盖 git 入库文件
+├── docs/                17 篇，见下表（配图 docs/img/，计划 docs/plans/）
+├── config/ home/ state/ 配置文件本体
+├── bin/                 装到 ~/.local/bin/ 的脚本（录屏、取字、剪贴板粘贴、白板、mmd、AI Chrome、cc-cost、ccx…）
+├── claude/              装到 ~/.claude/ 的 Claude Code 工具（状态栏、Agent Teams 角色与日志钩子、skills、MCP 套餐）
+├── share/               装到 ~/.local/share/（fcitx5 主题、自建 .desktop 与图标）
+├── system/              一次性系统修复脚本（改 /etc，不走 manifest），见 docs/05
+├── security/            每周安全体检 + ufw（`sudo ./setup.sh`，装到 /usr/local、/etc，不走 manifest），见 docs/16
+├── aur/                 本地改过的 AUR 包与投毒复核方法，见 aur/README.md
+└── wallpaper/           参考图 + ASCII 成品 + 生成脚本（出处在 tokyonight/_picks*.json）
 ```
 
-> 2026-08-27 起**没有 `cachyos-desktop-config/` 这层中间目录了**，仓库根就是包本身。
-> 三个脚本都靠 `BASH_SOURCE` 自定位，扁平化对它们透明；唯一改过的是 `sync.sh --pack`
-> （原逻辑是「打包上一级里的那个包目录」，扁平后会把 `.git` 和 `$HOME` 同级内容一起卷进去）。
->
-> 2026-08-28 目录由 `~/ccconfig` **改名为 `~/cachyOS-config`**，与远程仓库名对齐。
-> 同样靠 `BASH_SOURCE` 自定位，脚本零改动。改名时要跟着动的只有四处硬编码：
-> `bin/winapp` 的沙箱抽查清单、`config/winapp/wecom.conf` 注释、两份 README 的 clone 示例、
-> 本文件——**`config/hypr/patches/*.patch` 里的绝对路径不用管**，`sync.sh --pull` 会重生成。
-> 另外 `~/.claude.json` 的 `projects` 键是按绝对路径索引的，改名后需手动迁移键名，
-> 否则 Claude Code 把新路径当陌生目录（重弹信任对话框、丢 `allowedTools`）。
+脚本都靠 `BASH_SOURCE` 自定位，挪目录不用改脚本。但 `~/.claude.json` 的 `projects` 键按绝对路径
+索引，**改仓库路径后要手动迁键名**，否则 Claude Code 当陌生目录（重弹信任框、丢 allowedTools）。
 
 ---
 
@@ -53,446 +39,117 @@
 **改线上文件，不要改包里的文件。** 包是快照，线上是本体。
 
 ```bash
-# 1. 正常改 ~/.config/... 下的真实配置，验证效果
-# 2. 收回包里（顺序：hypr patch → 文档数字对账 → 最后生成 MANIFEST）
+# 1. 改 ~/.config/... 下的真实配置，验证效果
+# 2. 收回包里（hypr patch → 文档数字对账 → 最后生成 MANIFEST）
 cd ~/cachyOS-config && ./sync.sh --pull
-# 3. 把「为什么这么改」写进对应的 docs/ —— 这一步最容易漏，也最值钱
+# 3. 把「为什么这么改」写进对应的 docs/ —— 最容易漏，也最值钱
 # 4. 提交前 ./check.sh —— 有 ✗ 就别提交
 ```
 
-> **`--pull` 会自动重写文档里这几个数字，别手改**：两份 README 的键位数、
-> ASCII 成品张数、`docs/` 篇数与总体积、壁纸全库体积，以及本文件里 `claude/` 的文件数
-> 和「现状」段那行键位数。
-> 表在 `sync.sh` 的 `docnums` 函数里，新增一条加一行 `docnum` 即可。
-> 同一张表还有只读模式 `./sync.sh --docs`（`check.sh` 调它），只报过期、不改文件；
-> 正则一处都匹配不到（文档措辞改了）时两种模式都会报警，以前是静默 no-op。
-> ⚠ **MANIFEST 必须排在最后**：2026-09-12 之前它排在 patch 与文档对账之前，
-> 于是 `--pull` 跑完那一刻，被改写的 4 份文档在 MANIFEST 里已是陈旧哈希，
-> `sha256sum -c` 当场失败 —— 和 2026-09-11 修掉的「裸 find 导致 MANIFEST
-> 生成完立刻过期」是同一个形状的 bug。往 `--pull` 里加任何会改文件的步骤，
-> 都必须加在 MANIFEST 之前。
-
-其他常用：
-
-```bash
-./sync.sh              # 只看哪些文件漂移了（默认，不写任何东西）
-./sync.sh --diff       # 逐个打印差异
-./sync.sh --pack       # pull 之后再打 tar.gz，准备拷去别的机器（只打入库文件）
-./sync.sh --manifest   # 只重算 MANIFEST，不读系统文件（笔记本上也能跑）
-./check.sh             # 只读体检：MANIFEST / manifest.map / hl.dsp 参数名 / 文档数字 / 凭据 / 语法
-./install.sh --dry-run # 装之前先看会做什么
-./install.sh hypr nvim # 只装指定模块（--list 看全部）
-```
-
-**新增一个要纳管的配置文件**：改 `manifest.map` 一行，三个脚本自动跟上。
-⚠ **但要先 `git add` 那个新文件，再跑 `--pull`**，顺序反了 MANIFEST 会漏掉它 ——
-因为 MANIFEST 跟着 `git ls-files` 走（2026-09-11 那次修的），未跟踪的文件它**看不见**，
-而且**不报错**：`sha256sum -c` 照样全过，只是少了一条，极难发现。
-2026-09-18 加 `tabby.lua` 时实测踩到（142 条里没有它，`git add` 后重跑才变 143）。
-和上面「MANIFEST 必须排最后」是同一类静默陷阱。
-
-> ⚠ **上面这套姿势只适用于源机器**（`/home/david/cachyOS-config`）。在笔记本
-> （`/home/monkey/cachyOS-config`）那份检出里，`./sync.sh --pull` 和不带参数的
-> `./install.sh` 都是**禁止操作**，理由与例外表见 `docs/11-multi-machine.md`。
+- **`--pull` 会自动重写文档里的数字**（键位数、ASCII 成品数、docs 篇数与体积、`claude/` 文件数、nvim 插件数），
+  别手改。表在 `sync.sh` 的 `docnums`；`./sync.sh --docs` 只报不改。改了文档措辞导致正则匹配不到时会报警。
+- **MANIFEST 必须排在 `--pull` 的最后**，往里加任何会改文件的步骤都要加在它之前，否则刚生成就过期。
+- **新增纳管文件：先 `git add` 再 `--pull`。** MANIFEST 跟着 `git ls-files` 走，未跟踪的文件它看不见且不报错。
+- 其他：`./sync.sh`（只看漂移）· `--diff` · `--pack`（打 tar.gz）· `--manifest`（只重算校验）·
+  `./install.sh --dry-run` · `./install.sh hypr nvim`（只装指定模块）。
+- 下载软件按 pacman → 官方原生包 → yay（先审再装）的顺序，全局 `~/.claude/CLAUDE.md` 已有，完整清单见 `docs/00` 第 5 节。
 
 ---
 
-## 下载软件的原则：pacman → 原生的包 → yay（2026-11-02 定的主旨）
-
-**上一级有就不往下降。** ① 有 pacman 就用 pacman 下载 → ② pacman 没有，直接下载原生的包
-（软件官网 / 官方 Releases，验校验和，不 `curl | sh`）→ ③ 原生的包也没有才考虑 yay，
-**yay 不值得信任**：降到这级先说明前两级为什么不行，用 yay 之前 `yay -G` 审 PKGBUILD /
-`.install`、看维护者与评论、`clamscan` 扫源码和成品包，可疑就停。
-完整清单与理由在 `docs/00-install-os.md` 第 5 节；同一条也在全局
-`~/.claude/CLAUDE.md` 里，所以任何目录下的会话都会照做。
-
----
-
-## 文档索引 —— 按你要解决的问题找
+## 文档索引
 
 | 我想… | 看 |
 |---|---|
-| 装系统本身（Ventoy / 镜像 / CachyOS 取舍 / 动态壁纸）/ 下载软件该走 pacman、原生的包还是 yay | `docs/00-install-os.md`（下载原则在第 5 节） |
-| 搞懂各部分怎么咬合、有哪些设计原则 | `docs/01-architecture.md` |
-| 改快捷键、窗口行为、工作区 | `docs/02-hyprland.md` |
-| 改终端 / zsh / 提示符 | `docs/03-terminal.md` |
-| 改 nvim | `docs/04-neovim.md` |
-| 改配色 / 顶栏 / 字体 / 壁纸 / 输入法 | `docs/05-theme-ui.md` |
-| 忘了某个键是什么 | `docs/06-keymap-cheatsheet.md` |
+| 装系统 / 下载软件该走哪条路 | `docs/00-install-os.md` |
+| 各部分怎么咬合、设计原则 | `docs/01-architecture.md` |
+| 快捷键、窗口行为、工作区、抽屉架、group | `docs/02-hyprland.md` |
+| 终端 / zsh / 提示符 / 毛玻璃 / kitty 壁纸 | `docs/03-terminal.md` |
+| nvim（molten、image.nvim、tabby…） | `docs/04-neovim.md` |
+| 配色 / 顶栏 / 字体 / 壁纸 / 输入法 / 默认打开方式 / mmd-view | `docs/05-theme-ui.md` |
+| 忘了某个键 | `docs/06-keymap-cheatsheet.md` |
 | 出问题了 | `docs/07-troubleshooting.md` |
-| 改 Claude Code 的看板 / 宠物 TUI / 上下文状态栏 / 用手机 Discord 远程驱动 Claude Code（claude-discord-sync）/ 提示缓存 1h 还是 5m / 什么时候 `/compact`、离开前和 `/resume` 回来怎么省 / 让 Claude Code 操作浏览器（AI Chrome + chrome-devtools MCP）/ MCP 按需加载（ccx 套餐，不让 mitmweb/ida/chrome 等常驻；Grok 用同一套套餐的 `ggx`；GLM 评测用隔离的 `ccglm`）/ token 花了多少钱（`cc-cost`，单天或任意时间段）/ Claude Code 版本钉死不自动更新、怎么安全升级 / Dolphin 复制的文件贴不进去、对话里看图（inline-images 插件） | `docs/08-claude-code.md`（Discord 在第 9 节，缓存在第 10 节，使用技巧在第 11 节，AI Chrome 在第 12 节，MCP 按需/ccx 在第 13 节，花费统计在第 14 节，版本与贴图看图在第 16 节） |
-| wine / 桌面版企业微信（2026-10-09 已整套卸载：拆了什么、丢了什么、怎么装回来） | `docs/09-wine-apps.md` |
-| 屏幕取字（OCR）/ 换掉 normcap 的缘由 / RapidOCR 调参 | `docs/10-ocr.md` |
-| 搞清楚笔记本那份检出哪些文件不能跟包同步 | `docs/11-multi-machine.md` |
-| Waydroid / Android 版企业微信（2026-11-17 已整套卸载，仅作历史记录） | `docs/12-waydroid.md` |
-| 改启动器（Walker + Elephant）/ 加搜索前缀 / 换掉 noctalia 启动器的缘由 | `docs/13-launcher.md` |
-| tmux 键位（免前缀 Alt 层，学 Zellij；本机按键冲突表）/ tmux 复制不出来 / 3.x 新功能（浮动窗格、钩子）/ 用 tmux 给 Claude Code 发消息、等它答完 / Agent Teams（队长 + 开发/review/文档队员，tmux 分屏）与团队日志 / 什么活该并行、什么该串行 / 一堆 Claude、npm 散在几个会话里怎么找（`Alt+a` 窗格总览 + 底栏提醒） | `docs/14-tmux.md` |
-| 改 Discord 客户端（Equibop）/ system24 主题开关 / 自写补丁主题 / 为什么面板直角而头像图标圆 / 换机器搬 Discord 配置 | `docs/15-discord.md` |
-| 每周安全体检报了 🔴/🟡 怎么复核、`--accept` / 查了什么、调噪音 / 防火墙放行了哪些 / 出事了怎么办 | `docs/16-security.md` |
+| Claude Code：状态栏、arch-map、提示缓存、`/compact` 技巧、AI Chrome、ccx 套餐、cc-cost、cc-shutdown、版本钉死与升级、贴图/看图 | `docs/08-claude-code.md`（缓存 10、技巧 11、AI Chrome 12、ccx 13、cc-cost 14、关机 15、版本与看图 16） |
+| 企业微信 / winapp（已卸载，历史） | `docs/09-wine-apps.md` |
+| 屏幕取字 RapidOCR | `docs/10-ocr.md` |
+| 笔记本那份检出的例外 | `docs/11-multi-machine.md` |
+| Waydroid（已卸载，历史） | `docs/12-waydroid.md` |
+| 启动器 / 剪贴板（Walker + Elephant） | `docs/13-launcher.md` |
+| tmux 键位、Agent Teams、并行判断、`Alt+a` 窗格总览 | `docs/14-tmux.md` |
+| Discord 客户端（Equibop + system24） | `docs/15-discord.md` |
+| 每周安全体检、ufw、出事怎么办 | `docs/16-security.md` |
 
 ---
 
 ## 十五条会踩的坑（改之前先知道）
 
-1. **noctalia 的主题真实来源是 `~/.local/state/noctalia/settings.toml`**，不是
-   `~/.config/noctalia/config.toml`。两边 `[theme]` 段重叠时以 state 那份为准。
-   查活配置一律用 `noctalia config export full`，别读配置文件。
-
-2. **配色文件是生成物，手改会被覆盖。** kitty/alacritty/btop/gtk4/qt6ct/kdeglobals 的
-   noctalia 配色由模板引擎渲染（`[theme.templates] builtin_ids`）。改配色的入口是
-   noctalia 本身。
-
-3. **`hl.bind` 对同一键位是叠加不是覆盖。** 要替换官方键位必须先 `hl.unbind(...)`，
-   否则两套并存。`hl.config` 则是逐项合并，只写自己关心的项是安全的。
-
-4. **hypr 有 5 个 CachyOS 官方文件被改过**（`config/` 下的 `binds` / `variables` /
-   `workspaces` 为纯动态工作区，`windowrules` 只剩 satty 一处（企业微信幽灵窗规则已随 wine 卸载删掉；全局浮动窗居中 2026-10-29 撤掉，因为它把 XWayland 应用的设置窗从主窗口上方拽到屏幕正中，见 `docs/02`），`misc` 为关掉内置壁纸）。
-   `pacman -Syu` 可能覆盖回去，用 `config/hypr/patches/*.patch` 重打，
-   基准是 `/etc/skel/.config/hypr/config/`。（此前文档记的「3 个」是漏了后两个。）
-   **别急着加第 6 个**：只有「要撤销官方已定义的东西」才必须动原版，纯覆盖值一律写进
-   `mykeys.lua`（`require("mykeys")` 排在所有 `config.*` 之后，后写的赢），
-   多动一个原版就多一份升级后要重打的 patch。终端毛玻璃（`decoration.blur`）就是这么
-   处理的 —— `decorations.lua` 至今仍是逐字节原版，见 `docs/02-hyprland.md`。
-   ⚠ 顺带两条 blur 的坑，都在 `docs/03-terminal.md`：**kitty 的 `background_blur`
-   在本机是死选项**（要 KDE blur 扩展协议，Hyprland 不实现）；模糊归 Hyprland、
-   透明度归 kitty 的 `background_opacity`，后者设成 1 模糊会整个消失。
-   blur 参数走**「糊透 + 微压暗」**（`passes=4, size=8, vibrancy=0.5, brightness=0.9`），
-   刻意做成**换壁纸不用重调**的通用值：认不出原图 = 永远不会有亮块压在代码上，
-   氛围靠 `vibrancy` 留色调而非透出图案。⚠ **别再试「降 passes 保留剪影」**——
-   2026-08-28 试过 `passes=1, size=13`，对稀疏 ASCII 壁纸好看，换实心插画立刻
-   「一张脸压在文字上」。保留结构的方案没法通用。2026-11-11 配暗色单色壁纸又试了一次
-   43PR 风格轻糊（`passes=1` 会重影，2·3 不重影但字后有图案仍累眼），同日退回。见 `docs/03-terminal.md`。
-
-5. **`vim.opt.shell` 必须设在 `lua/config/options.lua`。** 设晚了 toggleterm 在 spec
-   构造那一刻就取走了旧值。
-
-6. **fontconfig：`prepend` 不是插到队首**，是插到「匹配到的那一项之前」；要顶到第一位
-   得用 `prepend_first`。且 `<alias>/<prefer>` 无论写在哪都会排到所有 `<match>` 之前，
-   顺序敏感时一律用 `<match>`。判断渲染效果看 `fc-match -s`，单结果的 `fc-match` 会骗人。
-   详见 `docs/05-theme-ui.md`。
-
-7. **fcitx5 主题里 `Optional|Color` 必须写成子小节 `Value=`**，直接 `Key=#rrggbb`
-   静默失效；`*TextSizeFactor` 是**整数百分比**，写 `0.88` 会变成 0（文字消失）。
-   改完用 `gdbus ... GetConfig "fcitx://config/addon/classicui/theme/tokyonight"`
-   看生效值验证，别靠肉眼。
-
-8. **`hl.dsp.*` 对不认识的参数键静默忽略**，不报错不警告，stub 里全是 `fun(...)`
-   查不到类型。已知：`toggle_special` 收**裸字符串且不带 `special:` 前缀**
-   （传 table 会静默退回默认工作区）；「不跟过去」的参数叫 **`follow = false`
-   而不是 `silent`**。「代码看着对但行为不对」先怀疑参数名。
-   另外 `hyprctl dispatch` 在这套 Lua 配置下**只是语法变了，不是失效**（2026-08-27 更正）：
-   参数会被当 Lua 解析，所以**传 Lua 表达式就能用**——
-   `hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'` 是有效的，拿它在会话里拉起 GUI 进程
-   比手动导 `WAYLAND_DISPLAY` 可靠。要跑任意 Lua（而非一条 dispatcher）才用 `hyprctl eval`，
-   且 eval 没有返回值/`print`，看结果要自己写文件。详见 `docs/07-troubleshooting.md` 坑 8。
-
-9. **`noctalia msg config-reload` 只重读文件，不重新注册子系统。** 已知踩过两次：
-   `[shell.launcher.providers.*]`（provider 不重载）和 `[storage]`（存储不重新初始化，
-   2026-08-27）。两次都表现为 `noctalia config export` 显示配置已生效、但行为纹丝不动，
-   极易误判成配置写错又去改配置。**改完这类段一律重启进程**
-   （`kill $(pgrep -x noctalia); setsid -f noctalia -d`，或
-   `hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`）。
-   （2026-10-09 起启动器已换成 Walker，下面这条只在回退到 noctalia 启动器时有用。）
-   启动器另外还有个限制：provider 有且只有 `global` / `prefix`
-   两个键，**没有** weight/priority/order——「让已开窗口排在应用前面」上游
-   [#2470](https://github.com/noctalia-dev/noctalia/issues/2470) 已 closed as not planned，
-   别重新调研。用 `noctalia config validate` 当探针枚举合法键名。详见 `docs/05-theme-ui.md`。
-
-10. **改默认打开方式别用 `xdg-mime default app.desktop type1 type2 …`。** 一次传多个类型
-    会把它们挤成**一个畸形 key** 写进 `mimeapps.list`（`image/png image/jpeg …=x.desktop`），
-    规范要求每行一条，整行静默失效且不报错。要从 `.desktop` 的 `MimeType=` 拆行生成——
-    注意 **zsh 不做默认分词**，多行字符串喂 `printf` 只输出一次。
-    改 `.desktop` 条目一律**新建文件名**，不要同名覆盖 `/usr/share/applications/` 里的：
-    同名是**全量遮蔽**而非字段合并，上游升级新增格式支持时你这份不会同步。
-    `Icon=` 还得验证在当前主题里真的存在（imv 上游写的 `multimedia-photo-viewer`
-    在 Adwaita 和 breeze 里都没有，菜单里就是空白）。详见 `docs/05-theme-ui.md`。
-
-11. **停 wl-screenrec 必须 `SIGINT`，不能 `SIGTERM`/`SIGKILL`。** 它靠 Ctrl-C 那条路径
-    flush 编码器并写 mp4 的 moov atom，杀错信号得到的是播放器打不开的废文件，
-    且发完信号要等进程真正退出才算完。AMD 上还要显式 `--low-power=off`
-    （Mesa VAAPI 没有 low-power 编码入口）。绑键时**不能**加 `uwsm app --` 前缀，
-    否则进程进了另一个 cgroup，`bin/hypr-screenrec` 的 pidfile 就追不上、停不下来。
-
-12. **noctalia 的两处系统集成，报错都指向错误的方向**（2026-08-27，详见 `docs/05-theme-ui.md`）：
-
-    - **换壁纸/主题老要密码**：`greeter_sync` 默认用 `run0` 提权，请求的 action 是
-      `org.freedesktop.systemd1.manage-units`，**绕开了** `noctalia-greeter` 包自带的
-      `org.noctalia.greeter.apply-appearance` policy。照那个 policy 写 polkit 规则**完全无效**，
-      而 `manage-units` 又不能安全放行（run0 的 unit 名随机，放行 = 全局 root 免密）。
-      解法：`privilege_command = "pkexec"` 掰回来 + `/etc/polkit-1/rules.d/49-*.rules` 放行。
-      **通则：先看 journalctl 里真正被拒的 action id，别照着 policy 文件猜。**
-      ⚠ noctalia-greeter 1.7.0 把 action 改名成 `sync-appearance`，旧规则失配又开始弹窗
-      （2026-11-09 修，规则现在两个名字都认）。弹窗连续失败 3 次会被 faillock 锁 10 分钟，锁着时 sudo 也进不去。
-    - **剪贴板历史重启就空**：不是「不支持持久化」，是它**坚持加密后才落盘**、
-      主密钥默认取自 Secret Service，而本机没有 provider（日志
-      `[secret-store] ... provider-unavailable`），于是降级成仅本会话。
-      解法：`[storage] key_source = "file"`，绕开整个 Secret Service，不装 keyring 不改 PAM。
-      ⚠ `storage.key` **不入包**（见下方边界），新机器要重新生成，代价是旧历史读不出来。
-
-13. **「弹在顶部的东西」先分清是通知还是 OSD，两个子系统入口完全不同**（2026-08-27，
-    详见 `docs/05-theme-ui.md`）。换歌时顶部那个「正在播放」是 **OSD**
-    （`[osd.kinds] media`），不是通知，拿 `[notification.filter.*]` 治它**永远无效**。
-    **位置就是判据**：本包 OSD 在 `top_center`、通知在 `top_right`。
-    `[osd.kinds]` 是**全局**的，noctalia 没有按播放器/按应用关 OSD 的选项。
-    通用手法两条，配套用：
-    - **有哪些合法键** → `noctalia config validate <file>`，未知键报 `unknown setting`
-      但仍返回 valid，拿临时 toml 塞满候选键一次枚举完（坑 9 已用过这招）。
-    - **某个键管什么** → `/usr/share/noctalia/assets/translations/en.json`，
-      `settings.schema.shell.*` / `settings.notifications.*` 里有 label + description，
-      比 `strings` 二进制和官网都可靠（官方文档站该页目前 404）。
-    ⚠ 验收别看 `noctalia config export`——那是坑 9 的陷阱，`export` 变了不等于行为变了。
-    不过坑 9 是**按配置段**而非全局：`[osd.kinds]` 实测吃 `config-reload`（2026-08-27
-    换歌验证过），已知必须重启的只有 `[shell.launcher.providers.*]` 和 `[storage]`。
-
-14. **wine 窗口规则要用 `initial_title`，不是 `title`**（2026-08-27）。
-    ⚠ wine 已于 2026-10-09 整套卸载，本条留作通用经验；原文在 git 历史里，取法见 `docs/09-wine-apps.md`。
-    窗口规则在**创建时**求值，那一刻**所有**窗口的 `title` 都是空的——拿 `title = "^$"`
-    去抓国产软件那些空白幽灵窗，会把主窗口一起误伤（当初表现为「整个企业微信点不动、
-    鼠标点击全部落空」，往 CEF/GPU/Windows 版本方向查了很久）。`initial_title` 记录
-    创建那一刻的标题，才是稳定判据。同段还有三条各自能吃掉半天的：
-    - **bwrap 别加 `--unshare-ipc`**：它切断 X11 的 MIT-SHM 共享内存，程序调
-      `X_ShmPutImage` 收到 BadValue 直接崩，日志里只有一行 X Error，看不出和沙箱有关。
-    - **`--die-with-parent` + 终端启动**：shell 一退出应用就被带走，看着像"随机崩溃"，
-      而从桌面启动器起（父进程是 systemd）却一切正常，极易误判。调试用 `setsid --fork`。
-    - **杀 wine 进程别用 `pkill -f`**：模式会匹配到正在执行它的 shell 自己（退出码 144），
-      排查期间还误杀过 noctalia 导致顶栏和壁纸一起消失。按 `/proc/<pid>/cmdline` 精确匹配。
-    ⚠ 还有一条反直觉的：日志里成片的 GPU 报错（`vulkan` 枚举失败、`amdgpu_get_auth failed`、
-    `egl dri2 screen` 创建失败）**是噪音**，强制软件渲染并不能解决任何问题。
-    原 `docs/09` 第 6 节专门列了排除掉的错误方向，别再往那查。
-
-15. **noctalia 不是「设置」壁纸，是在 background 层「盖」壁纸**（2026-08-27，
-    详见 `docs/02-hyprland.md`「开机时先闪一张陌生壁纸」）。系统里**没有任何壁纸守护进程**
-    （无 swww / hyprpaper / swaybg），底下压着的**始终**是 Hyprland 内置的
-    `/usr/share/hypr/wall*.png`，从没被换掉。两个表现同一个根因：开机时先闪 ~1.5 秒
-    那张陌生壁纸（noctalia 冷启动的空档，长度浮动）；**noctalia 一崩就露出来**
-    （坑 14 里 `pkill -f` 误杀后「顶栏和壁纸一起消失」就是它）。
-    解法在 `config/misc.lua`：`force_default_wallpaper = 0` + `disable_hyprland_logo = true`
-    + `background_color` 取壁纸主色（`magick … -colors 5 … histogram:info:` 采样，
-    当前 `rgb(1a1b26)`；**换壁纸换色系要重取**）。
-    ⚠ 别去 noctalia 里找「开机壁纸」选项（管不到合成器起来那段），
-    也别装 swww 来「提前铺好」（多一个抢 background 层的进程，闪两次）。
-    时间线直接读 `~/.cache/noctalia/noctalia.log` 的 `[wallpaper] creating` 行。
-    验证一律看 `hyprctl getoption` 的 **`set: true`**——`set: false` 是在报默认值。
+1. **noctalia 主题的真实来源是 `~/.local/state/noctalia/settings.toml`**，不是 `~/.config/noctalia/config.toml`，
+   两边重叠以 state 为准。查活配置用 `noctalia config export full`。
+2. **配色文件是生成物**（kitty/alacritty/btop/gtk4/qt6ct/kdeglobals），由 noctalia 模板渲染，手改会被覆盖；入口是 noctalia。
+3. **`hl.bind` 对同一键位是叠加不是覆盖**，替换官方键位先 `hl.unbind`。`hl.config` 是逐项合并，只写关心的项是安全的。
+4. **hypr 有 5 个 CachyOS 官方文件被改过**（`binds`/`variables`/`workspaces`/`windowrules`/`misc`），`-Syu` 可能覆盖，
+   用 `config/hypr/patches/*.patch` 重打。**别加第 6 个**：纯覆盖值一律写进 `mykeys.lua`（最后加载，后写的赢）。
+   kitty 的 `background_blur` 在本机是死选项；模糊归 Hyprland、透明度归 kitty `background_opacity`（设 1 模糊消失）。
+   blur 定为「糊透」（`passes=4, size=8, vibrancy=0.5, brightness=0.9`），**保留剪影/轻糊都试过退回，别再试**，见 `docs/03`。
+5. **`vim.opt.shell` 必须设在 `lua/config/options.lua`**，晚了 toggleterm 取走旧值。
+6. **fontconfig：`prepend` 不是插到队首**（要 `prepend_first`）；`<alias>/<prefer>` 总排在所有 `<match>` 前，顺序敏感用 `<match>`；
+   看效果用 `fc-match -s`。见 `docs/05`。
+7. **fcitx5 主题 `Optional|Color` 要写子小节 `Value=`**，`*TextSizeFactor` 是整数百分比；用 gdbus `GetConfig` 验证，别靠肉眼。
+8. **`hl.dsp.*` 对不认识的参数键静默忽略**：`toggle_special` 收裸字符串、不带 `special:`；「不跟过去」叫 `follow = false`。
+   「代码看着对但行为不对」先怀疑参数名。`hyprctl dispatch` 参数按 Lua 解析（`hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`
+   可用来在会话里拉起 GUI）；跑任意 Lua 用 `hyprctl eval`，没有返回值。见 `docs/02`、`docs/07` 坑 8。
+9. **`noctalia msg config-reload` 不重新注册子系统**：改 `[shell.launcher.providers.*]`、`[storage]` 后必须重启进程
+   （`hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`）。`config export` 变了不等于行为变了。枚举合法键用 `noctalia config validate`。
+10. **改默认打开方式别给 `xdg-mime default` 传多个类型**（挤成一个畸形 key、静默失效）。改 `.desktop` 一律新建文件名，
+    别同名覆盖（全量遮蔽）；`Icon=` 要验证主题里真有。没钉的类型 Dolphin 和 `xdg-open` 各猜各的。见 `docs/05`。
+11. **停 wl-screenrec 必须 `SIGINT`**（否则 mp4 缺 moov 打不开），等进程真退出；AMD 要 `--low-power=off`；绑键别加 `uwsm app --`。
+12. **noctalia 的系统集成报错都指错方向**：换壁纸老要密码 → 默认 `run0` 绕开了包自带的 policy，要 `privilege_command = "pkexec"`
+    + `/etc/polkit-1/rules.d/49-*.rules`（1.7.0 起 action 改名 `sync-appearance`，规则两个名字都认）；剪贴板重启就空 →
+    没有 Secret Service，改 `[storage] key_source = "file"`（`storage.key` 不入包）。**先看 journal 里真正被拒的 action id。**
+13. **顶部弹的东西先分清通知（`top_right`）还是 OSD（`top_center`）**，入口不同；换歌弹窗是 OSD `[osd.kinds] media`。
+    键管什么查 `/usr/share/noctalia/assets/translations/en.json`。
+14. **窗口规则在创建时求值，那一刻所有窗口 `title` 都是空的**，按标题抓窗口要用 `initial_title`。（来自已卸载的企业微信，经验通用；
+    原文见 `docs/09`。）
+15. **noctalia 是在 background 层「盖」壁纸，不是设置壁纸**，底下始终是 Hyprland 内置图：开机先闪约 1.5 秒、noctalia 一崩就露出来。
+    解法在 `config/misc.lua`：`force_default_wallpaper = 0` + `disable_hyprland_logo` + `background_color` 取壁纸主色
+    （当前按 a1 取的 `rgb(1a1b26)`，**换色系要重取**）。别装 swww。验证看 `hyprctl getoption` 的 `set: true`。
 
 ---
 
 ## 边界：不进这个包的东西
 
-`~/.ssh/` · `~/.gnupg/` · `~/.claude/settings.json`（含明文 token —— ⚠ 只排这**一个文件**，
-`~/.claude/` 下的工具脚本由 cc 模块正常纳管，见 `docs/08`）·
-`~/.claude/channels/discord-sync/.env`（Discord bot token，见 `docs/08` 第 9 节）·
-`~/.claude/mcp/secrets.env`（ccx 套餐的 MCP 密钥如 `MITMWEB_TOKEN`，片段里用 `${VAR}` 占位引用它，
-**密钥本身不入包**；新机器要手动建，见 `docs/08` 第 13 节）·
-`~/.claude-glm/`（`ccglm` 的独立配置目录，含 GLM 的 key 和中转地址，见 `docs/08` 第 13 节末）·
-`~/.config/noctalia/storage.key`（剪贴板历史的加密主密钥 —— 引用它的
-`config.toml` 正常入包，**密钥本身不入**；新机器按 `docs/05` 重新生成即可，
-代价只是旧历史读不出来）·
-`~/.local/share/fcitx5/rime/`（个人词库）· 壁纸全库（源机 348 MB / 115 张，笔记本只拉了
-一部分，见 `docs/11`；包里只带**两张**成品：`11-w55gjr.png` 参考图 +
-`wallhaven-kxwp96.jpg` 备选图，其余靠 `wallpaper/tokyonight/_fetch.py` 重新拉）·
-`~/.zsh_history`。
+`~/.ssh/` · `~/.gnupg/` · `~/.claude/settings.json`（含明文 token；状态栏、Agent Teams 的键由 `install.sh` 用 jq 合并进去）·
+`~/.claude/mcp/secrets.env`（ccx 套餐的密钥，见 `docs/08` 第 13 节）· `~/.claude-glm/`（ccglm）·
+`~/.config/noctalia/storage.key`（剪贴板加密主密钥，新机器重新生成）· `~/.local/share/fcitx5/rime/`（个人词库）·
+壁纸全库（包里只带 `11-w55gjr.png` 参考图和 `wallpaper/ascii/` 成品）· `~/.zsh_history`。
 
-换机器时这些走安全渠道单独传。**往包里加文件前先确认不含凭据**：
-
-```bash
-grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .
-```
+换机器时这些走安全渠道单独传。往包里加文件前先确认不含凭据：
+`grep -rniE 'sk-[a-zA-Z0-9]{16,}|AIzaSy|auth[_-]?token|BEGIN .*PRIVATE KEY' .`
 
 ---
 
-## 现状（2026-10-30）
+## 现状（2026-11-18）
 
-- 源机器：CachyOS · Hyprland 0.57.0 · noctalia 5.4.0 · kitty 0.49.2 · nvim 0.12.6 ·
-  zsh 5.9.2 + p10k 1.20.18 · fcitx5 5.1.23（2026-10-30 按 `pacman -Q` 重取）
-- **Hyprland 0.57.0**（2026-10-29 随 `-Syu` 从 0.56.2 升上来）：**special 工作区的 id 变成 `nil`**
-  （0.56 是负数；`hyprctl workspaces -j` 里也是 `null`）。抽屉架里只要有窗口，`ALT+T` 和
-  `CTRL+1/4` 就会在 `w.id > …` 处抛 compare-nil，表现是按键没反应、右上角弹红色报错。
-  `mykeys.lua` 的 `next_ws()` / `edge_ws()` 已加判空。抽屉架引擎只认名字不认 id，没受影响。
-  ⚠ 这类错误**只在按键时**触发，升级后 `hyprctl configerrors` 是空的，查不出来。
-  见 `docs/02-hyprland.md`「纯动态工作区」
-- **Waydroid 改住覆盖层**（2026-10-30；Waydroid 已于 2026-11-17 卸载，`mykeys.lua` 第 19 节的窗口规则还在、没装时无副作用）：`name:android` → `special:android`，`ALT+A` 开合（2026-11-09 停用，让给 tmux 的 `Alt+a` 窗格总览）。
-  原因是 slide 动画按 id 定方向，android 夹在环里时 `3 → CTRL+3 → android` 画面反着滑。
-  `CTRL+2/3` 的绕圈（`1 → 2 → 3 → 1`）是用户**有意保留**的，别改成到头停住。见 `docs/02`「Android 覆盖层」
-- Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验
-  （2026-10-11 撤掉 `mykeys.lua` 第 5 节的 3 条 `\` 分屏终端键，让给 tmux：125 → 122、自定义 40 → 37。）
-  （2026-08-26 加了 5 条截图/录屏键位，此前是 111；更早文档记的 109 是错的。
-  2026-08-31 加了 2 条 OCR 键位：116 → 118。2026-09-03 加了 3 条 group 键位
-  （先 2 条批量/整组操作，后又补了 `ALT+SHIFT+G` 踢出单个）：118 → 121。
-  2026-09-12 实测为 124，中间那 3 条是什么当时没记 —— 这正是下面这条机制的由来）
-  ★ **键位数由 `sync.sh --pull` 自动重写**（两份 README 加本文件这一行），不要手改
-  （详见开头「改配置的正确姿势」下那段）。2026-09-12 顺带对账查出另外 4 处同类过期：
-  ASCII 成品 4→8、壁纸库 167→348 MB、`claude/` 9→10 个文件、docs 230→203 KB
-  （后者连 203 也是错的，用 `du -sh` 累加人类可读值算出来的，`wc -c` 才是 198）。
-  ⚠ 2026-09-23 又踩了同一形状一次：本文件这一行**当时不在对账表里**，第 18 节
-  （`SUPER+V` → `bin/noct-panel`）把自定义数顶到 38 之后它还写着 37。掩护它的正是
-  「总数 124 没变」—— `unbind` + `bind` 净增 0。已补进 `sync.sh` 的 `docnum` 表。
-  ⚠ 自定义数只认**行首**的 `hl.bind(`：mykeys.lua 里 49 处含 `hl.bind` 的行有 11 处
-  在注释里（文件开头那段原理备忘），裸 `grep -c` 会数成 49。
-- 截图/录屏/取字：`Print` 系 + `Super+Shift/Alt+P` 截图（落盘 + satty），
-  `Super+Shift/Alt+R` 录屏（`bin/hypr-screenrec` 包 wl-screenrec，同键停止），
-  `Super+Shift/Alt+O` 取字（见下方 ocr 模块）。
-  三套共用一个分工：**`Shift` = 框选，`Alt` = 整屏**
-- 默认打开方式：图片 → imv（17 类型）· 音视频 → mpv（122 类型）· 文本 → Kate（41 类型，2026-11-04），
-  办公 → LibreOffice、电子书 → calibre 阅读器、PDF → Papers（2026-11-11 补钉 199 条），
-  见 `config/mimeapps.list`，坑在 `docs/05-theme-ui.md`。
-  ⚠ **没钉的类型 Dolphin（KService）和 `xdg-open`（mimeinfo.cache）各猜各的**，`xdg-mime` 查着对不代表 Dolphin 对
-  （`.docx` 就是这样被 calibre 抢走的）；改关联可用 `handlr`，但它会重排整个文件、MIME 名转小写
-- **抽屉架**（2026-08-26）：`ALT+S` 切换的是**第二套工作平面**，不是单个抽屉。
-  一组 `special:rack1/rack2/…`，`ALT+[ ] · CTRL+1-4 · ALT+T` 在架内是**模态**的
-  （切抽屉格而非工作桌面）。零新增键位。见 `docs/02-hyprland.md`
-- **窗口分组 group**（2026-09-03 新增）：某场景窗口数堆到 5+ 触发接入，此前评估过
-  判断「暂不需要」，触发条件成立才正式加。`ALT+G` 建组/拆组（整组解散）、
-  `ALT+SHIFT+G` 只踢出当前这一个（其余保留）、`CTRL+ALT+SHIFT+G` 一键把当前工作区
-  收进一组、`movefocus_cycles_groupfirst=true` 让已有 `CTRL+ALT+HJKL` 兼任组内切标签
-  （零新增键位）。视觉配色是官方默认值，没改。
-  ⚠ `hl.dsp.group.move_window` 参数格式实测没探明，「批量分组」和「踢出单个」都改走
-  `HL.Group:add()` / `:remove()` 直接操作组对象绕开它——这对方法互相对称，
-  比 `hl.dsp.*` 的 dispatcher 更底层、确定性更强，见 `docs/02-hyprland.md`
-- nvim **51 装 / 55 锁**（差的 `bufferline.nvim` 和三个 dadbod 插件是 `disabled.lua` 里主动关的，属预期；
-  dadbod 是 2026-10-15 关的，lang.sql 扩展本身保留，坑见 `docs/04`「其他小项」。
-  2026-09-18 加 tabby.nvim：46/47 → 47/48。2026-10-10 起这两个数**进了** `sync.sh` 的
-  对账表（锁 = `lazy-lock.json` 条数，装 = 锁 − `disabled.lua` 里的 `enabled = false`），
-  进表时一查 lockfile 已是 55 条，文档落后了 7 个插件没人发现）
-- **molten**（2026-09-11 新增）：在普通 `.py` 里跑 Jupyter kernel、`# %%` 分 cell、
-  输出内联显示，`<leader>m` 系键位。**不引入 .ipynb** —— buffer 是纯 Python 文件，
-  basedpyright 原生满血，走 ipynb 得靠 otter.nvim 打补丁。异步（实测提交 6 秒的 cell
-  2.6 ms 返回）、中断保留命名空间（实测），对爬虫/接口调试比 tty REPL 强一档。
-  ★ 光装配置文件不够：要 `python-pynvim` + `python-ipykernel`（已入 packages.txt），
-  且 **`~/.local/share/jupyter/runtime/` 不存在时 kernel 起不来而报错完全指错方向**
-  （已在 `molten.lua` 的 init 里 mkdir 兜掉）。另有 4 个坑（`MoltenEvaluateRange` 是
-  function 不是 command、不能懒加载、`python3_host_prog` 要防 venv 污染、
-  输出窗口的 `q` 撞上本配置全局禁用的 `q`）全在 `docs/04-neovim.md`
-- **image.nvim**（2026-09-12 起，取代前一天刚开的 snacks.image）：一套机制干两件事
-  ——打开图片文件（mini.files 按 `l`、`:e x.png`）就地渲染，以及给 molten 当图像
-  provider 让 `plt.show()` 的图直接画在 cell 下方。`plugins/image.lua` 新增，
-  `snacks.lua` 里 `image = { enabled = false }`，`molten.lua` 里
-  `molten_image_provider = "image.nvim"` + `molten_auto_image_popup = false`。
-  ★ 为什么切：snacks.image 顶不了 molten 的班（provider 只认 none/image.nvim/wezterm），
-  而当初躲 image.nvim 是因为它默认要 `magick` **luarock**——破局点是它还有
-  **`processor = "magick_cli"`**，直接用系统 `/usr/bin/magick`，依赖形态和 snacks 一样，
-  顾虑就没了；能一套干两件事就没理由养两套。
-  ★ 三处必须写对：`build = false`（否则 lazy 去跑 luarocks 必失败装不上）、
-  `lazy = false`（hijack 挂 `BufWinEnter`，靠同一事件懒加载会错过首次打开）、
-  **snacks.image 必须关**（两边都拦图片文件，同开谁后注册谁生效）。
-  ⚠ 别抱错期待：mini.files 的 **preview 窗格仍不出图**（readfile 进 scratch buffer，
-  无 buffer 事件可拦）。依赖 kitty 图形协议，**alacritty 不行**；`--headless` 下验证不了
-  渲染，只能验「加载了 / hijack 注册了 / snacks.image 关了」。见 `docs/04-neovim.md`
-- 输入法：fcitx5 5.1.21 + rime，自制 `tokyonight` 主题；中文字体走
-  更纱黑体 → Noto CJK SC，`fonts.conf` 已修掉「汉字默认用韩文字形」的系统级默认
-- **cc 模块**（2026-08-26 新增，第 6 个）：Claude Code 的上下文占比状态栏 +
-  多会话看板 `ccw`/`ccs` + 宠物 TUI `ccp`（**能就地把别的终端里那道选择题答掉**）。
-  25 个文件在 `claude/`，见 `docs/08-claude-code.md`。
-  ⚠ 两个坑：alias 在 **term** 模块的 `.zshrc` 里而脚本在 **cc**，只装一个会得到空 alias；
-  状态栏靠 `install.sh` 用 jq 把 `statusLine` 合并进本机 settings.json（那份含 token、不入包）。
-  ⚠ 代答依赖 transcript 的内部格式 + 实测出的按键序列，**Claude Code 升级后可能失效**，
-  重新摸用 `python3 ~/.claude/probe_multiq.py`
-- **noctalia 系统集成**（2026-08-27 新增，见坑 12 与 `docs/05-theme-ui.md`）：
-  换壁纸/主题的 greeter 同步已免密（`privilege_command = "pkexec"` +
-  `/etc/polkit-1/rules.d/49-noctalia-greeter.rules`，⚠ 后者是系统文件、**不在本包管辖**，
-  新机器要手动建）；`SUPER+V` 剪贴板历史已能活过重启
-  （`[storage] key_source = "file"`，密钥 `~/.config/noctalia/storage.key` 不入包）。
-  两者都**没有**装 keyring、**没有**改 PAM、**没有**动任何系统包。
-  另关掉了换歌时的「正在播放」OSD（`[osd.kinds] media = false`，坑 13）——
-  那是 OSD 不是通知，全局生效，media widget 不受影响
-- ~~**wine 模块**（2026-08-27 新增，第 7 个）~~ **2026-10-09 整套卸载**：企业微信只用 Waydroid 安卓版，
-  wine 版连同 `winapp`、wine 系统包、`~/.wine` 一起删了。代价是**本机企业微信不能视频通话**
-  （Waydroid 摄像头不可用，`docs/12` 第 7 节）。拆了什么、怎么装回来见 `docs/09`。
-  Waydroid 本身也已于 2026-11-17 整套卸载（见下条）
-- **ocr 模块**（2026-08-31 新增，第 8 个）：屏幕取字 `Super+Shift/Alt+O`，
-  **替代 normcap** —— 后者底层是 Tesseract，对屏幕小号中文粘连、漏字，且本机
-  tessdata 连 `eng` 都没装、每次按键还要重新加载模型。现在是 RapidOCR（PP-OCRv6
-  + onnxruntime），模型加载抽进 **systemd socket 激活**的常驻服务，空闲 10 分钟
-  自退把 500 MB 内存还回去。实测：框选 **0.33 s**、冷启动 0.79 s、整屏 1.9 s，
-  14 px 小字**字符零错误**。
-  ★ 这是仓库里**第一个带 systemd 单元的模块** —— `put` 只拷文件，`mod_ocr` 里
-  必须另有 `daemon-reload` + `enable --now ocrd.socket`，否则装了也没反应。
-  ⚠ 三条反直觉的，全在 `docs/10-ocr.md`：
-  **① 别在送进 OCR 前放大图片**（`limit_side_len: 736 / limit_type: min` 决定了检测
-  模型内部就会放大，外面再放一次 = 两次插值，实测字号 14 从 4/4 掉到 3/4）；
-  **② `intra_op_num_threads` 默认 -1 在 24 核上最慢**（265 ms），限到 4 只要 151 ms；
-  **③ 服务必须用 HTTP/1.0** —— keep-alive 会让「空闲自退」永远不触发，症状是功能全对
-  但内存一直赖着。
-  ⚠ 运行时依赖 `python-rapidocr`（AUR）**不能直接 yay 装**：上游 PKGBUILD 写了
-  `makedepends python-installer>=1.0.1`，而 Arch 全仓库最新只有 1.0.0。改过的
-  PKGBUILD 归档在 **`aur/python-rapidocr/`**，连同「怎么复核这个 AUR 包没被投毒」
-  的方法（2026-08-31 与 PyPI 上游 wheel 逐文件比对：90 个文件哈希全一致）写在
-  `aur/README.md`。装完**必须** `IgnorePkg` 锁更新，但那写在 `/etc/pacman.conf`、
-  **不在本包管辖**，换机器要手动加。它还会连带拉进 opencv 全套（含 vtk 371 MB），
-  共约 936 MB
-- **MANIFEST 只覆盖入库文件**（2026-09-11 修）：`sync.sh` 原来用裸 `find`，把
-  `.gitignore` 挡掉的东西全收了进来——305 条里 **163 条是 `.git/` 内部对象**，
-  还有 `secret-age.key`、`__pycache__`、两个 2.7 MB 的 `.snapshots/*.tar.gz`。
-  后果是每次 commit 都改写 `.git/`、MANIFEST 生成完立刻过期，而 git 对象在别的
-  机器上必然不同、`sha256sum -c` 在新机器上一定失败，正好废掉它唯一的用途
-  （上次提交时 `docs/05-theme-ui.md` 的哈希就已经是陈旧的，没人发现）。
-  改成跟着 `git ls-files` 走，现在 138 条、与 git 索引完全一致。
-  ⚠ 别改回 `find`：`.gitignore` 以后新增条目会自动跟上，不用维护排除清单。
-  非 git 环境（解压的 tar.gz）有 `find + prune` 的 fallback 分支。
-- ~~**Waydroid**（2026-09-28 新增，**不是** install.sh 模块）~~ **2026-11-17 整套卸载**：包、镜像、数据、
-  `waydroid-fork-reaper`、docker 转发补丁、ufw 规则、启动器条目全删了。包里只剩 `mykeys.lua` 第 19 节的
-  窗口规则（没装 Waydroid 时无副作用，没动）。原来的装法与踩坑留在 `docs/12` 作历史记录。
-  ⚠ 顺带记过的一条仍然有效：`/etc/nftables.conf` 是全 drop 的 Arch 示例，**别去加载它**（2026-09-28 真踩过一次）
-- **launcher 模块**（2026-10-09 新增，第 9 个）：`ALT+Space` / `SUPER+.` / 顶栏启动器按钮
-  从 noctalia 自带启动器换成 **Walker（GTK4 前端）+ Elephant（数据后端）**，两个都是
-  systemd 用户服务常驻。换的原因是 noctalia 启动器 bug 修不动（坑 10 那类面板自关）。
-  应用 + 已开窗口同分排序，`g␣` 谷歌 / `b␣` 百度 / `gh␣` / `aw␣` 网页搜索前缀，
-  CSS `@import` noctalia 的 `gtk-4.0/noctalia.css` 跟壁纸变色。
-  ⚠ 三条：**① elephant 本体和插件必须同一次构建**（Go plugin ABI），别装 `elephant-bin`；
-  **② websearch 前缀要带尾随空格**（`"g "`，源码是裸 HasPrefix）；
-  **③ Hyprland 的 layer 毛玻璃对它不生效**（原因未查），框改成了不透明。
-  「空查询只列应用」当初是为了绕开 wine 版企业微信的无标题幽灵窗，wine 卸载后保持原样没改。
-  **`SUPER+V` 剪贴板也换成了 Walker（elephant-clipboard）**：回车 = 复制 + 自动粘贴（`bin/clip-paste`，
-  终端用 Ctrl+Shift+V），按键走 Hyprland 的 `send_shortcut`——**wtype 在 kitty 里粘不进去，别换回去**。
-  ⚠ **剪贴板和应用两个插件是自己发布到 AUR 的补丁版**（2026-10-09）：`elephant-clipboard-substring`
-  （子串匹配替代上游「越靠后越搜不到」的模糊匹配）、`elephant-desktopapplications-windowfirst`
-  （有窗口的应用排在自己窗口正下方，上游是分数减半，见 `docs/13-launcher.md` 坑 7）。
-  ⚠ 独立包名，**elephant 升级时 yay 不会顺带重编它们**，留在旧版本上就加载失败（Go plugin ABI）。
-  所以写死了 `depends=elephant=<同版本>`：上游发新版时 `-Syu` 会**报依赖冲突、拒绝升级 elephant**
-  ——这是有意的，不是坏了。先更新这两个 AUR 包，流程见 `aur/README.md`。
-  ⚠ **2026-10-10 应用插件又修了两处**（上游 blacklist 对 Waydroid 每次会话重建的 .desktop 失效；
-  按「app_id = desktop 文件名」认窗口），代码在 fork `desktopapps-window-first` 分支的 6a63b9e，已在笔记本发布为
-  AUR `2.22.1-3`（源机器没有 AUR 密钥，以后发版也在笔记本上做）。⚠ 源机器眼下装的仍是同一补丁本地构建的原名包
-  `elephant-desktopapplications 2.22.1-1.2`，**待换成 `-windowfirst`**，见 `aur/README.md`。
-  ⚠ 历史是**明文**存在 `~/.cache/elephant/`；noctalia 剪贴板服务仍在后台，只为「源程序关了还能粘」。
-  ⚠ **装了新的 elephant 插件要重启 walker**，否则一打开那个模式就 panic。见 `docs/13-launcher.md`
-- **Agent Teams**（2026-10-11 新增，进 **cc** 模块）：一个队长 claude 指挥 `developer` / `reviewer` /
-  `docs-reader` / `tester` 四种队员，**在 tmux 里启动**就每个队员一个窗格（`teammateMode = "auto"`）。
-  角色定义在 `claude/agents/`，`claude/team-log.sh` 是团队日志钩子 —— 队员之间的消息**队长看不到**，
-  靠它记进 `~/.claude/team-logs/`。开关、`teammateMode`、钩子由 `install.sh` 的 `cc_teams` 合并进
-  settings.json（同 statusLine，只加键不碰 token）。
-  ⚠ 三条：**① 分屏模式下角色定义正文替换默认系统提示、`disallowedTools` 不生效**，所以限权限只用
-  `tools` 白名单；**② 队长地址是 `team-lead`**；**③ 开启后 Claude 平时给 subagent 起名也会变成队员**（官方文档说的，没实测）；
-  **④ 共享任务列表本机用不了** —— Opus/Sonnet 5.5 默认没有 `TaskCreate` 等任务工具（按模型给，不是分屏的问题），
-  要 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` 才有；**⑤ 队员做完不退出、一直常驻**（不花 token，但占内存），
-  用完让队长关掉；关掉后团队恢复不了，只能恢复队长、重建失忆的新队员 —— 所以关之前先让队长写交接文件。
-  另外本机 `sonnet` 映射到 Opus 4.8（有意的），点名 sonnet 省不了钱。
-  全在 `docs/14-tmux.md` 第 7 节
-- **tmux 免前缀 Alt 层**（2026-10-11，term 模块）：学 Zellij，分屏 `Alt+\`/`Alt+-`/`Alt+n`、切换 `Alt+h/j/k/l`
-  （左右到边穿越标签、上下到边穿越会话）、标签 `Alt+Shift+N`/`Alt+1~8`/`Alt+q`、会话列表 `Alt+o`、速查 `Alt+/`；
-  前缀改 `C-q` 只当备用（`C-b` 还给 Claude Code）。为此删了 Hyprland 的 3 条 `\` 分屏终端键（mykeys.lua 第 5 节）。
-  ⚠ 三条：**① 外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift**（字母没事），所以没有 `Alt+?`/`Alt+:`/`Alt+|`；
-  **② tmux 参数末尾的 `;` 是命令分隔符，引号也挡不住**；**③ 注释行末尾的 `\` 会续行吞掉下一行**。
-  冲突表和测试方法在 `docs/14-tmux.md` 第 1 节
-- **tmux 窗格总览 `Alt+a`**（2026-10-13，term 模块，`bin/tmux-panes`）：所有会话的所有窗格一张表，
-  Claude 等你 / 答完没看 / 干活中、命令运行中 / 跑完没看 / 失败，按这个优先级排，打字过滤、回车直达；底栏同步显示计数。
-  ⚠ **Claude 状态读 `~/.claude/sessions/<pid>.json`，没用钩子**（钩子在 Esc 打断时不触发，会卡在「干活中」），
-  settings.json 没动；队员没有会话文件，靠屏幕转圈行推断，Claude Code 升级后可能要改正则。
-  shell 那半边靠 `.zshrc` 的 preexec/precmd，**之前就开着的 shell 要 `exec zsh` 才开始记**。见 `docs/14-tmux.md` 第 9 节
-- **discord 模块**（2026-10-15 新增，第 10 个，两台机器都装了）：Equibop（cachyos 仓库，自带 Equicord）
-  + system24 主题 tokyo night 配色，相对上游改了字体（`Adwaita Mono` 400）和 `--round-pfp: on`，
-  外加自写补丁主题「圆形服务器图标」（另有两个自写备选主题入包但没开）。
-  ★ **面板直角、头像和服务器图标圆，是用户有意的**（2026-10-16 两台机器两套风格合并时选的源机器这套）；
-  笔记本那套「关动画 / 去头像装饰 / 方头像」已弃，别改回去；**IrcColors 插件要保留（开着）**，用户点名要的；也别为圆图标开全局 `--unrounding: off`。
-  ⚠ 两份 `settings.json` 能入库靠 `.gitignore` 里逐路径的 `!` 例外（兜底规则 `settings.json` 没放宽）；
-  主题样式是运行时从 GitHub Pages `@import` 的、没钉版本；装前必须退出 Equibop（`mod_discord` 会检查）。
-  去面板标签试过、评价是「不像 TUI 了」，别往那调。见 `docs/15-discord.md`
-- ~~**作战大屏 `warboard`**~~（2026-10-15 加、同日撤回 `1b0955c`）：只读 tmux 实时看板。用户评价「很差劲，不要」，
-  **别再加回来**；原实现在 `c08c1c0`，真要看 `git show c08c1c0`
-- **每周安全体检**（2026-10-27 新增，**不是** install.sh 模块）：`security/sec-audit` 每周日 20:17 由**系统级** timer
-  以 root 跑，和人 `--accept` 过的基线比，只报变化（snapper 快照对比 + paccheck + 持久化点指纹 + Claude hooks/MCP +
-  journal 事件 + rkhunter/lynis/arch-audit/clamav），桌面通知 🔴/🟡 数。同时开了 ufw（只放行 `192.168.1.0/24` 的在用服务）。
-  ⚠ 检查器必须 root 所有，所以装在 `/usr/local`、不进 manifest.map；**改了 `security/` 要重跑 `sudo ./setup.sh audit`**，
-  装完下次体检会把检查器本身的改动报 🔴，这是对的。TUN 由 netkit 系统服务提供（2026-11-17 起，v2rayN 已卸载），不再有「sudo 跑家目录程序」的问题。
-  复核流程、取舍、调噪音全在 `docs/16-security.md`
-- 待办：Mason 语言工具链未装齐（缺运行时，非配置问题，见 `docs/04`）；
-  切桌面时光标闪一下（候选方案列在 `docs/07` 遗留项）
+- 源机器：CachyOS · Hyprland 0.57.2 · noctalia 5.5.0 · kitty 0.50.0 · nvim 0.12.6 · zsh 5.9.2 + p10k 1.20.18 · fcitx5 5.1.23
+- Hyprland 绑定 **122** 条（自定义 37 条）；`hyprctl binds -j | jq length` 可验。自定义数只认**行首**的 `hl.bind(`。
+  0.57 起 special 工作区 id 是 `nil`，比大小前先判空（这类错只在按键时触发，`configerrors` 查不出）。
+- nvim **51 装 / 55 锁**（差的是 `disabled.lua` 主动关的）。molten 在普通 `.py` 里跑 Jupyter cell；image.nvim
+  用 `processor = "magick_cli"`、`build = false`、`lazy = false`，且 snacks.image 必须关。见 `docs/04`。
+- 模块（`./install.sh --list`）：
+  - **hypr**：纯动态工作区、抽屉架 `ALT+S`（第二套工作平面，导航键在架内是模态的）、group `ALT+G`、
+    截图/录屏/取字统一「`Shift` 框选、`Alt` 整屏」。见 `docs/02`。
+  - **term**：kitty + zsh + p10k + tmux 免前缀 Alt 层（前缀 `C-q`），`Alt+a` 窗格总览（`bin/tmux-panes`，读
+    `~/.claude/sessions/*.json`，队员靠屏幕正则）。外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift。见 `docs/03`、`docs/14`。
+  - **ui**：noctalia、fcitx5 tokyonight 主题、fontconfig、默认打开方式（`config/mimeapps.list`）。见 `docs/05`。
+  - **cc**：Claude Code 状态栏、Agent Teams（4 个角色 + 团队日志钩子；限权限只用 `tools` 白名单；队员做完常驻要手动关）、
+    arch-map 等 skills、ccx 套餐。17 个文件在 `claude/`。见 `docs/08`、`docs/14` 第 7 节。
+  - **wall**：ASCII 壁纸成品 + `_ascii.py`、`theme-switch`/`theme-preview`。
+  - **ocr**：RapidOCR 常驻服务（systemd socket 激活，空闲自退；必须 HTTP/1.0；别在送进 OCR 前放大图片）。
+    `python-rapidocr` 要本地改 PKGBUILD 且 IgnorePkg 锁更新（`/etc/pacman.conf`，不在包管辖）。见 `docs/10`、`aur/README.md`。
+  - **launcher**：Walker + Elephant（`ALT+Space`、`SUPER+V` 剪贴板）。elephant 本体和插件须同一次构建；两个插件是自己发布的
+    AUR 补丁版，`depends=elephant=<同版本>` 会让 `-Syu` 拒绝升级 elephant——有意的，先更新插件。装新插件要重启 walker。见 `docs/13`。
+  - **discord**：Equibop + system24。面板直角、头像/服务器图标圆是有意的；IrcColors 要开着。见 `docs/15`。
+- 不是 install.sh 模块的：每周安全体检（`security/`，改了要重跑 `sudo ./setup.sh audit`，见 `docs/16`）；
+  钥匙环开机解锁（`system/`）。
+- 已撤掉、别再加回来：作战大屏 warboard、终端版 discordo、noctalia 启动器（及回退脚本 noct-panel）、
+  看板/宠物 TUI ccw/ccs/ccp（网页版 `~/ccmon` 取代）、Waydroid、企业微信。
+- 待办：Mason 语言工具链未装齐（缺运行时，见 `docs/04`）；切桌面时光标闪一下（见 `docs/07` 遗留项）。

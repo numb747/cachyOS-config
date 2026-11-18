@@ -6,9 +6,9 @@
 
 一台已经调顺手的 CachyOS 机器的完整配置快照，目标是**在另一台机器上一条命令复现**。
 
-> 快照时间：2026-08-26
-> 来源机器：CachyOS · Hyprland 0.56+ · noctalia v5.0.0 · kitty 0.48.2 ·
-> neovim 0.12.5（LazyVim，46 插件）· zsh 5.9.2 + powerlevel10k 1.20.17
+> 快照时间：2026-11-18
+> 来源机器：CachyOS · Hyprland 0.57.2 · noctalia 5.5.0 · kitty 0.50.0 ·
+> neovim 0.12.6（LazyVim）· zsh 5.9.2 + powerlevel10k 1.20.18
 
 > ⚠ **这是个人配置，不是通用发行版。** 它按一台特定机器的硬件与习惯调过：
 > 单显示器 DP-1 2560×1440、AMD 显卡、中文输入法、特定键位肌肉记忆。
@@ -55,7 +55,7 @@ sudo pacman -S --needed $(grep -vE '^\s*(#|$)' packages.txt | tr '\n' ' ')
 | **term** | kitty（启动即进 nvim）、alacritty、zsh、powerlevel10k、tmux（免前缀 Alt 层，学 Zellij） | [03](docs/03-terminal.md) · [14](docs/14-tmux.md) |
 | **nvim** | LazyVim 定制：mini.files、toggleterm、lualine、tokyonight 透明 | [04](docs/04-neovim.md) |
 | **ui** | noctalia 顶栏与主题联动、GTK/Qt/btop 配色、字体、光标、输入法、默认打开方式 | [05](docs/05-theme-ui.md) |
-| **cc** | Claude Code：上下文占比状态栏、多会话看板（`ccw`/`ccs`）、宠物 TUI（`ccp`，能就地代答选择题）、Agent Teams 四个队员角色（开发 / 审查 / 测试 / 查文档）+ 团队日志 | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |
+| **cc** | Claude Code：上下文占比状态栏、Agent Teams 四个队员角色（开发 / 审查 / 测试 / 查文档）+ 团队日志、`arch-map` / `arch-design` 架构图 skill、MCP 按需套餐（`ccx`）、花费统计（`cc-cost`）、做完关机（`cc-shutdown`） | [08](docs/08-claude-code.md) · [14](docs/14-tmux.md) |
 | **wall** | Tokyo Night 壁纸 + 配色，以及生成壁纸库的脚本 | [05](docs/05-theme-ui.md#壁纸) |
 | **ocr** | 屏幕取字 `Super+Shift/Alt+O`：RapidOCR 常驻服务替代 normcap，框选 0.33 秒进剪贴板 | [10](docs/10-ocr.md) |
 | **launcher** | 应用启动器 `Alt+Space`：Walker + Elephant 替代 noctalia 自带启动器，应用与已开窗口一起搜，`g␣` 谷歌 / `b␣` 百度前缀，配色跟壁纸走 | [13](docs/13-launcher.md) |
@@ -117,16 +117,19 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── MANIFEST.txt           所有入库文件的 sha256（由 sync.sh 生成）
 ├── docs/                  17 篇说明，见上表
 ├── home/                  .zshrc  .p10k.zsh  .tmux.conf
-├── bin/                   → ~/.local/bin/
-│   ├── hypr-screenrec     录屏开关封装（wl-screenrec），Super+Shift/Alt+R 调它
-│   ├── ocr-server         屏幕取字的常驻识别服务（RapidOCR，systemd socket 激活）
-│   └── ocr-grab           取字客户端：截图 → 识别 → 剪贴板，Super+Shift/Alt+O 调它
+├── bin/                   → ~/.local/bin/：各类小脚本（录屏、取字、剪贴板粘贴、tmux 窗格总览、
+│                          Mermaid 看图、AI Chrome、ccx / cc-cost 等 Claude Code 辅助……）
 ├── aur/                   改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME）
-├── security/              每周安全体检（sudo ./setup.sh 装到 /usr/local、/etc，不装到 $HOME）
-├── claude/                → ~/.claude/（状态栏 / 会话看板 / 宠物 TUI）
+├── system/                一次性系统修复脚本（改 /etc，如钥匙环自动解锁），不走 manifest.map
+├── security/              每周安全体检 + ufw（sudo ./setup.sh 装到 /usr/local、/etc，不装到 $HOME）
+├── claude/                → ~/.claude/（状态栏、Agent Teams 角色与团队日志钩子、skills、MCP 套餐）
 ├── config/                → ~/.config/
 │   ├── hypr/              mykeys.lua + 5 个改过的官方文件 + 对应 .patch
-│   ├── systemd/user/      ocrd.socket / ocrd.service（取字服务，需 enable 才生效）
+│   ├── systemd/user/      用户服务：取字 socket/service、walker、elephant
+│   ├── walker/ elephant/  启动器与剪贴板（前端 + 数据后端）
+│   ├── equibop/           Discord 客户端设置 + system24 主题
+│   ├── mermaid/           mmd / mmd-view 共用的 Mermaid 配置
+│   ├── katerc             Kate 文本编辑器
 │   ├── kitty/  alacritty/ 终端及其主题
 │   ├── nvim/              整套 LazyVim 配置
 │   ├── noctalia/          顶栏与 shell 行为
@@ -138,7 +141,8 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 │   └── fontconfig/        字体优先级（修掉汉字默认用韩文字形的系统默认）
 ├── share/                 → ~/.local/share/
 │   ├── fcitx5/themes/     Tokyo Night 输入法主题（PNG 由 SVG 生成）
-│   └── applications/      imv-viewer.desktop（自建条目，非覆盖系统的）
+│   ├── applications/ icons/   自建 .desktop 条目与图标（新文件名，不覆盖系统的）
+│   └── kio/ konsole/ mime/ mmd-view/   Dolphin 右键菜单、Konsole 配置、.mmd 的 MIME 类型、看图页面
 ├── state/noctalia/        → ~/.local/state/noctalia/（★ 主题真正生效的地方）
 ├── wallpaper/             参考壁纸 + 8 张 ASCII 成品 + 壁纸库生成脚本
 └── .snapshots/            sync.sh --pack 的 tar.gz 产物（不入 git）
@@ -156,7 +160,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 
 **2. 有五个 CachyOS 官方文件被改过。**
 `~/.config/hypr/config/` 下的 `binds.lua` / `variables.lua` / `workspaces.lua`（纯动态
-工作区）、`windowrules.lua`（浮动窗居中、satty）、`misc.lua`（关掉 Hyprland 内置壁纸，
+工作区）、`windowrules.lua`（只剩 satty 一条规则）、`misc.lua`（关掉 Hyprland 内置壁纸，
 消除开机时的壁纸闪烁）。`pacman -Syu` 升级 `cachyos-hypr-noctalia` 可能覆盖它们，
 所以 `config/hypr/patches/` 里存了五个 patch，随时能重新打上。细节见 [docs/02](docs/02-hyprland.md#关于官方文件被改动)。
 
@@ -171,7 +175,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 | 东西 | 为什么不带 |
 |---|---|
 | `~/.ssh/`、`~/.gnupg/`、`~/.claude/settings.json` | 含密钥，见上 |
-| `~/Pictures/Wallpapers/` 全库（445 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品 + 重新拉取的脚本 |
+| `~/Pictures/Wallpapers/` 全库（445 MB） | 太大；只带 1 张参考图 + 8 张 ASCII 成品；出处见 `_picks*.json` |
 | `~/.zsh_history` | 个人痕迹，无复用价值 |
 | `~/.bashrc`、wezterm、fish 片段 | 已弃用，登录 shell 是 zsh |
 | `qt5ct/`、`xsettingsd/` | 配置文件在，但这两个程序本机没装，纯 skel 残留，是死配置 |

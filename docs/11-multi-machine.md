@@ -19,7 +19,7 @@
 
 ---
 
-## 笔记本：17 个永远「不一致」的文件（2026-09-16 复核，2026-10-09 加 Walker 两个，2026-10-10 补登两个，2026-10-12 加 adb-wifi，2026-10-13 补登 send-to-phone / mmd-view 两个，2026-10-31 加 chrome-ai 与 MCP 套餐四个，2026-11-14 rev.json 换成 kitty wallpaper.conf）
+## 笔记本：17 个预期不一致的文件
 
 > **总原则：以远程仓库为准。** 笔记本的配置本来就是照着 `origin/main` 学的，那份是对的那份。
 > 拉取远程后默认**全量对齐**，只有下面这 17 个文件例外——它们要么绑死在本机硬件上、
@@ -29,22 +29,22 @@
 | 文件 | 笔记本（正确） | 包里（源机） | 为什么不能同步 |
 |---|---|---|---|
 | `~/.config/kitty/kitty.conf` | `font_size 10.0` | `13.5` | 笔记本 scale 1.5，合成器已替 kitty 放大过，再套源机那档补偿就是双重放大（只剩 119 列 × 27 行） |
-| `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套。⚠ 2026-10-31 被包里那份整个 `cp` 覆盖成 120 过一次（那条 `cp` 是给源机器的）；包里这个文件有改动时，笔记本只搬 `width` 以外的部分 |
+| `~/.config/nvim/lua/plugins/no-neck-pain.lua` | `width = 90` | `120` | 侧边宽度是 `floor((columns - width) / 2)` 算的，跟 kitty 10.0 的 148 列配套。⚠ 包里这个文件有改动时，笔记本只搬 `width` 以外的部分（整个 `cp` 会覆盖成 120） |
 | `~/.local/state/noctalia/settings.toml` | 含 `eDP-1` 锁屏部件 + `/home/monkey` | 只有 `DP-1` + `/home/david` | 覆盖会丢掉笔记本屏的锁屏配置 |
 | `~/.config/noctalia/config.toml` | 路径为 `/home/monkey` | `/home/david` | `install.sh` 的 `rewrite_home` 本来就会改写，装完必然不一致 |
 | `~/.zshrc` | `difft` / `gittype` 收进已有的 `$HACKTOOLS` 守卫块 | 两条裸 alias 硬编码 `/home/david/hacktools/` | **`rewrite_home` 覆盖不到 `.zshrc`**（它只管 settings.toml / noctalia config.toml / 几个 .desktop），只能手工改；顺手按 `CLAUDE.md` 自己的约定收进 `if [ -d "$HACKTOOLS" ]` 块里，目录不在就整段跳过 |
 | `~/.config/qt6ct/qt6ct.conf` | 真实路径 | skel 原样 | `manifest.map` 已标 `#@nopull`，两台机器都会报不一致 |
 | `~/.config/walker/themes/noctalia/layout.xml` | `margin-top 110` · 宽 `680` / 内容 `648` · 列表高 `400` | `260` · `1000` / `960` · `580` | 笔记本逻辑分辨率只有 1280×720（scale 1.5），源机那套 260 + 输入框 + 580 的总高超过 720，**下半截直接出屏**。宽也从占屏 78% 收到 53% |
 | `~/.config/walker/themes/noctalia/style.css` | 输入框 16px · 列表 14px · 副标题 11px · 大图标 28px，内边距同比收 | 21 · 17 · 13 · 38 | 跟 layout 配套；比例和 kitty 那条同理（笔记本视距近，物理字号该比源机小一点）。改完 `systemctl --user restart walker`（layout 只在启动时读） |
-| `~/.local/share/applications/excalidraw.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 和 noctalia `config.toml` 同类：`mod_ui` 里的 `rewrite_home` 本来就改写它（`Exec` 必须是绝对路径，见 `9a8a34a`）。2026-10-10 补登，之前漏在表外 |
-| `~/.local/share/applications/adb-wifi.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上一条：`mod_ui` 的 `rewrite_home` 改写它。2026-10-12 随 `f0c5ab5`（ADB 无线连接）进包，笔记本逐文件装时手工 `sed` 换了路径 |
-| `~/.local/share/kio/servicemenus/send-to-phone.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它（Dolphin 右键菜单，`Exec` 要绝对路径）。随 `58ef096` 进包，2026-10-13 补登 |
-| `~/.local/share/applications/mmd-view.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它。随 `61cedbb` 进包，2026-10-13 补登 |
+| `~/.local/share/applications/excalidraw.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 和 noctalia `config.toml` 同类：`mod_ui` 里的 `rewrite_home` 本来就改写它（`Exec` 必须是绝对路径，见 `9a8a34a`） |
+| `~/.local/share/applications/adb-wifi.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上一条：`mod_ui` 的 `rewrite_home` 改写它 |
+| `~/.local/share/kio/servicemenus/send-to-phone.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它（Dolphin 右键菜单，`Exec` 要绝对路径） |
+| `~/.local/share/applications/mmd-view.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同上：`mod_ui` 的 `rewrite_home` 改写它 |
 | `~/.config/kdeglobals` | 多一段 `[KFileDialog Settings]`，段顺序被重排 | 原样 | KDE 程序（Dolphin 的文件对话框）运行时往里写的；配色段（noctalia 模板生成，坑 2）两边内容一致。⚠ 覆盖不会坏，只丢文件对话框的视图偏好，下次又会写回来 |
-| `~/.local/share/applications/chrome-ai.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同 excalidraw 那条。它归 `ui` 模块，而 `install.sh ui` 在笔记本禁跑，所以是手工 `sed` 换路径放的（2026-10-30） |
-| `~/.claude/mcp/web.json` | `/home/monkey/.local/bin/chrome-ai-mcp` | `/home/david/...` | `cc` 模块**不跑** `rewrite_home`，原样装过来路径就是错的。下面三条都是 2026-10-31 随 `ccx`（`docs/08` 第 13 节）手工放的 |
+| `~/.local/share/applications/chrome-ai.desktop` | `Exec=/home/monkey/...` | `/home/david/...` | 同 excalidraw 那条。它归 `ui` 模块，而 `install.sh ui` 在笔记本禁跑，所以手工 `sed` 换路径 |
+| `~/.claude/mcp/web.json` | `/home/monkey/.local/bin/chrome-ai-mcp` | `/home/david/...` | `cc` 模块**不跑** `rewrite_home`，原样装过来路径就是错的（`ccx` 套餐，`docs/08` 第 13 节） |
 | `~/.claude/mcp/cap.json` | `~/.local/share/mitmweb-mcp/venv/bin/mitmweb-mcp` | `~/.local/share/venvs/mitmweb-mcp/bin/...` | 两台机器 mitmweb-mcp 的 venv **装的位置不一样**，不只是用户名不同，`sed` 换不过来 |
-| `~/.config/kitty/wallpaper.conf` | 5 条快捷键 `/home/monkey/.local/bin/kitty-bg` | `/home/david/...` | `term` 模块不跑 `rewrite_home`，笔记本又禁跑 `install.sh term`，是 2026-11-14 手工 `cp` + `sed` 换路径放的。笔记本没有 `~/Pictures/Wallpapers/kitty-bg/` 图库，`background_image` 匹配不到就退回毛玻璃，F12 等键会报「no images」，属正常 |
+| `~/.config/kitty/wallpaper.conf` | 5 条快捷键 `/home/monkey/.local/bin/kitty-bg` | `/home/david/...` | `term` 模块不跑 `rewrite_home`，笔记本又禁跑 `install.sh term`，手工 `cp` + `sed` 换路径。笔记本没有 `~/Pictures/Wallpapers/kitty-bg/` 图库，`background_image` 匹配不到就退回毛玻璃，F12 等键会报「no images」，属正常 |
 
 > ★ **`ccx` 在笔记本的落地（2026-10-31）**：全局 `mcpServers` 里的 `mitmweb`、`chrome-devtools` 已用
 > `claude mcp remove --scope user` 撤掉，`ida-mcp@HexRaysSA` 插件已 `claude plugin disable`，和源机器一致；
@@ -52,14 +52,6 @@
 > `cap` / `rev` 两个套餐按本机路径做过 MCP 握手验证。改前的 `~/.claude.json` 和 `settings.json` 留了 `.bak-20261031-185357`。
 > **项目级**的 `jadx` MCP（只挂在 `~/androidProjects/App01check`）不属于这次改动，没动。
 > ⚠ 别直接 `./install.sh cc` 覆盖 `web.json` / `cap.json`：会装回源机器路径，套餐起不来。
-> ★ **`rev.json` 2026-11-14 退出这张表**：远程 `a2f388b` 改写成 `${IDA_MCP_DIR}`，由 `services.sh` 的
-> `ensure_ida` 在启动时取插件缓存里版本号最大的目录，两台机器同一份文件即可。
-> 那次同步时 `web.json` / `cap.json` 也是取远程新版（多了 `"ccx"` 组合块）再 `sed` 换回本机路径。
-
-> ★ **`config/hypr/config/misc.lua` 已于 2026-09-16 退出这张表。** 它之前在表里是因为
-> `background_color` 要取当前壁纸的主色，而两台机器壁纸不同。现在笔记本壁纸也跟远程换成了
-> `D-ASCII/a1-紫调少女.png`，主色一致（`rgb(1a1b26)`），文件逐字节相同。
-> 换壁纸换色系时重新采样的命令见 `CLAUDE.md` 坑 15。
 
 ### 笔记本上的两个禁止操作
 
@@ -71,8 +63,8 @@
    —— 三个模块各自会把上表对应项打回源机的值；**`launcher` 也一样**（`put_module launcher` 会把 Walker 那两个主题文件打回源机尺寸）（有 `.bak-*` 备份，但等你发现字变大了
    才想起来就晚了）。**安全的是 `./install.sh hypr ocr wall`**；`term` / `nvim` / `ui` / `launcher`
    要装就先看 `./sync.sh --diff`，手工只搬新增的段。
-   ⚠ **`cc` 2026-10-31 起也不安全了**：它会把 `~/.claude/mcp/` 下三个套餐 JSON 打回源机路径（见上表）。
-   cc 模块其余文件有更新时，逐文件 `cp`，或装完再把这三个 JSON 从 `.bak-*` 恢复回来。
+   ⚠ **`cc` 也不安全**：它会把 `~/.claude/mcp/` 下 `web.json` / `cap.json` 打回源机路径（见上表）。
+   cc 模块其余文件有更新时，逐文件 `cp`，或装完再把这两个 JSON 从 `.bak-*` 恢复回来。
 
 > ★ **「`mod_nvim` 整目录 mv」这条对源机器同样成立**，只是后果不同：它会把
 > `~/.config/nvim` 下的 lazy 插件目录等运行时产物一起搬进 `.bak-<时间戳>`。
@@ -117,18 +109,13 @@
 - `~/.config/noctalia/storage.key`（2026-08-27 生成，64 位 hex / 0600）——
   剪贴板历史落盘的主密钥，**不入包**。验收信号是日志里的
   `[clipboard] loaded encrypted clipboard history`，别看 `noctalia config export`（坑 9）。
-- ~~**待办**：`/etc/polkit-1/rules.d/49-noctalia-greeter.rules`~~ **2026-11-14 已建**（两个 action 名都认，
-  内容同 `docs/05-theme-ui.md`）。`pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$` → `yes`。
-- ~~`wine` 模块有意未装~~ —— 2026-10-09 源机器卸载了 wine，`wine` 模块和 `packages.txt` 里那 4 个
-  wine 包已从包里删掉。笔记本 `git pull` 后 `./sync.sh` 不会再报那 4 个文件「系统上不存在」。
-- ~~**待办**：`python-pynvim` + `python-ipykernel`~~ **2026-11-14 已装**，`:UpdateRemotePlugins` 也跑过
-  （`rplugin.vim` 里已登记 molten）。同批还装了 `kate markdownpart papers handlr-regex fortune-mod`；
-  古诗库照 `docs/03`「古诗」拉进了 `~/.local/share/fortune/poems/`，Kate 预览插件已在会话文件里打开。
 - ★ **「Mason 语言工具链未装齐」那条待办对笔记本不成立**（`CLAUDE.md` 文末「现状」记的是源机器）。
   笔记本运行时齐全（node/npm/python3/go/rustc/cargo），Mason 已装 26 个
   （clangd / gopls / pyright / ruff / vtsls / lua-language-server / jdtls …）。
   别照着那条去「补装」。
 - 钥匙环开机自动解锁（`system/keyring-autounlock.sh`）2026-10-29 已在笔记本跑完，密钥环密码本来就和登录密码一致。
+- 已补齐（2026-11-14）：greeter 的 polkit 规则（两个 action 名都认）、`python-pynvim` + `python-ipykernel`（`:UpdateRemotePlugins` 已跑）、
+  `kate markdownpart papers handlr-regex fortune-mod` 与古诗库。
 
 ### 安全体检与防火墙：笔记本多放行两条（2026-10-29）
 
@@ -152,9 +139,9 @@ sudo ufw allow from 192.168.0.0/24 to any port 8000 proto tcp comment 'SillyTave
 
 ### 壁纸库两台不一样大
 
-`CLAUDE.md`「边界」一节记的 348 MB / 115 张是**源机器**的。笔记本只拉了一部分：
-273 MB / 51 张（2026-09-16 数）。两边都靠 `wallpaper/tokyonight/_fetch.py` 重新拉，
-包里只带两张成品（`11-w55gjr.png` 参考图 + `wallhaven-kxwp96.jpg`）。
+源机器的壁纸全库（README 里的体积数由 `sync.sh` 自动对账）比笔记本大。笔记本只拉了一部分：
+273 MB / 51 张（2026-09-16 数）。包里只带 `11-w55gjr.png` 参考图和 `wallpaper/ascii/` 成品，
+其余照 `wallpaper/tokyonight/_picks*.json` 里的出处手动下（见 `docs/05`「壁纸库的生成管线」）。
 
 **2026-11-14 跟远程换成 Rose Pine Moon 配色，但壁纸两台不同**：源机器是 `rosepine/ogjg3l.png`
 （Saber 雪夜提灯，4000×2250），笔记本用的是 `rosepine/wallhaven-m953jy.jpg`

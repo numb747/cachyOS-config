@@ -4,7 +4,7 @@
 管线：magick 降采样 -> PPM -> 字符映射 + 调色板吸附 -> SVG -> rsvg-convert -> PNG
 每个字符显式指定 x 坐标，不依赖字体 advance，网格保证对齐。
 """
-import subprocess, sys, os, math, html
+import subprocess, os, html
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 FONT = "MesloLGS Nerd Font Mono"

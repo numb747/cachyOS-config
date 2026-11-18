@@ -276,9 +276,6 @@ pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$   # → po
 
 只在这台机器装了 `claude` CLI 才有意义；没装的话 `install.sh cc` 会 warn 但仍把脚本铺开。
 
-- [ ] `python3 ~/.claude/test-cc.py` 打印「全部通过」（纯函数、秒回、不消耗 API）
-- [ ] `ccs` 能列出当前会话；一个都没开的话先起一个 `claude` 再看
-- [ ] `ccp` 能进宠物界面，`q` 退出后终端不留残影
 - [ ] **状态栏**：随便开个 `claude`，底部有一行 `[Opus 5·high] 目录 │ ███░░░ 33% …`
 
       没有的话查 `jq '.statusLine' ~/.claude/settings.json`。这一段**不在包里**
@@ -287,9 +284,6 @@ pkcheck --action-id org.noctalia.greeter.sync-appearance --process $$   # → po
 
 - [ ] token 还在：`jq -r '.env.ANTHROPIC_AUTH_TOKEN' ~/.claude/settings.json`
       —— 合并只加键不动其它，但值得确认一次。改前的备份在 `settings.json.bak-<时间戳>`
-
-⚠ `ccw/ccs/ccp` 三个 alias 定义在 **term 模块**的 `.zshrc` 里。只装 term 不装 cc，
-alias 会指向不存在的文件。
 
 ---
 
