@@ -144,6 +144,9 @@ bin/ccx                                   ~/.local/bin/ccx
 bin/ggx                                   ~/.local/bin/ggx
 # ccglm：Claude Code 跑 GLM，独立配置目录 ~/.claude-glm（不入包：含 key 和中转地址）；带套餐时经 ccx 但不经 ccm。见 docs/08 第 13 节末。
 bin/ccglm                                 ~/.local/bin/ccglm
+# ccglm 专用的 CLAUDE.md（2026-11-19 加）：只写「接口不支持图片」这一条环境限制，不是日常那份。
+# 包内叫 glm-CLAUDE.md，理由同下方 global-CLAUDE.md。截图禁用写在 ~/.claude-glm/settings.json（不入包），见 docs/08 第 13 节末。
+claude/glm-CLAUDE.md                      ~/.claude-glm/CLAUDE.md
 # Dolphin 右键文件 →「发送到手机」：经 KDE Connect 推到已配对的手机，对方免确认直接收下。
 # 配对和插件开关（~/.config/kdeconnect/<设备ID>/）绑死设备 ID，不入包。见 docs/05-theme-ui.md「KDE Connect」。
 bin/send-to-phone                         ~/.local/bin/send-to-phone

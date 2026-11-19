@@ -519,7 +519,7 @@ Grok 会热重载，几秒内把这次的 MCP 卸掉。同时只开一个 `ggx`�
 
 - **配置目录独立**：`CLAUDE_CONFIG_DIR=~/.claude-glm`，设置、记忆、会话都在那，`~/.claude` 不读不写。
   不能只在终端里临时设 `ANTHROPIC_BASE_URL`：`~/.claude/settings.json` 的 `env` 优先级更高，会盖回日常那套。
-  所以全局 CLAUDE.md、自动记忆、skill 都不带过去，这是有意的。cc-cost、`Alt+a`、ccmon 只读 `~/.claude`，看不到 GLM 会话。
+  所以全局 CLAUDE.md、自动记忆、skill 都不带过去，这是有意的（GLM 只有一份自己的 `claude/glm-CLAUDE.md`，见下面「图片」那条）。cc-cost、`Alt+a`、ccmon 只读 `~/.claude`，看不到 GLM 会话。
 - **不进 Matrix**：带套餐时交给 ccx，但用 `CCX_LAUNCHER` 把最后 exec 的 `ccm` 换成裸 `claude`。
 
 ```
@@ -537,6 +537,19 @@ cwd 是 `~` 时，`~/.claude/settings.json` 同时也是「项目设置」，优
 指回 ccglm 自己（带 `CCGLM_DIRECT=1`），由它在末尾补上。其他项目目录的 `.claude/settings*.json`
 当时扫过，没有设 key 或地址的。
 `~/.claude-glm/settings.json`（中转地址、模型映射）和 `relay.key`（600）**不入包**，新机器要手建。
+
+⚠ **工具结果里带图片会让会话卡死**（2026-11-19 踩到）：报 `400 ***.***.type 参数非法，取值范围 ['text']`。
+GLM 的 Anthropic 兼容接口在 `tool_result` 里只认 `text`，chrome-devtools 的 `take_screenshot`、Read 图片文件
+都会返回 `image` 块。图片一旦进了对话历史，之后每次请求都带着它，所以说什么都是 400，`/compact` 也救不了
+（压缩时同样要发历史），只能 Esc Esc 回到截图之前，或者 `/clear`。延迟加载产生的 `tool_reference` 块没问题。
+两层防护：
+
+- `~/.claude-glm/settings.json` 里禁掉截图，这是硬拦截（新机器手建时要一起写上）：
+  ```json
+  "permissions": { "deny": ["mcp__chrome-devtools__take_screenshot"] }
+  ```
+- `claude/glm-CLAUDE.md` → `~/.claude-glm/CLAUDE.md`：提醒它别 Read 图片、看网页改用 `take_snapshot`。
+  这只是提示，不保证遵守；Read 还要用来读文本，没法整个禁掉。
 
 验收（2026-11-16）：`ccglm web -- -p …` 的 init 里 MCP 只有 `chrome-devtools`，没有 matrix-sync；
 工具延迟加载在 GLM 上能用（先 ToolSearch 再调 `list_pages`）；会话文件落在 `~/.claude-glm/projects/`。

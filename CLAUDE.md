@@ -118,7 +118,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
 ## 边界：不进这个包的东西
 
 `~/.ssh/` · `~/.gnupg/` · `~/.claude/settings.json`（含明文 token；状态栏、Agent Teams 的键由 `install.sh` 用 jq 合并进去）·
-`~/.claude/mcp/secrets.env`（ccx 套餐的密钥，见 `docs/08` 第 13 节）· `~/.claude-glm/`（ccglm）·
+`~/.claude/mcp/secrets.env`（ccx 套餐的密钥，见 `docs/08` 第 13 节）· `~/.claude-glm/`（ccglm；只有 `CLAUDE.md` 入包，即 `claude/glm-CLAUDE.md`）·
 `~/.config/noctalia/storage.key`（剪贴板加密主密钥，新机器重新生成）· `~/.local/share/fcitx5/rime/`（个人词库）·
 壁纸全库（包里只带 `11-w55gjr.png` 参考图和 `wallpaper/ascii/` 成品）· `~/.zsh_history`。
 
@@ -141,7 +141,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
     `~/.claude/sessions/*.json`，队员靠屏幕正则）。外层 nvim 转发 `Alt+Shift+标点` 会丢 Shift。见 `docs/03`、`docs/14`。
   - **ui**：noctalia、fcitx5 tokyonight 主题、fontconfig、默认打开方式（`config/mimeapps.list`）。见 `docs/05`。
   - **cc**：Claude Code 状态栏、Agent Teams（4 个角色 + 团队日志钩子；限权限只用 `tools` 白名单；队员做完常驻要手动关）、
-    arch-map 等 skills、ccx 套餐。17 个文件在 `claude/`。见 `docs/08`、`docs/14` 第 7 节。
+    arch-map 等 skills、ccx 套餐。18 个文件在 `claude/`。见 `docs/08`、`docs/14` 第 7 节。
   - **wall**：ASCII 壁纸成品 + `_ascii.py`、`theme-switch`/`theme-preview`。
   - **ocr**：RapidOCR 常驻服务（systemd socket 激活，空闲自退；必须 HTTP/1.0；别在送进 OCR 前放大图片）。
     `python-rapidocr` 要本地改 PKGBUILD 且 IgnorePkg 锁更新（`/etc/pacman.conf`，不在包管辖）。见 `docs/10`、`aur/README.md`。
