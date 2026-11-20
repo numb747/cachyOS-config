@@ -403,8 +403,13 @@ GTK3/GTK4 调 `eglChooseConfig` 时不写这一项 → 一个 config 都匹配�
 C=/var/cache/pacman/pkg; V=3:26.2.6-1-x86_64_v4.pkg.tar.zst
 sudo pacman -U $C/{mesa,lib32-mesa,opencl-mesa,lib32-opencl-mesa,vulkan-radeon,lib32-vulkan-radeon,vulkan-mesa-implicit-layers,lib32-vulkan-mesa-implicit-layers}-$V
 # /etc/pacman.conf（原文件备份在 pacman.conf.bak-20261120）：
-IgnorePkg   = python-rapidocr mesa lib32-mesa opencl-mesa lib32-opencl-mesa vulkan-radeon lib32-vulkan-radeon vulkan-mesa-implicit-layers lib32-vulkan-mesa-implicit-layers
+IgnorePkg   = python-rapidocr mesa lib32-mesa opencl-mesa lib32-opencl-mesa vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel vulkan-mesa-implicit-layers lib32-vulkan-mesa-implicit-layers
 ```
+
+上面 `pacman -U` 的 8 个是台式机（AMD）装的。**笔记本（Intel + NVIDIA）装的是 `vulkan-intel`/`lib32-vulkan-intel`，
+没有 `vulkan-radeon`、`opencl-mesa`**——降级时按本机实际装的换（`pacman -Q | grep -E 'mesa|vulkan-'` 看，都是 mesa
+源码包拆出来的，版本号一样）。IgnorePkg 那行两台通用：锁一个没装的包不会出问题。笔记本 11-20 拉到这条时还没升过，
+只补了锁。
 
 当时没有别的包依赖新 mesa（同批升级里没有 llvm），所以能单独降。降完不用重启电脑，重开受影响的应用就行；
 Hyprland 自己内存里还是旧映射，下次登录自然换上。CachyOS 右上角的「建议重启」是动了核心包就弹的固定提示。
