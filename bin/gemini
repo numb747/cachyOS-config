@@ -1,0 +1,17 @@
+#!/bin/sh
+# Gemini CLI through an API relay (Gemini-native /v1beta format).
+# Key:      ~/.gemini/relay.key  (mode 600, one line)
+# Base URL: ~/.gemini/relay.url  (relay root, e.g. https://example.com — no /v1beta)
+# Both are exported for this process alone, never into the login shell.
+# Change relay or key: overwrite those files. Model default: gemini-4-neon
+# (override with -m / GEMINI_MODEL).
+dir="$HOME/.gemini"
+if [ -r "$dir/relay.key" ] && [ -r "$dir/relay.url" ]; then
+    GEMINI_API_KEY=$(cat "$dir/relay.key")
+    GOOGLE_GEMINI_BASE_URL=$(cat "$dir/relay.url")
+    GEMINI_MODEL=${GEMINI_MODEL:-gemini-4-neon}
+    export GEMINI_API_KEY GOOGLE_GEMINI_BASE_URL GEMINI_MODEL
+else
+    echo "gemini: 缺 $dir/relay.key 或 relay.url，未走中转" >&2
+fi
+exec /usr/bin/gemini "$@"

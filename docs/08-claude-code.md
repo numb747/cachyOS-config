@@ -554,6 +554,25 @@ GLM 的 Anthropic 兼容接口在 `tool_result` 里只认 `text`，chrome-devtoo
 验收（2026-11-16）：`ccglm web -- -p …` 的 init 里 MCP 只有 `chrome-devtools`，没有 matrix-sync；
 工具延迟加载在 GLM 上能用（先 ToolSearch 再调 `list_pages`）；会话文件落在 `~/.claude-glm/projects/`。
 
+### Gemini 4 Neon：Gemini CLI 走中转（2026-11-20）
+
+Neon（`gemini-4-neon`，2026-11-18 发布）是纯文本输出的编程/agent 模型。用官方 Gemini CLI 跑，**不套** Claude Code
+或 Codex：那两个只认 Anthropic / OpenAI Responses 格式，中间还得加一层转换，工具调用容易坏。中转要提供
+**Gemini 原生接口**（`/v1beta/models/…:generateContent`），本机用的那家中转支持这种接口，但只有 Gemini 分组的 key 才有渠道
+（日常 Claude 的 key 调 Neon 会报 `分组 … 下模型 gemini-4-neon 无可用渠道`）。
+
+- 包：pacman 的 `gemini-cli`（`/usr/bin/gemini`）。`bin/gemini` 在 PATH 里排在它前面，只给这个进程注入
+  `GEMINI_API_KEY`、`GOOGLE_GEMINI_BASE_URL`，再加上默认的 `GEMINI_MODEL=gemini-4-neon`（`-m` 可以临时换）。
+- `~/.gemini/relay.key`（600）和 `relay.url`（只写中转根地址，不带 `/v1beta`，CLI 自己拼路径）**不入包**，新机器手建。
+  换 key 或换中转只改这两个文件。
+- `~/.gemini/settings.json` 也不入包，新机器照写：`security.auth.selectedType = "gemini-api-key"`（9 月用 Google 账号
+  登录过，原设置备份在 `settings.json.bak-oauth`，`/auth` 能切回去）、`general.enableAutoUpdate = false`（包由 pacman 管）、
+  `privacy.usageStatisticsEnabled = false`。
+- 非交互模式（`-p`）在没信任过的目录会直接拒跑，要 `--skip-trust` 或 `GEMINI_CLI_TRUST_WORKSPACE=true`；交互模式会弹信任框。
+
+验收（2026-11-20，gemini-cli 0.69.0）：`-p --output-format json` 的 `stats.models` 只有 `gemini-4-neon`；
+`--yolo` 跑「读 a.txt → 写 b.txt → 再读回」的多步工具调用，结果正确（走原生接口，没碰到思考签名丢失的问题）。
+
 ## 14 · 花费统计：cc-cost（2026-11-13）
 
 Windows 上的 ccswitch 自带用量统计，本机没有，就写了这个终端命令。输出分类表（输入 / 缓存写 5m / 缓存写 1h /
