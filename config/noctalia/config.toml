@@ -43,9 +43,7 @@ thickness = 35
 media = false
 
 [shell]
-# 2026-11-20：satty 强制走 XWayland。mesa 26.3.1 下 GTK4 的 GLArea 在原生 Wayland 拿不到 EGL config，
-#   画布显示「No EGL configuration available」（工具栏走 Vulkan 不受影响）。mesa 修好后去掉 env，见 cachyOS-config docs/07 坑 12。
-clipboard_image_action_command = "env GDK_BACKEND=x11 satty -f -"
+clipboard_image_action_command = "satty -f -"
 launch_apps_as_systemd_services = true
 polkit_agent = true
 settings_show_advanced = true
@@ -78,7 +76,7 @@ settings_show_advanced = true
 
     [shell.screenshot]
     copy_to_clipboard = false
-    pipe_command = "env GDK_BACKEND=x11 satty -f -"  # 同上，mesa 26.3.1 绕法
+    pipe_command = "satty -f -"
     pipe_to_command = true
     save_to_file = true
 

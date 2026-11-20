@@ -152,4 +152,6 @@ cd ~/cachyOS-config && ./sync.sh --pull
   钥匙环开机解锁（`system/`）；pacman 升级后缺库检查（`system/pacman-libcheck/`，`sudo ./setup.sh`，见 `docs/07` 坑 11）。
 - 已撤掉、别再加回来：作战大屏 warboard、终端版 discordo、noctalia 启动器（及回退脚本 noct-panel）、
   看板/宠物 TUI ccw/ccs/ccp（网页版 `~/ccmon` 取代）、Waydroid、企业微信。
+- **mesa 一套 8 个包降在 26.2.6 并 IgnorePkg 锁住**（2026-11-20，26.3.1 让 GTK/Flutter 应用原生 Wayland 白屏/没窗口），
+  上游修好再解锁，判断和验证方法见 `docs/07` 坑 12。
 - 待办：Mason 语言工具链未装齐（缺运行时，见 `docs/04`）；切桌面时光标闪一下（见 `docs/07` 遗留项）。

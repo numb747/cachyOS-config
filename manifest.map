@@ -120,9 +120,6 @@ bin/yt-dlp-wait                           ~/.local/bin/yt-dlp-wait
 # 预览插件的开关不在这里，在会话文件里，见 docs/05。
 config/katerc                             ~/.config/katerc
 share/applications/imv-viewer.desktop     ~/.local/share/applications/imv-viewer.desktop
-# LocalSend 强制走 XWayland（mesa 26.3.1 下原生 Wayland 建不了 GL 上下文，窗口出不来）。
-# 系统那条在 elephant/desktopapplications.toml 里 blacklist 掉了。mesa 修好后整个撤掉，见 docs/07 坑 12。
-share/applications/localsend-xwayland.desktop  ~/.local/share/applications/localsend-xwayland.desktop
 # 启动器里的「Excalidraw」：点开时起 docker 容器、关窗口自动停，不用时零占用。
 # 图标是从镜像里抠出来的 favicon.svg。见 docs/05-theme-ui.md「本地 Excalidraw 白板」。
 bin/excalidraw                            ~/.local/bin/excalidraw

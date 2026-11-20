@@ -374,48 +374,54 @@ printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所�
 
 ---
 
-## 坑 12 — mesa 升级后 LocalSend 打不开、Satty 画布空白（原生 Wayland 拿不到 EGL config）
+## 坑 12 — mesa 26.3.1：GTK/Flutter 应用原生 Wayland 拿不到 EGL config（已降回 26.2.6 并锁住）
 
-**现象**（2026-11-20）：点 LocalSend 没窗口，进程在、托盘也可能在。终端跑 `localsend` 看到：
+**现象**（2026-11-20 `mesa 26.2.6 → 26.3.1` 后）：一批 GTK 应用同时坏——
 
-```
-WARNING **: Failed to create OpenGL context: No available configurations for the given pixel format
-CRITICAL **: gboolean fl_compositor_render(...): assertion 'FL_IS_COMPOSITOR(self)' failed
-```
+| 应用 | 表现 | 终端报错 |
+|---|---|---|
+| LocalSend（Flutter/GTK3） | 点了没窗口 | `Failed to create OpenGL context: No available configurations for the given pixel format` |
+| RustDesk 界面（Flutter/GTK3） | 窗口纯白 | `Failed to initialize GLArea: No available configurations for the given pixel format` |
+| Satty（GTK4） | 工具栏正常、画布只写一行 `No EGL configuration available` | 无 |
 
-**根因**：当天早上 `mesa 26.2.6 → 26.3.1`。GTK3 在 Wayland 下给 Flutter 选 EGL config 时一个都拿不到，
-后面的 `FL_IS_COMPOSITOR` 断言只是连锁反应。`eglinfo -B` 正常，说明不是驱动整体坏了，只是这条路径回归。
-**对照实验**（不动系统）：把缓存里的旧包解到临时目录，只让 LocalSend 用它——
+RustDesk 只坏界面：`rustdesk.service` 照常跑、照常注册到自建服务器，别往网络/服务上查。
+
+**根因**（上游已定位）：26.3.1 回补了 `mesa: don't advertise APIs that are not built`（MR 46169）。Arch/CachyOS 的 mesa
+不编 GLES1，于是 EGL config 里不再带 ES1 位；而 `EGL_RENDERABLE_TYPE` 按规范默认就是 `EGL_OPENGL_ES_BIT`（ES1），
+GTK3/GTK4 调 `eglChooseConfig` 时不写这一项 → 一个 config 都匹配不上。所有「GTK + OpenGL + 原生 Wayland」都中
+（Godot、Ghostty、FlClash 等也报了）。`eglinfo -B` 正常，所以别以为是驱动整体坏了。
+
+- mesa：<https://gitlab.freedesktop.org/mesa/mesa/-/issues/16934>（regression 标签）
+- GTK：<https://gitlab.gnome.org/GNOME/gtk/-/issues/8566>
+- CachyOS（RustDesk 正是这个）：<https://github.com/CachyOS/CachyOS-PKGBUILDS/issues/2156>
+
+**现在的做法：整体降回 26.2.6 + IgnorePkg 锁住**，不给单个应用打补丁。当天上午先给 LocalSend、Satty 各做了
+`GDK_BACKEND=x11` 绕法（commit 657b5d7、c68cb9c），下午 RustDesk 又中招，判断「一个个打补丁」打不完，已全部撤掉。
 
 ```bash
-mkdir /tmp/oldmesa && cd /tmp/oldmesa && bsdtar -xf /var/cache/pacman/pkg/mesa-3:26.2.6-1-x86_64_v4.pkg.tar.zst usr/lib usr/share/glvnd
-O=/tmp/oldmesa/usr/lib
-LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/oldmesa/usr/share/glvnd/egl_vendor.d/50_mesa.json \
+# 8 个包必须同版本一起降（缓存里有），装的时候会校验签名
+C=/var/cache/pacman/pkg; V=3:26.2.6-1-x86_64_v4.pkg.tar.zst
+sudo pacman -U $C/{mesa,lib32-mesa,opencl-mesa,lib32-opencl-mesa,vulkan-radeon,lib32-vulkan-radeon,vulkan-mesa-implicit-layers,lib32-vulkan-mesa-implicit-layers}-$V
+# /etc/pacman.conf（原文件备份在 pacman.conf.bak-20261120）：
+IgnorePkg   = python-rapidocr mesa lib32-mesa opencl-mesa lib32-opencl-mesa vulkan-radeon lib32-vulkan-radeon vulkan-mesa-implicit-layers lib32-vulkan-mesa-implicit-layers
+```
+
+当时没有别的包依赖新 mesa（同批升级里没有 llvm），所以能单独降。降完不用重启电脑，重开受影响的应用就行；
+Hyprland 自己内存里还是旧映射，下次登录自然换上。CachyOS 右上角的「建议重启」是动了核心包就弹的固定提示。
+
+**解锁时机**：上面任一上游 issue 修好并进了仓库（`pacman -Si mesa` 看版本，比如 26.3.2+ 的更新说明提到 EGL/GLES1，
+或 Arch 打开 gles1）。先**不动系统**验证新版本：把新包解到临时目录，只让一个应用用它——
+
+```bash
+mkdir /tmp/newmesa && cd /tmp/newmesa && bsdtar -xf <新 mesa 包> usr/lib usr/share/glvnd
+O=/tmp/newmesa/usr/lib
+LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/newmesa/usr/share/glvnd/egl_vendor.d/50_mesa.json \
   GBM_BACKENDS_PATH=$O/gbm LIBGL_DRIVERS_PATH=$O/dri localsend
 ```
 
-旧 mesa 下没有报错、原生 Wayland 正常起，根因确认。`GDK_DEBUG=gl-gles` / `GDK_GL=gles` 都没用；`GDK_BACKEND=x11` 能起。
+（当天就是用这招拿旧包反过来确认的根因。）没有 `No available configurations` 了，就把 `IgnorePkg` 里这 8 个删掉再 `-Syu`。
 
-**现在的绕法**：不降 mesa（降级要连 lib32/vulkan-radeon/opencl 一整套，影响全桌面），只让 LocalSend 走 XWayland：
-
-- `~/.local/share/applications/localsend-xwayland.desktop`：系统条目的副本，`Exec=env GDK_BACKEND=x11 /usr/bin/localsend`
-  （按惯例用新文件名，不同名遮蔽）。XWayland 下窗口 class 不变，Walker 的「有窗口先聚焦」照样认得。
-- `~/.config/elephant/desktopapplications.toml` 里 `blacklist = ['^localsend$']`，把系统那条藏掉，启动器里只剩一个 LocalSend。
-
-**mesa 修好后撤掉**：终端直接跑 `localsend` 没有 `Failed to create OpenGL context` 了，就删这个 `.desktop`、删 blacklist、
-从 `manifest.map` 去掉那行，`systemctl --user restart elephant`。
-
-**Satty（截图标注）同一天也中了**：截图后 Satty 窗口工具栏正常，中间画布只有一行 `No EGL configuration available`，
-终端里什么都不报。GTK4 默认用 Vulkan 画界面，所以工具栏没事；画布是 GLArea（femtovg）要 OpenGL，就是这条路径坏了。
-试过 `GDK_DISABLE=gles-api`、`GDK_DISABLE=gl-api`、`GDK_DEBUG=gl-prefer-gl` 都不行，也是只有 `GDK_BACKEND=x11` 管用。
-Satty 是 noctalia 拉起的，改的是 `~/.config/noctalia/config.toml` 里两处：`[shell] clipboard_image_action_command`
-和 `[shell.screenshot] pipe_command`，都从 `satty -f -` 改成 `env GDK_BACKEND=x11 satty -f -`。
-noctalia 会自动重读配置，不用重启；用 `noctalia msg screenshot-fullscreen` 实测过画布正常。
-显示器缩放是 1，XWayland 下不会糊；以后如果改成小数缩放，XWayland 窗口会糊，那时得重新考虑。
-mesa 修好后把这两处的 `env GDK_BACKEND=x11 ` 去掉（直接跑 `satty -f 某张图` 看画布还有没有那行字）。
-
-**其他应用**：GTK3/Flutter（报 `Failed to create OpenGL context`）、GTK4 带 GLArea 的（窗口里显示 `No EGL configuration available`）
-都可能中，同一招：`GDK_BACKEND=x11`。
+**万一以后又不能降**（缓存被清、或别的包依赖新 mesa）：单个应用用 `GDK_BACKEND=x11` 能起来，具体做法在 657b5d7 / c68cb9c。
 
 ---
 
@@ -445,7 +451,7 @@ mesa 修好后把这两处的 `env GDK_BACKEND=x11 ` 去掉（直接跑 `satty -
 | 光标样式不对 | Bibata 没装，回退到 Adwaita，属正常。`yay -S bibata-cursor-theme` |
 | 壁纸没上屏 | `settings.toml` 里显示器名写死为 `DP-1`，新机不同。在 noctalia 里重选一次壁纸 |
 | 升级后某程序起不来：`error while loading shared libraries` | 多半是仓库重编没跟上：某个库换了版本号，依赖它的包还没重编。`pacman -Si <包>` 看别的仓库有没有新版，有就 `sudo pacman -S 仓库名/包名`。升级时 pacman-libcheck 钩子会当场报出来，见坑 11 |
-| 某个应用点了没窗口，终端里报 `Failed to create OpenGL context: No available configurations`；或窗口里写着 `No EGL configuration available` | mesa 26.3.1 起原生 Wayland 拿不到 EGL config。先 `GDK_BACKEND=x11 程序` 试；LocalSend、Satty 已这样绕，见坑 12 |
+| 某个应用点了没窗口，终端里报 `Failed to create OpenGL context: No available configurations`；或窗口里写着 `No EGL configuration available` | mesa 26.3.1 的回归，本机已降回 26.2.6 并 IgnorePkg 锁住。`pacman -Q mesa` 看是不是被升上去了，见坑 12 |
 | 升级后快捷键行为变了 | pacman 覆盖了 `config/*.lua`。用 `config/hypr/patches/*.patch` 重打，见 [02](02-hyprland.md#关于官方文件被改动) |
 
 ---
