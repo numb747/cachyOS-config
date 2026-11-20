@@ -374,7 +374,7 @@ printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所�
 
 ---
 
-## 坑 12 — mesa 升级后 LocalSend 打不开（Flutter 应用原生 Wayland 建不了 GL 上下文）
+## 坑 12 — mesa 升级后 LocalSend 打不开、Satty 画布空白（原生 Wayland 拿不到 EGL config）
 
 **现象**（2026-11-20）：点 LocalSend 没窗口，进程在、托盘也可能在。终端跑 `localsend` 看到：
 
@@ -405,7 +405,17 @@ LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/oldmesa/usr/share/glvnd/e
 **mesa 修好后撤掉**：终端直接跑 `localsend` 没有 `Failed to create OpenGL context` 了，就删这个 `.desktop`、删 blacklist、
 从 `manifest.map` 去掉那行，`systemctl --user restart elephant`。
 
-**其他 Flutter 应用**（GTK3 + Flutter Linux 嵌入层）同样会中，同一招：`GDK_BACKEND=x11`。
+**Satty（截图标注）同一天也中了**：截图后 Satty 窗口工具栏正常，中间画布只有一行 `No EGL configuration available`，
+终端里什么都不报。GTK4 默认用 Vulkan 画界面，所以工具栏没事；画布是 GLArea（femtovg）要 OpenGL，就是这条路径坏了。
+试过 `GDK_DISABLE=gles-api`、`GDK_DISABLE=gl-api`、`GDK_DEBUG=gl-prefer-gl` 都不行，也是只有 `GDK_BACKEND=x11` 管用。
+Satty 是 noctalia 拉起的，改的是 `~/.config/noctalia/config.toml` 里两处：`[shell] clipboard_image_action_command`
+和 `[shell.screenshot] pipe_command`，都从 `satty -f -` 改成 `env GDK_BACKEND=x11 satty -f -`。
+noctalia 会自动重读配置，不用重启；用 `noctalia msg screenshot-fullscreen` 实测过画布正常。
+显示器缩放是 1，XWayland 下不会糊；以后如果改成小数缩放，XWayland 窗口会糊，那时得重新考虑。
+mesa 修好后把这两处的 `env GDK_BACKEND=x11 ` 去掉（直接跑 `satty -f 某张图` 看画布还有没有那行字）。
+
+**其他应用**：GTK3/Flutter（报 `Failed to create OpenGL context`）、GTK4 带 GLArea 的（窗口里显示 `No EGL configuration available`）
+都可能中，同一招：`GDK_BACKEND=x11`。
 
 ---
 
@@ -435,7 +445,7 @@ LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/oldmesa/usr/share/glvnd/e
 | 光标样式不对 | Bibata 没装，回退到 Adwaita，属正常。`yay -S bibata-cursor-theme` |
 | 壁纸没上屏 | `settings.toml` 里显示器名写死为 `DP-1`，新机不同。在 noctalia 里重选一次壁纸 |
 | 升级后某程序起不来：`error while loading shared libraries` | 多半是仓库重编没跟上：某个库换了版本号，依赖它的包还没重编。`pacman -Si <包>` 看别的仓库有没有新版，有就 `sudo pacman -S 仓库名/包名`。升级时 pacman-libcheck 钩子会当场报出来，见坑 11 |
-| 某个应用点了没窗口，终端里报 `Failed to create OpenGL context: No available configurations` | mesa 升级后 GTK3/Flutter 原生 Wayland 建 GL 失败。先 `GDK_BACKEND=x11 程序` 试；LocalSend 已这样绕，见坑 12 |
+| 某个应用点了没窗口，终端里报 `Failed to create OpenGL context: No available configurations`；或窗口里写着 `No EGL configuration available` | mesa 26.3.1 起原生 Wayland 拿不到 EGL config。先 `GDK_BACKEND=x11 程序` 试；LocalSend、Satty 已这样绕，见坑 12 |
 | 升级后快捷键行为变了 | pacman 覆盖了 `config/*.lua`。用 `config/hypr/patches/*.patch` 重打，见 [02](02-hyprland.md#关于官方文件被改动) |
 
 ---
