@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# pacman 升级后查「程序找不到它要的动态库」。由 zz-pacman-libcheck.hook 在每次事务结束后调用。
+# 来龙去脉见 docs/07-troubleshooting.md「升级后程序报 cannot open shared object」。
+#
+#   钩子模式（默认）：stdin 读本次装/升级的包名 → 连同「依赖它们的包」一起，
+#                     把这些包里的 ELF 文件的 NEEDED 库逐个核对。
+#   pacman-libcheck --files 文件...   直接查给定文件（测试用）
+#
+# 只报不修：不装包、不降级、永远 exit 0（钩子失败也不该影响 pacman）。
+# 2026-11-20 起因：znver4 仓库先发 simdjson(so.36→so.37)，nodejs 重编版只在 cachyos 仓库，
+# -Syu 后 node 起不来。
+
+set -u
+export LC_ALL=C
+
+# 不查的路径：自带整套交叉工具链/运行时、库本来就不从本机找的（扩展正则，接在 ^ 后面）
+IGNORE='/opt/android-ndk/'
+
+# ELF 文件 → 「文件<TAB>缺的库」，每缺一个一行。
+# 只报「换了版本号」的缺：要 libfoo.so.36、系统里只有 libfoo.so.37。根本没装的库（插件的可选依赖，
+# 如 openmpi 的 libcuda）不报——那是常态，不是升级弄坏的；报了会把真问题淹掉。
+scan() {
+    local cache tmp
+    cache=$(ldconfig -p 2>/dev/null | awk 'NR>1 {print $1}')
+    tmp=$(mktemp -d)
+    # 并行时每批写自己的文件，否则多个 readelf 的输出在管道里互相插队
+    xargs -d '\n' -r -P"$(nproc)" -n200 sh -c 'readelf -d "$@" >"$(mktemp -p "$0")" 2>/dev/null' "$tmp"
+    cat "$tmp"/* 2>/dev/null | awk -v cache="$cache" '
+        function base(x) { sub(/\.so(\..*)?$/, ".so", x); return x }
+        BEGIN { n = split(cache, a, "\n"); for (i = 1; i <= n; i++) { have[a[i]] = 1; bases[base(a[i])] = 1 } }
+        function flush(   i, lib, dir, n, d, j, ok) {
+            if (file == "") return
+            dir = file; sub(/\/[^\/]*$/, "", dir)
+            for (i = 1; i <= nneed; i++) {
+                lib = need[i]
+                if (lib in have || index(lib, "/") || !(base(lib) in bases)) continue
+                # 换版本号的嫌疑：再看 RPATH/RUNPATH 和文件同目录（Electron、/opt 下的私有库）
+                ok = 0
+                n = split(rpath ":" dir, d, ":")
+                for (j = 1; j <= n && !ok; j++) {
+                    if (d[j] == "") continue
+                    gsub(/\$ORIGIN|\$\{ORIGIN\}/, dir, d[j])
+                    if (system("test -e \"" d[j] "/" lib "\"") == 0) ok = 1
+                }
+                if (!ok) print file "\t" lib
+            }
+        }
+        /^File: / { flush(); file = substr($0, 7); nneed = 0; rpath = ""; next }
+        /\(NEEDED\)/ { match($0, /\[[^]]*\]/); need[++nneed] = substr($0, RSTART + 1, RLENGTH - 2); next }
+        /\((RUNPATH|RPATH)\)/ { match($0, /\[[^]]*\]/); rpath = substr($0, RSTART + 1, RLENGTH - 2); next }
+        END { flush() }
+    '
+    rm -rf "$tmp"
+}
+
+# 单个文件时 readelf 不打印 "File:" 头，统一补上
+files_to_scan() { awk '{print} END {print "/dev/null"}'; }
+
+report() {
+    local broken=$1
+    [[ -z $broken ]] && return 0
+    local -A by_pkg=()
+    local f lib pkg
+    while IFS=$'\t' read -r f lib; do
+        pkg=$(pacman -Qoq "$f" 2>/dev/null || echo "?")
+        by_pkg[$pkg]+="    $f  缺 $lib"$'\n'
+    done <<<"$broken"
+
+    printf '\n\033[1;31m!! 升级后有程序找不到它要的库（启动会报 cannot open shared object file）\033[0m\n'
+    for pkg in "${!by_pkg[@]}"; do
+        printf '\n  \033[1m%s\033[0m %s\n' "$pkg" "$(pacman -Q "$pkg" 2>/dev/null | cut -d' ' -f2)"
+        printf '%s' "${by_pkg[$pkg]}" | head -n 5
+        # 各仓库里的版本：通常是某个仓库已经重编、但排在前面的仓库还没跟上
+        [[ $pkg == "?" ]] && continue
+        if ! pacman -Si "$pkg" >/dev/null 2>&1; then
+            printf '    不在仓库里（AUR/本地包）：要重新编译，重编前照 ~/cachyOS-config/aur/README.md 审一遍\n'
+            continue
+        fi
+        pacman -Si "$pkg" 2>/dev/null | awk '
+            /^Repository/ {r = $3} /^Version/ {printf "    仓库 %-22s %s\n", r, $3}'
+    done
+    printf '\n  多半是仓库重编没跟上。上面有更新的版本就: sudo pacman -S 仓库名/包名\n'
+    printf '  都没有就等一两天再 -Syu。详见 ~/cachyOS-config/docs/07-troubleshooting.md\n\n'
+}
+
+if [[ ${1:-} == --files ]]; then
+    shift
+    report "$(printf '%s\n' "$@" | files_to_scan | scan)"
+    exit 0
+fi
+
+mapfile -t targets < <(grep -v '^$')
+((${#targets[@]})) || exit 0
+
+# 本次的包 + 依赖它们的包（「Required By」可能跨多行）
+mapfile -t pkgs < <(
+    {
+        printf '%s\n' "${targets[@]}"
+        pacman -Qi "${targets[@]}" 2>/dev/null | awk '
+            /^Required By/ {on = 1; sub(/^[^:]*:/, "")} /^[A-Z][a-zA-Z ]*:/ && !/^Required By/ {on = 0}
+            on {for (i = 1; i <= NF; i++) if ($i != "None") print $i}'
+    } | sort -u
+)
+
+broken=$(pacman -Qlq "${pkgs[@]}" 2>/dev/null \
+    | grep -E '^/(usr/(bin|lib|lib32)|opt)/' | grep -v '/$' | grep -Ev "^($IGNORE)" \
+    | while IFS= read -r f; do [[ -f $f && ! -L $f ]] && printf '%s\n' "$f"; done \
+    | files_to_scan | scan)
+report "$broken"
+exit 0

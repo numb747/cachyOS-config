@@ -1,0 +1,14 @@
+# 每次装/升级包之后，查有没有程序找不到它要的动态库。只报不修。
+# 装到 /etc/pacman.d/hooks/，检查脚本在 /usr/local/libexec/pacman-libcheck。
+# 由 ~/cachyOS-config/system/pacman-libcheck/setup.sh 安装，说明见 docs/07-troubleshooting.md。
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = 检查升级后有没有程序缺动态库...
+When = PostTransaction
+Exec = /usr/local/libexec/pacman-libcheck
+NeedsTargets

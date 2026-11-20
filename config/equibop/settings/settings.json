@@ -1126,7 +1126,8 @@
         },
         "NoTrack": {
             "enabled": true,
-            "disableAnalytics": true
+            "disableAnalytics": true,
+            "allowBadgeTracking": true
         },
         "Settings": {
             "enabled": true,
@@ -1188,7 +1189,9 @@
         "BetterBackreading": {
             "enabled": true,
             "imageScrollMargin": "1500",
-            "messageLoadBuffer": "1500"
+            "messageLoadBuffer": "1500",
+            "channelOpenScrollMode": "saved",
+            "maximumLastReadAge": "10080"
         },
         "ExternalPlayer": {
             "enabled": false
@@ -1207,6 +1210,9 @@
         },
         "DraftNavigator": {
             "enabled": false
+        },
+        "DuplicateCategory": {
+            "enabled": true
         }
     },
     "uiElements": {
@@ -1224,7 +1230,7 @@
         "authenticated": false,
         "url": "https://cloud.equicord.org/",
         "settingsSync": false,
-        "settingsSyncVersion": 1794300324100
+        "settingsSyncVersion": 1795132690180
     },
     "ignoreResetWarning": false,
     "noRoundCorners": false
