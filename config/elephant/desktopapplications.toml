@@ -11,5 +11,12 @@
 window_integration = true
 score_open_windows = true
 
-# （原来这里有个 blacklist，屏蔽 Waydroid 导出的安卓版 LocalSend；Waydroid 已于 2026-11-17
-#  整套卸载，blacklist 随之删掉，见 docs/13 坑 7。更早还屏蔽过 wine 里的 Firefox 快捷方式，wine 已于 2026-10-09 卸载。）
+# 2026-11-20：屏蔽系统自带的 localsend.desktop，换成 ~/.local/share/applications/localsend-xwayland.desktop
+#   （强制 XWayland）。mesa 26.3.1 下 LocalSend 原生 Wayland 建不了 GL 上下文、窗口出不来，
+#   见 docs/07。mesa 修好后删掉这条和那个 .desktop。
+blacklist = [
+  '^localsend$',
+]
+
+# （更早这里屏蔽过 Waydroid 导出的安卓版 LocalSend；Waydroid 已于 2026-11-17
+#  整套卸载，见 docs/13 坑 7。更早还屏蔽过 wine 里的 Firefox 快捷方式，wine 已于 2026-10-09 卸载。）

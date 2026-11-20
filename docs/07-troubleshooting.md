@@ -374,6 +374,41 @@ printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所�
 
 ---
 
+## 坑 12 — mesa 升级后 LocalSend 打不开（Flutter 应用原生 Wayland 建不了 GL 上下文）
+
+**现象**（2026-11-20）：点 LocalSend 没窗口，进程在、托盘也可能在。终端跑 `localsend` 看到：
+
+```
+WARNING **: Failed to create OpenGL context: No available configurations for the given pixel format
+CRITICAL **: gboolean fl_compositor_render(...): assertion 'FL_IS_COMPOSITOR(self)' failed
+```
+
+**根因**：当天早上 `mesa 26.2.6 → 26.3.1`。GTK3 在 Wayland 下给 Flutter 选 EGL config 时一个都拿不到，
+后面的 `FL_IS_COMPOSITOR` 断言只是连锁反应。`eglinfo -B` 正常，说明不是驱动整体坏了，只是这条路径回归。
+**对照实验**（不动系统）：把缓存里的旧包解到临时目录，只让 LocalSend 用它——
+
+```bash
+mkdir /tmp/oldmesa && cd /tmp/oldmesa && bsdtar -xf /var/cache/pacman/pkg/mesa-3:26.2.6-1-x86_64_v4.pkg.tar.zst usr/lib usr/share/glvnd
+O=/tmp/oldmesa/usr/lib
+LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/oldmesa/usr/share/glvnd/egl_vendor.d/50_mesa.json \
+  GBM_BACKENDS_PATH=$O/gbm LIBGL_DRIVERS_PATH=$O/dri localsend
+```
+
+旧 mesa 下没有报错、原生 Wayland 正常起，根因确认。`GDK_DEBUG=gl-gles` / `GDK_GL=gles` 都没用；`GDK_BACKEND=x11` 能起。
+
+**现在的绕法**：不降 mesa（降级要连 lib32/vulkan-radeon/opencl 一整套，影响全桌面），只让 LocalSend 走 XWayland：
+
+- `~/.local/share/applications/localsend-xwayland.desktop`：系统条目的副本，`Exec=env GDK_BACKEND=x11 /usr/bin/localsend`
+  （按惯例用新文件名，不同名遮蔽）。XWayland 下窗口 class 不变，Walker 的「有窗口先聚焦」照样认得。
+- `~/.config/elephant/desktopapplications.toml` 里 `blacklist = ['^localsend$']`，把系统那条藏掉，启动器里只剩一个 LocalSend。
+
+**mesa 修好后撤掉**：终端直接跑 `localsend` 没有 `Failed to create OpenGL context` 了，就删这个 `.desktop`、删 blacklist、
+从 `manifest.map` 去掉那行，`systemctl --user restart elephant`。
+
+**其他 Flutter 应用**（GTK3 + Flutter Linux 嵌入层）同样会中，同一招：`GDK_BACKEND=x11`。
+
+---
+
 ## 常见症状 → 去哪查
 
 | 症状 | 排查方向 |
@@ -400,6 +435,7 @@ printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所�
 | 光标样式不对 | Bibata 没装，回退到 Adwaita，属正常。`yay -S bibata-cursor-theme` |
 | 壁纸没上屏 | `settings.toml` 里显示器名写死为 `DP-1`，新机不同。在 noctalia 里重选一次壁纸 |
 | 升级后某程序起不来：`error while loading shared libraries` | 多半是仓库重编没跟上：某个库换了版本号，依赖它的包还没重编。`pacman -Si <包>` 看别的仓库有没有新版，有就 `sudo pacman -S 仓库名/包名`。升级时 pacman-libcheck 钩子会当场报出来，见坑 11 |
+| 某个应用点了没窗口，终端里报 `Failed to create OpenGL context: No available configurations` | mesa 升级后 GTK3/Flutter 原生 Wayland 建 GL 失败。先 `GDK_BACKEND=x11 程序` 试；LocalSend 已这样绕，见坑 12 |
 | 升级后快捷键行为变了 | pacman 覆盖了 `config/*.lua`。用 `config/hypr/patches/*.patch` 重打，见 [02](02-hyprland.md#关于官方文件被改动) |
 
 ---
