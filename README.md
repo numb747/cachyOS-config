@@ -24,7 +24,7 @@ A complete configuration snapshot of one dialed-in CachyOS machine. The goal is
 
 > 📖 **A note on language.** This README and [INSTALL.md](INSTALL.md) are the parts you
 > need to install the package and understand what it contains. The 17 documents under
-> `docs/` — roughly 421 KB explaining *why* each choice was made — are **written in
+> `docs/` — roughly 424 KB explaining *why* each choice was made — are **written in
 > Chinese only**. They are linked below anyway, since the code blocks, file paths and
 > config keys in them are readable regardless.
 
@@ -137,7 +137,7 @@ cachyOS-config/            repo root = the package itself (no intermediate dir)
 ├── bin/                   → ~/.local/bin/: helper scripts (screen recording, OCR, clipboard paste, tmux pane
 │                          overview, Mermaid viewer, AI Chrome, Claude Code helpers such as ccx / cc-cost, …)
 ├── aur/                   AUR packages that needed patching (PKGBUILD archive, not installed to $HOME)
-├── system/                one-off system fixes that edit /etc (keyring auto-unlock), not in manifest.map
+├── system/                system-level scripts that edit /etc (keyring auto-unlock, post-upgrade missing-library check), not in manifest.map
 ├── security/              weekly security audit + ufw (sudo ./setup.sh installs to /usr/local and /etc, not $HOME)
 ├── claude/                → ~/.claude/ (statusline, Agent Teams roles + team log hook, skills, MCP bundles)
 ├── config/                → ~/.config/

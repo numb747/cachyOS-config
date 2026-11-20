@@ -328,6 +328,52 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 
 ---
 
+## 坑 11 — 升级后程序报 `cannot open shared object file`（`-Syu` 是完整升级也会中）
+
+**现象**（2026-11-20）：早上 `yay -Syu` 后 chrome-devtools MCP 显示 `CONNECTION_CLOSED`。手动跑
+`~/.local/bin/chrome-ai-mcp`，看到的是 node 本身起不来：
+`node: error while loading shared libraries: libsimdjson.so.36`。
+
+**根因不在本机，是仓库没对齐**：`cachyos-extra-znver4` 先发了 simdjson 5.2.0（库从 `.so.36` 变成 `.so.37`，旧文件被删）。
+重编的 `nodejs 26.13.1-3` 只进了通用 `cachyos` 仓库，`cachyos-znver4` 里还是链着 `.so.36` 的 `-2`。
+**pacman 对同名包取 `pacman.conf` 里第一个有这个包的仓库，不比较各仓库版本**，znver4 排在最前，所以 `-Syu` 拿不到 `-3`。
+
+**修法**：
+
+```bash
+pacman -Si nodejs | grep -E '^(Repository|Version)'   # 看各仓库版本
+sudo pacman -S cachyos/nodejs                         # 指定仓库装重编过的那个
+```
+
+装之前可以确认一下新包链的是新库：`pacman -Sp cachyos/nodejs` 拿到下载地址，下载后
+`bsdtar -xOf 包 usr/bin/node >/tmp/node && readelf -d /tmp/node | grep NEEDED`。之后 `-Syu` 碰到本机版本比 znver4 仓库新，
+会提示 `local is newer` 并跳过，**不会降回去**；等 znver4 仓库追上版本，就会恢复正常更新。
+
+**自动检查：`system/pacman-libcheck/`**。pacman 钩子，每次装/升级完包，查「这次的包 + 依赖它们的包」里的 ELF 文件，
+有缺库就在升级输出最后标红报出来，并列出各仓库版本。**只报不修**，钩子永远 `exit 0`，不影响 pacman 本身。
+
+```bash
+cd ~/cachyOS-config/system/pacman-libcheck
+sudo ./setup.sh            # 装：/usr/local/libexec/pacman-libcheck + /etc/pacman.d/hooks/zz-pacman-libcheck.hook
+sudo ./setup.sh --remove   # 卸
+./pacman-libcheck --files /usr/bin/node    # 手动查某个文件
+printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所有包依赖），约 5 秒
+```
+
+判定的取舍：
+
+- **只报「换了版本号」的缺**：缺 `libfoo.so.36`、系统里有 `libfoo.so.37` 才报。第一版只要找不到库就报，
+  全盘扫出几十个包：openmpi 的 CUDA 插件缺 `libcuda`、gstreamer/Qt 插件缺可选依赖、jdk 的 `libjvm.so` 是运行时才加载的……
+  这些在本机都是常态，真问题反而被淹掉。
+- 不在 `ldconfig -p` 缓存里的，再去 RPATH/RUNPATH 和文件所在目录找（`/opt` 下 Electron 之类自带库的程序）。
+- `readelf` 并行跑时，每批输出必须写到各自的临时文件。共用一个管道会互相插队，解析出 `wood.jpg 缺 libxxx` 这种乱码。
+- 忽略名单 `IGNORE` 目前只有 `/opt/android-ndk/`，它自带 Android 和交叉编译的整套工具链，那些库本来就不从本机找。
+- 有问题的包不在仓库里（AUR/本地包）时，提示的修法是重新编译；重编前照 `aur/README.md` 审一遍。
+
+**以后某个 MCP 或命令突然起不来**：先手动跑它的入口脚本看 stderr，别先怀疑浏览器、端口这些外围。
+
+---
+
 ## 常见症状 → 去哪查
 
 | 症状 | 排查方向 |
@@ -353,6 +399,7 @@ setsid -f java -jar app.jar >/dev/null 2>&1
 | 每开 shell 刷一堆报错 | `.zshrc` 里有无条件的 `eval`/`source`。本包的写法全是探测存在才执行，被改过了才会这样 |
 | 光标样式不对 | Bibata 没装，回退到 Adwaita，属正常。`yay -S bibata-cursor-theme` |
 | 壁纸没上屏 | `settings.toml` 里显示器名写死为 `DP-1`，新机不同。在 noctalia 里重选一次壁纸 |
+| 升级后某程序起不来：`error while loading shared libraries` | 多半是仓库重编没跟上：某个库换了版本号，依赖它的包还没重编。`pacman -Si <包>` 看别的仓库有没有新版，有就 `sudo pacman -S 仓库名/包名`。升级时 pacman-libcheck 钩子会当场报出来，见坑 11 |
 | 升级后快捷键行为变了 | pacman 覆盖了 `config/*.lua`。用 `config/hypr/patches/*.patch` 重打，见 [02](02-hyprland.md#关于官方文件被改动) |
 
 ---

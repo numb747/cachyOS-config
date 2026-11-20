@@ -120,7 +120,7 @@ cachyOS-config/            仓库根 = 包本身（没有中间层目录）
 ├── bin/                   → ~/.local/bin/：各类小脚本（录屏、取字、剪贴板粘贴、tmux 窗格总览、
 │                          Mermaid 看图、AI Chrome、ccx / cc-cost 等 Claude Code 辅助……）
 ├── aur/                   改过才能装的 AUR 包（PKGBUILD 归档，不装到 $HOME）
-├── system/                一次性系统修复脚本（改 /etc，如钥匙环自动解锁），不走 manifest.map
+├── system/                系统级脚本（改 /etc，如钥匙环自动解锁、pacman 升级后缺库检查），不走 manifest.map
 ├── security/              每周安全体检 + ufw（sudo ./setup.sh 装到 /usr/local、/etc，不装到 $HOME）
 ├── claude/                → ~/.claude/（状态栏、Agent Teams 角色与团队日志钩子、skills、MCP 套餐）
 ├── config/                → ~/.config/

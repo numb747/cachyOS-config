@@ -23,7 +23,7 @@
 ├── bin/                 装到 ~/.local/bin/ 的脚本（录屏、取字、剪贴板粘贴、白板、mmd、AI Chrome、cc-cost、ccx…）
 ├── claude/              装到 ~/.claude/ 的 Claude Code 工具（状态栏、Agent Teams 角色与日志钩子、skills、MCP 套餐）
 ├── share/               装到 ~/.local/share/（fcitx5 主题、自建 .desktop 与图标）
-├── system/              一次性系统修复脚本（改 /etc，不走 manifest），见 docs/05
+├── system/              系统级脚本（改 /etc，不走 manifest）：钥匙环解锁见 docs/05、pacman 缺库检查见 docs/07 坑 11
 ├── security/            每周安全体检 + ufw（`sudo ./setup.sh`，装到 /usr/local、/etc，不走 manifest），见 docs/16
 ├── aur/                 本地改过的 AUR 包与投毒复核方法，见 aur/README.md
 └── wallpaper/           参考图 + ASCII 成品 + 生成脚本（出处在 tokyonight/_picks*.json）
@@ -149,7 +149,7 @@ cd ~/cachyOS-config && ./sync.sh --pull
     AUR 补丁版，`depends=elephant=<同版本>` 会让 `-Syu` 拒绝升级 elephant——有意的，先更新插件。装新插件要重启 walker。见 `docs/13`。
   - **discord**：Equibop + system24。面板直角、头像/服务器图标圆是有意的；IrcColors 要开着。见 `docs/15`。
 - 不是 install.sh 模块的：每周安全体检（`security/`，改了要重跑 `sudo ./setup.sh audit`，见 `docs/16`）；
-  钥匙环开机解锁（`system/`）。
+  钥匙环开机解锁（`system/`）；pacman 升级后缺库检查（`system/pacman-libcheck/`，`sudo ./setup.sh`，见 `docs/07` 坑 11）。
 - 已撤掉、别再加回来：作战大屏 warboard、终端版 discordo、noctalia 启动器（及回退脚本 noct-panel）、
   看板/宠物 TUI ccw/ccs/ccp（网页版 `~/ccmon` 取代）、Waydroid、企业微信。
 - 待办：Mason 语言工具链未装齐（缺运行时，见 `docs/04`）；切桌面时光标闪一下（见 `docs/07` 遗留项）。
