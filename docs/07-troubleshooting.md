@@ -372,6 +372,49 @@ printf 'glibc\n' | ./pacman-libcheck       # 相当于全盘扫（glibc 被所�
 
 **以后某个 MCP 或命令突然起不来**：先手动跑它的入口脚本看 stderr，别先怀疑浏览器、端口这些外围。
 
+### 第二例（笔记本，同一天傍晚）：libjxl 0.13 → 顶栏消失，修 ffmpeg 又牵出 sndio
+
+**现象**：笔记本 `-Syu`（137 个包，含 `libjxl 0.12 → 0.13`）后**顶栏没了**，Chrome 一直顶到屏幕上沿。
+noctalia 进程还活着，`hyprctl layers` 里 `noctalia-bar-default` 图层也在，但画面是空的，`hyprctl monitors` 的
+`reserved` 变成 `0 0 0 0`（不再给窗口让出顶部）。当时这台还没装 pacman-libcheck，升级输出里什么都没报。
+
+**根因**：笔记本走 `cachyos-extra-v3`，里面的 noctalia 5.5.0-1.1 链的是 `libjxl.so.0.12`，而 libjxl 已经升到 0.13、旧文件被删；
+Arch `extra` 里有重编过的 5.5.0-2。进程是升级前起的，内存里还是旧库——但升级装到一半（图标主题变了）它**自己重载了一次顶栏**，
+重载后图层就是空的（为什么空没查清）。**别因为「进程还在」就以为没事。** 同批还有 4 个包缺 libjxl 0.12：
+ffmpeg、imv、opencv、telegram-desktop，extra 里都有新版。
+
+**修的时候又踩了一个连锁**：
+
+1. 从 extra 装那 5 个，钩子报 `ffmpeg 9.1`（extra）的 `libavdevice` 缺 `libsndio.so.9`——它要 extra 的 sndio 1.11，本机是 v3 的 1.10（只有 `.so.7`）。
+2. 想退回去 `sudo pacman -S ffmpeg`：**这会降回 v3 的 9.0.2，也就是那个缺 libjxl 0.12 的**，钩子马上又报。别这么退。
+3. 只升 sndio 也不行：**mpv、freerdp 直接链着 `libsndio.so.7`**，升了它们就坏。查到 extra 的 mpv 0.42.0-3、freerdp 3.33.1-2 都已按 `.so.9` 重编，
+   于是四个一起装：
+
+```bash
+sudo pacman -S extra/ffmpeg extra/sndio extra/mpv extra/freerdp
+```
+
+（ffmpeg 9.1 和 9.0 的 soname 一样都是 `libavcodec.so.63`，其他用 ffmpeg 的程序不受影响。）
+
+**换仓库装之前，查三件事**（这次就是靠这三步才没越修越坏）：
+
+```bash
+# 1) 谁还链着旧库（全盘扫，几十秒）——要一起换的包都在这里
+for f in /usr/bin/* /usr/lib/*.so* /usr/lib32/*.so*; do [ -f "$f" ] && [ ! -L "$f" ] &&
+  readelf -d "$f" 2>/dev/null | grep -q 'libsndio.so.7' && echo "$f"; done | xargs -r pacman -Qqo | sort -u
+# 2) 新包链的是不是新库：下载解包看 NEEDED（放 /tmp 下的空目录里）
+u=$(pacman -Sp extra/mpv | head -1); curl -sfLO "$u"; bsdtar -xf mpv-*.pkg.tar.zst usr/bin; readelf -d usr/bin/mpv | grep NEEDED
+# 3) 新包所有 NEEDED 本机都有（除了这批新包自己提供的）：ldconfig -p | grep 库名
+```
+
+`NEEDED` 里写绝对路径的（如 mpv 的 `/usr/lib/libmujs.so`）`ldconfig -p` 查不到，直接 `ls` 那个路径。
+
+**重启 noctalia**：装好新包后要重启进程顶栏才回来。在 Lua 配置下 `hyprctl dispatch exec noctalia` 会报 `')' expected`，
+要写成 `pkill -x noctalia; hyprctl dispatch 'hl.dsp.exec_cmd("noctalia")'`（见坑 8）。
+
+**之后**：本机这几个包的版本比 v3 仓库新，`-Syu` 不会降回去；等 v3 重编出更高版本号会自动换回。
+**每台机器都要装 pacman-libcheck 钩子**——这次装上以后，第 1、2 步的问题都是它当场报出来的。
+
 ---
 
 ## 坑 12 — mesa 26.3.1：GTK/Flutter 应用原生 Wayland 拿不到 EGL config（已降回 26.2.6 并锁住）
@@ -443,7 +486,7 @@ LD_LIBRARY_PATH=$O __EGL_VENDOR_LIBRARY_FILENAMES=/tmp/newmesa/usr/share/glvnd/e
 | 部分键无反应 | 被应用抢了？不可能——Wayland 下是合成器优先。检查是不是自己写的键和官方叠加了（`hl.bind` 是叠加不是覆盖，要先 `hl.unbind`） |
 | `ALT+9` 无效 | noctalia 没跑。`pgrep noctalia`；`noctalia msg --help` 能否连上 |
 | `ALT+Space` 无效 / 弹出来是空的 | Walker 走的是两个用户服务：`systemctl --user status walker elephant`。空列表多半是 elephant 没起或插件加载失败（`journalctl --user -u elephant`，Go plugin 版本不一致会在这里报），见 [13](13-launcher.md) |
-| 顶栏不见了 | 是 `auto_hide = true`，鼠标移到屏幕顶边。或按 `ALT+9` |
+| 顶栏不见了 | 是 `auto_hide = true`，鼠标移到屏幕顶边。或按 `ALT+9`。**刚升级完就没了**、窗口顶到屏幕上沿：`ldd /usr/bin/noctalia \| grep 'not found'`，多半是仓库重编没跟上，见坑 11 第二例 |
 | noctalia 面板（控制中心等）一闪就没 | 2026-10-09 起启动器和 `SUPER+V` 都走 Walker，不再经过 noctalia 面板。其他面板撞上时把指针挪进面板矩形，犯病时面板立刻常驻。⚠ 根因**没查清**，见坑 10 |
 | `SUPER+V` 的剪贴板历史一重启就空 | 看日志有没有 `[secret-store] ... provider-unavailable`：没有 Secret Service 时它拒绝落盘、只留内存。解法是 `[storage]` 文件密钥，见 [05](05-theme-ui.md#剪贴板supervsuper-的历史靠-storage-文件密钥才能活过重启)。⚠ 改完**必须重启 noctalia 进程**，`config-reload` 不重新初始化存储 |
 | 换壁纸/换主题每次都要输密码 | `greeter_sync` 在推给登录界面。noctalia 默认用 `run0` 提权，绕开了自带的 polkit policy——**看 journalctl 里真正被拒的 action id**（是 `systemd1.manage-units` 不是 `apply-appearance`）。要 `privilege_command = "pkexec"` + `/etc/polkit-1/rules.d/` 规则两步。**两步都做了还弹**：多半是升级后 action 改名、规则失配（1.7.0 起叫 `sync-appearance`），见 [05](05-theme-ui.md#greeter-同步换壁纸主题为什么每次都要输密码) |
